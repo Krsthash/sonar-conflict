@@ -65,12 +65,14 @@ class App:
         height = 10
         point1 = (self.LOCAL_POSITION[0] + width * math.cos(math.radians(self.LOCAL_POSITION[2] - 90)),
                   self.LOCAL_POSITION[1] + height * math.sin(math.radians(self.LOCAL_POSITION[2] - 90)))
-        point2 = (self.LOCAL_POSITION[0] + width//2 * math.cos(math.radians(self.LOCAL_POSITION[2] - 180)),
-                  self.LOCAL_POSITION[1] + height//2 * math.sin(math.radians(self.LOCAL_POSITION[2] - 180)))
-
-        point3 = (self.LOCAL_POSITION[0] + width//2 * math.cos(math.radians(self.LOCAL_POSITION[2])),
-                  self.LOCAL_POSITION[1] + height//2 * math.sin(math.radians(self.LOCAL_POSITION[2])))
-        pygame.draw.polygon(self.map, 'red', (point1, point2, point3), width=1)
+        # point2 = (self.LOCAL_POSITION[0] + width//2 * math.cos(math.radians(self.LOCAL_POSITION[2] - 180)),
+        #           self.LOCAL_POSITION[1] + height//2 * math.sin(math.radians(self.LOCAL_POSITION[2] - 180)))
+        #
+        # point3 = (self.LOCAL_POSITION[0] + width//2 * math.cos(math.radians(self.LOCAL_POSITION[2])),
+        #           self.LOCAL_POSITION[1] + height//2 * math.sin(math.radians(self.LOCAL_POSITION[2])))
+        # pygame.draw.polygon(self.map, 'red', (point1, point2, point3), width=1)
+        pygame.draw.line(self.map, 'red', (self.LOCAL_POSITION[0], self.LOCAL_POSITION[1]), point1)
+        pygame.draw.circle(self.map, 'green', (self.LOCAL_POSITION[0], self.LOCAL_POSITION[1]), 2)
         pygame.display.update()
 
     def on_cleanup(self):
@@ -281,8 +283,6 @@ class App:
                 else:
                     self.LOCAL_VELOCITY = 0
 
-                print(f"Velocity: {self.LOCAL_VELOCITY}")
-
                 self.LOCAL_POSITION[0] += self.LOCAL_VELOCITY * math.cos(math.radians(self.LOCAL_POSITION[2] - 90))
                 self.LOCAL_POSITION[1] += self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[2] - 90))
             if self.MAIN_MENU_OPEN:
@@ -306,11 +306,9 @@ class App:
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_a]:
                     turn_rate = 0.5 * (1 - (self.LOCAL_VELOCITY / 0.3))
-                    print(f"Turn rate: {turn_rate}")
                     self.LOCAL_POSITION[2] -= turn_rate
                 elif keys[pygame.K_d]:
                     turn_rate = 0.5 * (1 - (self.LOCAL_VELOCITY / 0.3))
-                    print(f"Turn rate: {turn_rate}")
                     self.LOCAL_POSITION[2] += turn_rate
 
         self.on_cleanup()
