@@ -54,6 +54,11 @@ class App:
     def blitmap(self):
         current_dir = os.path.dirname(os.path.realpath(__file__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
+        # Collision detection
+        if self.map.get_at((int(self.LOCAL_POSITION[0]), int(self.LOCAL_POSITION[1])))[:3] != (2, 16, 25):
+            print("COLLIDED WITH LAND.")
+            self.LOCAL_VELOCITY = 0
+            self.LOCAL_ACCELERATION = 0
         self.map_render()
         self.mapsurface = pygame.transform.smoothscale(self.map, self.map_rect.size)
         self.window.fill(0)
@@ -71,7 +76,7 @@ class App:
         # point3 = (self.LOCAL_POSITION[0] + width//2 * math.cos(math.radians(self.LOCAL_POSITION[2])),
         #           self.LOCAL_POSITION[1] + height//2 * math.sin(math.radians(self.LOCAL_POSITION[2])))
         # pygame.draw.polygon(self.map, 'red', (point1, point2, point3), width=1)
-        pygame.draw.line(self.map, 'red', (self.LOCAL_POSITION[0], self.LOCAL_POSITION[1]), point1)
+        pygame.draw.aaline(self.map, 'red', (self.LOCAL_POSITION[0], self.LOCAL_POSITION[1]), point1)
         pygame.draw.circle(self.map, 'green', (self.LOCAL_POSITION[0], self.LOCAL_POSITION[1]), 2)
         pygame.display.update()
 
