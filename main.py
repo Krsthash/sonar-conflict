@@ -264,22 +264,13 @@ class App:
             if self.GAME_INIT:
                 # Movement calculations
                 if self.GEAR == 1:
-                    if not self.LOCAL_VELOCITY:
-                        ratio = 1
-                    else:
-                        ratio = 1 - self.LOCAL_VELOCITY / 0.05
-                    self.LOCAL_ACCELERATION = 0.0006 * ratio
+                    ratio = 1.2 - self.LOCAL_VELOCITY / 0.05
+                    self.LOCAL_ACCELERATION = 0.0008 * ratio
                 elif self.GEAR == 2:
-                    if not self.LOCAL_VELOCITY:
-                        ratio = 1
-                    else:
-                        ratio = 1 - self.LOCAL_VELOCITY / 0.1
-                    self.LOCAL_ACCELERATION = 0.0010 * ratio
+                    ratio = 1 - self.LOCAL_VELOCITY / 0.12
+                    self.LOCAL_ACCELERATION = 0.0014 * ratio
                 elif self.GEAR == 3:
-                    if not self.LOCAL_VELOCITY:
-                        ratio = 1
-                    else:
-                        ratio = 1 - self.LOCAL_VELOCITY / 0.15
+                    ratio = 1 - self.LOCAL_VELOCITY / 0.15
                     self.LOCAL_ACCELERATION = 0.0016 * ratio
                 elif self.GEAR == 0:
                     self.LOCAL_ACCELERATION = 0
@@ -290,7 +281,7 @@ class App:
                 else:
                     self.LOCAL_VELOCITY = 0
 
-                print(self.LOCAL_ACCELERATION, self.LOCAL_VELOCITY)
+                print(f"Velocity: {self.LOCAL_VELOCITY}")
 
                 self.LOCAL_POSITION[0] += self.LOCAL_VELOCITY * math.cos(math.radians(self.LOCAL_POSITION[2] - 90))
                 self.LOCAL_POSITION[1] += self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[2] - 90))
@@ -310,6 +301,18 @@ class App:
                 elif self.GAME_OPEN:
                     self.game_events(event)
             self.clock.tick(self.fps)
+
+            if self.GAME_INIT:
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_a]:
+                    turn_rate = 0.5 * (1 - (self.LOCAL_VELOCITY / 0.3))
+                    print(f"Turn rate: {turn_rate}")
+                    self.LOCAL_POSITION[2] -= turn_rate
+                elif keys[pygame.K_d]:
+                    turn_rate = 0.5 * (1 - (self.LOCAL_VELOCITY / 0.3))
+                    print(f"Turn rate: {turn_rate}")
+                    self.LOCAL_POSITION[2] += turn_rate
+
         self.on_cleanup()
 
 
