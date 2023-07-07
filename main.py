@@ -5,6 +5,7 @@ import math
 
 class App:
     def __init__(self):
+        self.BALLAST = 50
         self.GEAR = 0
         self.LOCAL_ACCELERATION = 0
         self.LOCAL_VELOCITY = 0
@@ -96,14 +97,17 @@ class App:
         pygame.draw.rect(self.window, '#b6b6d1', self.join_game_rect, width=2)
         font = pygame.font.Font('freesansbold.ttf', 28)
         txtsurf = font.render("Join a game", True, "#b6b6d1")
-        self.window.blit(txtsurf, (self.join_game_rect.left+(
-                (self.join_game_rect.right-self.join_game_rect.left)-txtsurf.get_width())//2,
-                                   self.join_game_rect.top+(
-                (self.join_game_rect.bottom-self.join_game_rect.top)-txtsurf.get_height())//2,
-                                   self.join_game_rect.right-(
-                (self.join_game_rect.bottom-self.join_game_rect.top)-txtsurf.get_height())//2,
-                                   self.join_game_rect.bottom-(
-                (self.join_game_rect.bottom-self.join_game_rect.top)-txtsurf.get_height())//2))
+        self.window.blit(txtsurf, (self.join_game_rect.left + (
+                (self.join_game_rect.right - self.join_game_rect.left) - txtsurf.get_width()) // 2,
+                                   self.join_game_rect.top + (
+                                           (
+                                                       self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
+                                   self.join_game_rect.right - (
+                                           (
+                                                       self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
+                                   self.join_game_rect.bottom - (
+                                           (
+                                                       self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2))
         self.host_game_rect = pygame.Rect(self.size[0] // 2 - width // 2, self.size[1] // 2.3 - height // 2, width,
                                           height)
         pygame.draw.rect(self.window, '#b6b6d1', self.host_game_rect, width=2)
@@ -111,11 +115,14 @@ class App:
         self.window.blit(txtsurf, (self.host_game_rect.left + (
                 (self.host_game_rect.right - self.host_game_rect.left) - txtsurf.get_width()) // 2,
                                    self.host_game_rect.top + (
-                (self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
+                                           (
+                                                       self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
                                    self.host_game_rect.right - (
-                (self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
+                                           (
+                                                       self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
                                    self.host_game_rect.bottom - (
-                (self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2))
+                                           (
+                                                       self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2))
         self.quit_rect = pygame.Rect(self.size[0] // 2 - width // 2, self.size[1] // 1.5 - height // 2, width,
                                      height)
         pygame.draw.rect(self.window, '#b6b6d1', self.quit_rect, width=2)
@@ -124,13 +131,13 @@ class App:
                 (self.quit_rect.right - self.host_game_rect.left) - txtsurf.get_width()) // 2,
                                    self.quit_rect.top + (
                                            (
-                                                       self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
+                                                   self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
                                    self.quit_rect.right - (
                                            (
-                                                       self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
+                                                   self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
                                    self.quit_rect.bottom - (
                                            (
-                                                       self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2))
+                                                   self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2))
 
     def check_map_events(self, event):
         if event.type == pygame.QUIT:
@@ -198,11 +205,14 @@ class App:
             self.window.blit(txtsurf, (self.join_game_rect.left + (
                     (self.join_game_rect.right - self.join_game_rect.left) - txtsurf.get_width()) // 2,
                                        self.join_game_rect.top + (
-                    (self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
+                                               (
+                                                           self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
                                        self.join_game_rect.right - (
-                    (self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
+                                               (
+                                                           self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
                                        self.join_game_rect.bottom - (
-                    (self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2))
+                                               (
+                                                           self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2))
         elif self.host_game_rect.collidepoint(pygame.mouse.get_pos()):
             pygame.draw.rect(self.window, 'white', self.host_game_rect, width=2)
             font = pygame.font.Font('freesansbold.ttf', 28)
@@ -210,11 +220,14 @@ class App:
             self.window.blit(txtsurf, (self.host_game_rect.left + (
                     (self.host_game_rect.right - self.host_game_rect.left) - txtsurf.get_width()) // 2,
                                        self.host_game_rect.top + (
-                    (self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
+                                               (
+                                                           self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
                                        self.host_game_rect.right - (
-                    (self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
+                                               (
+                                                           self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
                                        self.host_game_rect.bottom - (
-                    (self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2))
+                                               (
+                                                           self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2))
         elif self.quit_rect.collidepoint(pygame.mouse.get_pos()):
             pygame.draw.rect(self.window, 'white', self.quit_rect, width=2)
             font = pygame.font.Font('freesansbold.ttf', 28)
@@ -222,22 +235,27 @@ class App:
             self.window.blit(txtsurf, (self.quit_rect.left + (
                     (self.quit_rect.right - self.quit_rect.left) - txtsurf.get_width()) // 2,
                                        self.quit_rect.top + (
-                    (self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
+                                               (
+                                                           self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
                                        self.quit_rect.right - (
-                    (self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
+                                               (
+                                                           self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
                                        self.quit_rect.bottom - (
-                    (self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2))
+                                               (
+                                                           self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2))
         pygame.display.update()
 
     def game_init(self, player_id):
-        self.G_SPAWN_POSITIONS = [(400, 100, 150), (400, 400, 0)]
+        self.G_SPAWN_POSITIONS = [(400, 100, 150, 400), (400, 400, 0, 400)]  # x, y, azimuth, depth
         # Y, X, AZIMUTH, PITCH_ANGLE
         self.LOCAL_POSITION = [self.G_SPAWN_POSITIONS[player_id][0], self.G_SPAWN_POSITIONS[player_id][1],
-                               self.G_SPAWN_POSITIONS[player_id][2], 0]
+                               self.G_SPAWN_POSITIONS[player_id][2], 0, self.G_SPAWN_POSITIONS[player_id][3]]
         if player_id:
-            self.ENEMY_POSITION = self.G_SPAWN_POSITIONS[0]
+            self.ENEMY_POSITION = [self.G_SPAWN_POSITIONS[0][0], self.G_SPAWN_POSITIONS[0][1],
+                                   self.G_SPAWN_POSITIONS[0][2], 0, self.G_SPAWN_POSITIONS[0][3]]
         else:
-            self.ENEMY_POSITION = self.G_SPAWN_POSITIONS[1]
+            self.ENEMY_POSITION = [self.G_SPAWN_POSITIONS[1][0], self.G_SPAWN_POSITIONS[1][1],
+                                   self.G_SPAWN_POSITIONS[1][2], 0, self.G_SPAWN_POSITIONS[1][3]]
 
     def start_game(self):
         self.window.fill('black')
@@ -264,7 +282,7 @@ class App:
         pygame.display.update()
 
     def on_execute(self):
-        WATER_DRAG = 0.0006
+        WATER_DRAG = 0.0002
         self.open_main_menu()
         while self.running:
             # Scene checks
@@ -272,24 +290,24 @@ class App:
                 # Movement calculations
                 if self.GEAR == 1:
                     ratio = 1.2 - self.LOCAL_VELOCITY / 0.05
-                    self.LOCAL_ACCELERATION = 0.0008 * ratio
+                    self.LOCAL_ACCELERATION = 0.0007 * ratio
                 elif self.GEAR == 2:
-                    ratio = 1 - self.LOCAL_VELOCITY / 0.12
-                    self.LOCAL_ACCELERATION = 0.0014 * ratio
+                    ratio = 1 - self.LOCAL_VELOCITY / 0.08
+                    self.LOCAL_ACCELERATION = 0.0008 * ratio
                 elif self.GEAR == 3:
-                    ratio = 1 - self.LOCAL_VELOCITY / 0.15
-                    self.LOCAL_ACCELERATION = 0.0016 * ratio
+                    ratio = 1 - self.LOCAL_VELOCITY / 0.10
+                    self.LOCAL_ACCELERATION = 0.0009 * ratio
                 elif self.GEAR == 0:
                     self.LOCAL_ACCELERATION = 0
                 elif self.GEAR == -1:
                     ratio = 1.2 + self.LOCAL_VELOCITY / 0.05
-                    self.LOCAL_ACCELERATION = -0.0008 * ratio
+                    self.LOCAL_ACCELERATION = -0.0007 * ratio
                 elif self.GEAR == -2:
-                    ratio = 1 + self.LOCAL_VELOCITY / 0.12
-                    self.LOCAL_ACCELERATION = -0.0014 * ratio
+                    ratio = 1 + self.LOCAL_VELOCITY / 0.08
+                    self.LOCAL_ACCELERATION = -0.0008 * ratio
                 elif self.GEAR == -3:
-                    ratio = 1 + self.LOCAL_VELOCITY / 0.15
-                    self.LOCAL_ACCELERATION = -0.0016 * ratio
+                    ratio = 1 + self.LOCAL_VELOCITY / 0.10
+                    self.LOCAL_ACCELERATION = -0.0009 * ratio
 
                 self.LOCAL_VELOCITY += self.LOCAL_ACCELERATION
 
@@ -300,10 +318,14 @@ class App:
                 else:
                     self.LOCAL_VELOCITY = 0
 
-                print(f"Acceleration: {self.LOCAL_ACCELERATION} Velocity: {self.LOCAL_VELOCITY}")
+                print(f"Acceleration: {self.LOCAL_ACCELERATION} Velocity: {self.LOCAL_VELOCITY} "
+                      f"Depth: {self.LOCAL_POSITION[4]} Pitch: {self.LOCAL_POSITION[3]} Ballast: {self.BALLAST}")
 
                 self.LOCAL_POSITION[0] += self.LOCAL_VELOCITY * math.cos(math.radians(self.LOCAL_POSITION[2] - 90))
                 self.LOCAL_POSITION[1] += self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[2] - 90))
+
+                self.LOCAL_POSITION[4] -= self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[3]))
+                self.LOCAL_POSITION[4] += (self.BALLAST-50)*0.0008
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
             elif self.GAME_OPEN:
@@ -323,11 +345,25 @@ class App:
             if self.GAME_INIT:
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_a]:
-                    turn_rate = 0.5 * (1 - (self.LOCAL_VELOCITY / 0.3))
+                    turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
                     self.LOCAL_POSITION[2] -= turn_rate
                 elif keys[pygame.K_d]:
-                    turn_rate = 0.5 * (1 - (self.LOCAL_VELOCITY / 0.3))
+                    turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
                     self.LOCAL_POSITION[2] += turn_rate
+                elif keys[pygame.K_w]:
+                    if self.LOCAL_POSITION[3] < 45:
+                        pitch_rate = 0.2 * (1 - (abs(self.LOCAL_VELOCITY) / 0.09))
+                        self.LOCAL_POSITION[3] += pitch_rate
+                elif keys[pygame.K_s]:
+                    if self.LOCAL_POSITION[3] > -45:
+                        pitch_rate = 0.2 * (1 - (abs(self.LOCAL_VELOCITY) / 0.09))
+                        self.LOCAL_POSITION[3] -= pitch_rate
+                elif keys[pygame.K_UP]:
+                    if self.BALLAST < 100:
+                        self.BALLAST += 0.5
+                elif keys[pygame.K_DOWN]:
+                    if self.BALLAST > 0:
+                        self.BALLAST -= 0.5
 
             self.clock.tick(self.fps)
 
