@@ -66,7 +66,7 @@ class App:
 
     def map_render(self):
         # Location marker rendering
-        width = 6
+        width = 10
         height = 10
         point1 = (self.LOCAL_POSITION[0] + width * math.cos(math.radians(self.LOCAL_POSITION[2] - 90)),
                   self.LOCAL_POSITION[1] + height * math.sin(math.radians(self.LOCAL_POSITION[2] - 90)))
@@ -170,7 +170,7 @@ class App:
                 self.GAME_OPEN = True
                 self.start_game()
             elif event.key == pygame.K_LCTRL:
-                if self.GEAR:
+                if self.GEAR > -3:
                     self.GEAR -= 1
                 print(self.GEAR)
             elif event.key == pygame.K_LSHIFT:
@@ -253,7 +253,7 @@ class App:
                 self.open_map()
                 self.map_render()
             elif event.key == pygame.K_LCTRL:
-                if self.GEAR:
+                if self.GEAR > -3:
                     self.GEAR -= 1
                 print(self.GEAR)
             elif event.key == pygame.K_LSHIFT:
@@ -281,12 +281,26 @@ class App:
                     self.LOCAL_ACCELERATION = 0.0016 * ratio
                 elif self.GEAR == 0:
                     self.LOCAL_ACCELERATION = 0
-                if self.LOCAL_ACCELERATION > 0:
-                    self.LOCAL_VELOCITY += self.LOCAL_ACCELERATION
-                if self.LOCAL_VELOCITY - WATER_DRAG >= 0:
+                elif self.GEAR == -1:
+                    ratio = 1.2 + self.LOCAL_VELOCITY / 0.05
+                    self.LOCAL_ACCELERATION = -0.0008 * ratio
+                elif self.GEAR == -2:
+                    ratio = 1 + self.LOCAL_VELOCITY / 0.12
+                    self.LOCAL_ACCELERATION = -0.0014 * ratio
+                elif self.GEAR == -3:
+                    ratio = 1 + self.LOCAL_VELOCITY / 0.15
+                    self.LOCAL_ACCELERATION = -0.0016 * ratio
+
+                self.LOCAL_VELOCITY += self.LOCAL_ACCELERATION
+
+                if self.LOCAL_VELOCITY - WATER_DRAG >= 0 and self.LOCAL_ACCELERATION >= 0:
                     self.LOCAL_VELOCITY -= WATER_DRAG
+                elif self.LOCAL_VELOCITY + WATER_DRAG <= 0:
+                    self.LOCAL_VELOCITY += WATER_DRAG
                 else:
                     self.LOCAL_VELOCITY = 0
+
+                print(f"Acceleration: {self.LOCAL_ACCELERATION} Velocity: {self.LOCAL_VELOCITY}")
 
                 self.LOCAL_POSITION[0] += self.LOCAL_VELOCITY * math.cos(math.radians(self.LOCAL_POSITION[2] - 90))
                 self.LOCAL_POSITION[1] += self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[2] - 90))
@@ -305,7 +319,6 @@ class App:
                     self.main_menu_events(event)
                 elif self.GAME_OPEN:
                     self.game_events(event)
-            self.clock.tick(self.fps)
 
             if self.GAME_INIT:
                 keys = pygame.key.get_pressed()
@@ -315,6 +328,8 @@ class App:
                 elif keys[pygame.K_d]:
                     turn_rate = 0.5 * (1 - (self.LOCAL_VELOCITY / 0.3))
                     self.LOCAL_POSITION[2] += turn_rate
+
+            self.clock.tick(self.fps)
 
         self.on_cleanup()
 
