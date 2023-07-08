@@ -7,7 +7,7 @@ import math
 def hex_to_rgb(hex_code):
     rgb = []
     for i in (0, 2, 4):
-        decimal = int(hex_code[i : i + 2], 16)
+        decimal = int(hex_code[i: i + 2], 16)
         rgb.append(decimal)
 
     return tuple(rgb)
@@ -32,6 +32,7 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.ENEMY_DETECTION_CHANCE = 0
         self.ACTIVE_SONAR_CONTACTS = {}
         self.ACTIVE_SONAR_PING_DELAY = 0
         self.ACTIVE_SONAR_PING_RADIUS = 0
@@ -278,7 +279,7 @@ class App:
         pygame.display.update()
 
     def game_init(self, player_id):
-        self.G_SPAWN_POSITIONS = [(400, 100, 150, 400), (400, 400, 0, 400)]
+        self.G_SPAWN_POSITIONS = [(400, 100, 150, 400), (400, 150, 0, 400)]
         # x, y, azimuth, depth
         self.LOCAL_POSITION = [self.G_SPAWN_POSITIONS[player_id][0], self.G_SPAWN_POSITIONS[player_id][1],
                                self.G_SPAWN_POSITIONS[player_id][2], 0, self.G_SPAWN_POSITIONS[player_id][3]]
@@ -289,6 +290,7 @@ class App:
             self.ENEMY_POSITION = [self.G_SPAWN_POSITIONS[1][0], self.G_SPAWN_POSITIONS[1][1],
                                    self.G_SPAWN_POSITIONS[1][2], 0, self.G_SPAWN_POSITIONS[1][3]]
         self.SONAR_SCREEN = True
+        self.ENEMY_DETECTION_CHANCE = 1
 
     def start_game(self):
         self.window.fill('black')
@@ -388,11 +390,17 @@ class App:
             if self.GAME_INIT:
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_a]:
-                    turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
-                    self.LOCAL_POSITION[2] -= turn_rate
+                    if self.LOCAL_POSITION[2] > -360:
+                        turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
+                        self.LOCAL_POSITION[2] -= turn_rate
+                    else:
+                        self.LOCAL_POSITION[2] = 0
                 elif keys[pygame.K_d]:
-                    turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
-                    self.LOCAL_POSITION[2] += turn_rate
+                    if self.LOCAL_POSITION[2] < 360:
+                        turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
+                        self.LOCAL_POSITION[2] += turn_rate
+                    else:
+                        self.LOCAL_POSITION[2] = 0
                 elif keys[pygame.K_w]:
                     if self.LOCAL_POSITION[3] < 45:
                         pitch_rate = 0.2 * (1 - (abs(self.LOCAL_VELOCITY) / 0.09))
@@ -414,6 +422,7 @@ class App:
 
     def sonar_screen_render(self):
         ACTIVE_SONAR_RANGE = 300
+        PASSIVE_SONAR_RANGE = 300
         # Active sonar
         self.window.fill('black')
         pygame.draw.circle(self.window, 'green', (200, 200), 180, width=2)
@@ -439,11 +448,10 @@ class App:
         pygame.draw.line(self.window, 'white', (200, 200), (x, y), width=1)
         pygame.draw.circle(self.window, 'green', (200, 200), 3)
 
-        print(self.ACTIVE_SONAR_CONTACTS)
         for contact in list(self.ACTIVE_SONAR_CONTACTS):
             self.ACTIVE_SONAR_CONTACTS[contact][2] -= 0.016
             if self.ACTIVE_SONAR_CONTACTS[contact][2] > 0:
-                pygame.draw.circle(self.window, darken(self.ACTIVE_SONAR_CONTACTS[contact][2]+1, '#00ff00'),
+                pygame.draw.circle(self.window, darken(self.ACTIVE_SONAR_CONTACTS[contact][2] + 1, '#00ff00'),
                                    (self.ACTIVE_SONAR_CONTACTS[contact][0],
                                     self.ACTIVE_SONAR_CONTACTS[contact][1]), 5)
             else:
@@ -460,9 +468,7 @@ class App:
                 rel_x = self.ENEMY_POSITION[0] - self.LOCAL_POSITION[0]
                 rel_y = self.ENEMY_POSITION[1] - self.LOCAL_POSITION[1]
                 distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-                print(f"Distance to enemy: {distance}")
-                if distance*0.6 <= self.ACTIVE_SONAR_PING_RADIUS:
-                    print("DETECTED ON SONAR.")
+                if distance * 0.6 == self.ACTIVE_SONAR_PING_RADIUS:
                     # Draw it on the sonar display
                     rel_x = rel_x * 0.6 + 200
                     rel_y = rel_y * 0.6 + 200
@@ -475,12 +481,14 @@ class App:
                     self.ACTIVE_SONAR_PING_DELAY += 0.017
         # Passive sonar
         p1_sonar_start = self.size[0] // 2
-        p1_sonar_end = self.size[0] // 2 + (self.size[0]//2-30)//2
-        p2_sonar_start = self.size[0] // 2 + (self.size[0]//2-30)//2
+        p1_sonar_end = self.size[0] // 2 + (self.size[0] // 2 - 30) // 2
+        p2_sonar_start = self.size[0] // 2 + (self.size[0] // 2 - 30) // 2
         p2_sonar_end = self.size[0] - 30
-        pygame.draw.rect(self.window, 'gray', (self.size[0]//2-30, 0, self.size[0]//2+30, self.size[1]), width=2)
-        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, self.size[0] // 2-30, self.size[1]), width=2)
-        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, (self.size[0]//2-30)//2, self.size[1]), width=2)
+        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2 - 30, 0, self.size[0] // 2 + 30, self.size[1]),
+                         width=2)
+        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, self.size[0] // 2 - 30, self.size[1]), width=2)
+        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, (self.size[0] // 2 - 30) // 2, self.size[1]),
+                         width=2)
         font = pygame.font.Font('freesansbold.ttf', 10)
         txtsurf = font.render(f"Time", True, "#b6b6d1")
         txtsurf = pygame.transform.rotate(txtsurf, 90)
@@ -488,22 +496,68 @@ class App:
                                    self.size[1] // 2 - txtsurf.get_height() // 2))
         labels = ['180', '270', '0', '90', '180']
         for i in range(5):
-            x = self.size[0] / 2 + i*(((self.size[0]//2-30)//2)/4-0.5)
+            x = self.size[0] / 2 + i * (((self.size[0] // 2 - 30) // 2) / 4 - 0.5)
             y = 30
-            pygame.draw.line(self.window, 'gray', (x, y), (x, y-5), width=1)
+            pygame.draw.line(self.window, 'gray', (x, y), (x, y - 5), width=1)
             font = pygame.font.Font('freesansbold.ttf', 10)
             txtsurf = font.render(f"{labels[i]}", True, "#b6b6d1")
             self.window.blit(txtsurf, (x - txtsurf.get_width() // 2,
                                        y - 10 - txtsurf.get_height() // 2))
         for i in range(5):
-            x = self.size[0] / 2 + (self.size[0]//2-30)//2 + i*((self.size[0]//2-30)//2)/4-1
+            x = self.size[0] / 2 + (self.size[0] // 2 - 30) // 2 + i * ((self.size[0] // 2 - 30) // 2) / 4 - 1
             y = 30
-            pygame.draw.line(self.window, 'gray', (x, y), (x, y-5), width=1)
+            pygame.draw.line(self.window, 'gray', (x, y), (x, y - 5), width=1)
             if i > 0:
                 font = pygame.font.Font('freesansbold.ttf', 10)
                 txtsurf = font.render(f"{labels[i]}", True, "#b6b6d1")
                 self.window.blit(txtsurf, (x - txtsurf.get_width() // 2,
                                            y - 10 - txtsurf.get_height() // 2))
+        # Make the coordinates relative:
+        rel_x = self.ENEMY_POSITION[0] - self.LOCAL_POSITION[0]
+        rel_y = self.ENEMY_POSITION[1] - self.LOCAL_POSITION[1]
+        distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+        if distance <= PASSIVE_SONAR_RANGE:
+            # Draw it on the passive sonar display
+            if rel_x == 0:
+                if rel_y < 0:
+                    angle = 0
+                else:
+                    angle = 180
+            else:
+                print(rel_x, rel_y)
+                angle = math.degrees(math.asin(rel_y / distance))
+                if rel_x < 0 and rel_y > 0:
+                    angle = 90 + (90 - angle)
+                elif rel_x < 0 and rel_y < 0:
+                    angle = -180 + (angle*-1)
+                if angle >= -90 and angle <= 0:
+                    angle += 90
+                elif angle > 0 and angle <= 90:
+                    angle += 90
+                elif angle < -90 and angle >= -180:
+                    angle += 90
+                else:
+                    angle = -90 - (180 - angle)
+            # BROKEN
+
+            if self.LOCAL_POSITION[2] < 0:
+                local_position = self.LOCAL_POSITION[2] + 360
+            else:
+                local_position = self.LOCAL_POSITION[2]
+            if angle < 0:
+                angle += 360
+            if angle - local_position < -180:
+                bearing = (360 - local_position) + angle
+            elif angle - local_position > 180:
+                bearing = ((360 - angle) + local_position)*-1
+            else:
+                bearing = angle - local_position
+            print(f"Angle: {angle} Local Angle: {local_position} "
+                  f"Bearing: {bearing}")
+            rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + (bearing)
+            rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
+            zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
+            pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*0.84722, 30), 5)
 
         pygame.display.update()
 
