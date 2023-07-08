@@ -5,6 +5,9 @@ import math
 
 class App:
     def __init__(self):
+        self.ACTIVE_SONAR_PING_DELAY = 0
+        self.ACTIVE_SONAR_PING_RADIUS = 0
+        self.ACTIVE_SONAR = False
         self.BALLAST = 50
         self.GEAR = 0
         self.LOCAL_ACCELERATION = 0
@@ -25,6 +28,7 @@ class App:
         self.JOIN_GAME_OPEN = False
         self.GAME_OPEN = False
         self.GAME_INIT = False
+        self.SONAR_SCREEN = False
 
         # Clock to ensure stable fps
         self.clock = pygame.time.Clock()
@@ -101,13 +105,13 @@ class App:
                 (self.join_game_rect.right - self.join_game_rect.left) - txtsurf.get_width()) // 2,
                                    self.join_game_rect.top + (
                                            (
-                                                       self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
+                                                   self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
                                    self.join_game_rect.right - (
                                            (
-                                                       self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
+                                                   self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
                                    self.join_game_rect.bottom - (
                                            (
-                                                       self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2))
+                                                   self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2))
         self.host_game_rect = pygame.Rect(self.size[0] // 2 - width // 2, self.size[1] // 2.3 - height // 2, width,
                                           height)
         pygame.draw.rect(self.window, '#b6b6d1', self.host_game_rect, width=2)
@@ -116,13 +120,13 @@ class App:
                 (self.host_game_rect.right - self.host_game_rect.left) - txtsurf.get_width()) // 2,
                                    self.host_game_rect.top + (
                                            (
-                                                       self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
+                                                   self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
                                    self.host_game_rect.right - (
                                            (
-                                                       self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
+                                                   self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
                                    self.host_game_rect.bottom - (
                                            (
-                                                       self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2))
+                                                   self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2))
         self.quit_rect = pygame.Rect(self.size[0] // 2 - width // 2, self.size[1] // 1.5 - height // 2, width,
                                      height)
         pygame.draw.rect(self.window, '#b6b6d1', self.quit_rect, width=2)
@@ -206,13 +210,13 @@ class App:
                     (self.join_game_rect.right - self.join_game_rect.left) - txtsurf.get_width()) // 2,
                                        self.join_game_rect.top + (
                                                (
-                                                           self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
+                                                       self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
                                        self.join_game_rect.right - (
                                                (
-                                                           self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
+                                                       self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2,
                                        self.join_game_rect.bottom - (
                                                (
-                                                           self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2))
+                                                       self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2))
         elif self.host_game_rect.collidepoint(pygame.mouse.get_pos()):
             pygame.draw.rect(self.window, 'white', self.host_game_rect, width=2)
             font = pygame.font.Font('freesansbold.ttf', 28)
@@ -221,13 +225,13 @@ class App:
                     (self.host_game_rect.right - self.host_game_rect.left) - txtsurf.get_width()) // 2,
                                        self.host_game_rect.top + (
                                                (
-                                                           self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
+                                                       self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
                                        self.host_game_rect.right - (
                                                (
-                                                           self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
+                                                       self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2,
                                        self.host_game_rect.bottom - (
                                                (
-                                                           self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2))
+                                                       self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2))
         elif self.quit_rect.collidepoint(pygame.mouse.get_pos()):
             pygame.draw.rect(self.window, 'white', self.quit_rect, width=2)
             font = pygame.font.Font('freesansbold.ttf', 28)
@@ -236,13 +240,13 @@ class App:
                     (self.quit_rect.right - self.quit_rect.left) - txtsurf.get_width()) // 2,
                                        self.quit_rect.top + (
                                                (
-                                                           self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
+                                                       self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
                                        self.quit_rect.right - (
                                                (
-                                                           self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
+                                                       self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2,
                                        self.quit_rect.bottom - (
                                                (
-                                                           self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2))
+                                                       self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2))
         pygame.display.update()
 
     def game_init(self, player_id):
@@ -256,6 +260,7 @@ class App:
         else:
             self.ENEMY_POSITION = [self.G_SPAWN_POSITIONS[1][0], self.G_SPAWN_POSITIONS[1][1],
                                    self.G_SPAWN_POSITIONS[1][2], 0, self.G_SPAWN_POSITIONS[1][3]]
+        self.SONAR_SCREEN = True
 
     def start_game(self):
         self.window.fill('black')
@@ -278,6 +283,15 @@ class App:
                 if self.GEAR != 3:
                     self.GEAR += 1
                 print(self.GEAR)
+            elif event.key == pygame.K_t:
+                if self.ACTIVE_SONAR:
+                    self.ACTIVE_SONAR = False
+                    self.ACTIVE_SONAR_PING_DELAY = 0
+                    self.ACTIVE_SONAR_PING_RADIUS = 0
+                else:
+                    self.ACTIVE_SONAR = True
+                    self.ACTIVE_SONAR_PING_DELAY = 0
+                    self.ACTIVE_SONAR_PING_RADIUS = 0
 
         pygame.display.update()
 
@@ -325,11 +339,12 @@ class App:
                 self.LOCAL_POSITION[1] += self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[2] - 90))
 
                 self.LOCAL_POSITION[4] -= self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[3]))
-                self.LOCAL_POSITION[4] += (self.BALLAST-50)*0.0008
+                self.LOCAL_POSITION[4] += (self.BALLAST - 50) * 0.0008
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
             elif self.GAME_OPEN:
-                self.start_game()
+                if self.SONAR_SCREEN:
+                    self.sonar_screen_render()
             elif self.MAP_OPEN:
                 self.blitmap()
 
@@ -368,6 +383,74 @@ class App:
             self.clock.tick(self.fps)
 
         self.on_cleanup()
+
+    def sonar_screen_render(self):
+        # Active sonar
+        self.window.fill('black')
+        pygame.draw.circle(self.window, 'green', (200, 200), 180, width=2)
+        for i in range(180):
+            angle = i * 2 - 350
+            x = 200 + 180 * math.cos(math.radians(angle + 90))
+            y = 200 - 180 * math.sin(math.radians(angle + 90))
+            if i % 5 != 0:
+                x2 = 200 + 175 * math.cos(math.radians(angle + 90))
+                y2 = 200 - 175 * math.sin(math.radians(angle + 90))
+            else:
+                x2 = 200 + 170 * math.cos(math.radians(angle + 90))
+                y2 = 200 - 170 * math.sin(math.radians(angle + 90))
+                x3 = 200 + 190 * math.cos(math.radians(angle + 90))
+                y3 = 200 - 190 * math.sin(math.radians(angle + 90))
+                font = pygame.font.Font('freesansbold.ttf', 10)
+                txtsurf = font.render(f"{abs(angle)}", True, "#b6b6d1")
+                self.window.blit(txtsurf, (x3 - txtsurf.get_width() // 2,
+                                           y3 - txtsurf.get_height() // 2))
+            pygame.draw.line(self.window, 'green', (x, y), (x2, y2), width=2)
+        x = 200 + 180 * math.cos(math.radians(90))
+        y = 200 - 180 * math.sin(math.radians(90))
+        pygame.draw.line(self.window, 'white', (200, 200), (x, y), width=1)
+        pygame.draw.circle(self.window, 'green', (200, 200), 3)
+        if self.ACTIVE_SONAR:
+            if self.ACTIVE_SONAR_PING_RADIUS >= 180:
+                self.ACTIVE_SONAR_PING_RADIUS = 0
+                self.ACTIVE_SONAR_PING_DELAY += 0.017
+            if self.ACTIVE_SONAR_PING_DELAY == 0:
+                pygame.draw.circle(self.window, 'white', (200, 200), self.ACTIVE_SONAR_PING_RADIUS, width=1)
+                self.ACTIVE_SONAR_PING_RADIUS += 1
+            else:
+                if self.ACTIVE_SONAR_PING_DELAY + 0.017 >= 2:
+                    self.ACTIVE_SONAR_PING_DELAY = 0
+                else:
+                    self.ACTIVE_SONAR_PING_DELAY += 0.017
+            print(self.ACTIVE_SONAR_PING_DELAY)
+        # Passive sonar
+        pygame.draw.rect(self.window, 'gray', (self.size[0]//2-30, 0, self.size[0]//2+30, self.size[1]), width=2)
+        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, self.size[0] // 2-30, self.size[1]), width=2)
+        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, (self.size[0]//2-30)//2, self.size[1]), width=2)
+        font = pygame.font.Font('freesansbold.ttf', 10)
+        txtsurf = font.render(f"Time", True, "#b6b6d1")
+        txtsurf = pygame.transform.rotate(txtsurf, 90)
+        self.window.blit(txtsurf, (self.size[0] // 2 + 15 - 30 - txtsurf.get_width() // 2,
+                                   self.size[1] // 2 - txtsurf.get_height() // 2))
+        labels = ['180', '270', '0', '90', '180']
+        for i in range(5):
+            x = self.size[0] / 2 + i*(((self.size[0]//2-30)//2)/4-0.5)
+            y = 30
+            pygame.draw.line(self.window, 'gray', (x, y), (x, y-5), width=1)
+            font = pygame.font.Font('freesansbold.ttf', 10)
+            txtsurf = font.render(f"{labels[i]}", True, "#b6b6d1")
+            self.window.blit(txtsurf, (x - txtsurf.get_width() // 2,
+                                       y - 10 - txtsurf.get_height() // 2))
+        for i in range(5):
+            x = self.size[0] / 2 + (self.size[0]//2-30)//2 + i*((self.size[0]//2-30)//2)/4-1
+            y = 30
+            pygame.draw.line(self.window, 'gray', (x, y), (x, y-5), width=1)
+            if i > 0:
+                font = pygame.font.Font('freesansbold.ttf', 10)
+                txtsurf = font.render(f"{labels[i]}", True, "#b6b6d1")
+                self.window.blit(txtsurf, (x - txtsurf.get_width() // 2,
+                                           y - 10 - txtsurf.get_height() // 2))
+
+        pygame.display.update()
 
 
 pygame.init()
