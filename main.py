@@ -5,6 +5,7 @@ import math
 
 class App:
     def __init__(self):
+        self.ACTIVE_SONAR_CONTACTS = {}
         self.ACTIVE_SONAR_PING_DELAY = 0
         self.ACTIVE_SONAR_PING_RADIUS = 0
         self.ACTIVE_SONAR = False
@@ -332,8 +333,8 @@ class App:
                 else:
                     self.LOCAL_VELOCITY = 0
 
-                print(f"Acceleration: {self.LOCAL_ACCELERATION} Velocity: {self.LOCAL_VELOCITY} "
-                      f"Depth: {self.LOCAL_POSITION[4]} Pitch: {self.LOCAL_POSITION[3]} Ballast: {self.BALLAST}")
+                # print(f"Acceleration: {self.LOCAL_ACCELERATION} Velocity: {self.LOCAL_VELOCITY} "
+                #       f"Depth: {self.LOCAL_POSITION[4]} Pitch: {self.LOCAL_POSITION[3]} Ballast: {self.BALLAST}")
 
                 self.LOCAL_POSITION[0] += self.LOCAL_VELOCITY * math.cos(math.radians(self.LOCAL_POSITION[2] - 90))
                 self.LOCAL_POSITION[1] += self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[2] - 90))
@@ -385,6 +386,7 @@ class App:
         self.on_cleanup()
 
     def sonar_screen_render(self):
+        ACTIVE_SONAR_RANGE = 300
         # Active sonar
         self.window.fill('black')
         pygame.draw.circle(self.window, 'green', (200, 200), 180, width=2)
@@ -409,20 +411,45 @@ class App:
         y = 200 - 180 * math.sin(math.radians(90))
         pygame.draw.line(self.window, 'white', (200, 200), (x, y), width=1)
         pygame.draw.circle(self.window, 'green', (200, 200), 3)
+
+        print(self.ACTIVE_SONAR_CONTACTS)
+        for contact in list(self.ACTIVE_SONAR_CONTACTS):
+            self.ACTIVE_SONAR_CONTACTS[contact][2] -= 0.016
+            if self.ACTIVE_SONAR_CONTACTS[contact][2] > 0:
+                pygame.draw.circle(self.window, '#386e2c', (self.ACTIVE_SONAR_CONTACTS[contact][0],
+                                                            self.ACTIVE_SONAR_CONTACTS[contact][1]), 5)
+            else:
+                self.ACTIVE_SONAR_CONTACTS.pop(contact)
+
         if self.ACTIVE_SONAR:
             if self.ACTIVE_SONAR_PING_RADIUS >= 180:
                 self.ACTIVE_SONAR_PING_RADIUS = 0
                 self.ACTIVE_SONAR_PING_DELAY += 0.017
             if self.ACTIVE_SONAR_PING_DELAY == 0:
                 pygame.draw.circle(self.window, 'white', (200, 200), self.ACTIVE_SONAR_PING_RADIUS, width=1)
-                self.ACTIVE_SONAR_PING_RADIUS += 1
+                self.ACTIVE_SONAR_PING_RADIUS += 1.5
+                # Make the coordinates relative:
+                rel_x = self.ENEMY_POSITION[0] - self.LOCAL_POSITION[0]
+                rel_y = self.ENEMY_POSITION[1] - self.LOCAL_POSITION[1]
+                distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                print(f"Distance to enemy: {distance}")
+                if distance*0.6 <= self.ACTIVE_SONAR_PING_RADIUS:
+                    print("DETECTED ON SONAR.")
+                    # Draw it on the sonar display
+                    rel_x = rel_x * 0.6 + 200
+                    rel_y = rel_y * 0.6 + 200
+                    pygame.draw.circle(self.window, '#386e2c', (rel_x, rel_y), 5)
+                    self.ACTIVE_SONAR_CONTACTS['Enemy'] = [rel_x, rel_y, 4]
             else:
-                if self.ACTIVE_SONAR_PING_DELAY + 0.017 >= 2:
+                if self.ACTIVE_SONAR_PING_DELAY + 0.017 >= 1.5:
                     self.ACTIVE_SONAR_PING_DELAY = 0
                 else:
                     self.ACTIVE_SONAR_PING_DELAY += 0.017
-            print(self.ACTIVE_SONAR_PING_DELAY)
         # Passive sonar
+        p1_sonar_start = self.size[0] // 2
+        p1_sonar_end = self.size[0] // 2 + (self.size[0]//2-30)//2
+        p2_sonar_start = self.size[0] // 2 + (self.size[0]//2-30)//2
+        p2_sonar_end = self.size[0] - 30
         pygame.draw.rect(self.window, 'gray', (self.size[0]//2-30, 0, self.size[0]//2+30, self.size[1]), width=2)
         pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, self.size[0] // 2-30, self.size[1]), width=2)
         pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, (self.size[0]//2-30)//2, self.size[1]), width=2)
