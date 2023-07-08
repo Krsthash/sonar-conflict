@@ -251,8 +251,8 @@ class App:
         pygame.display.update()
 
     def game_init(self, player_id):
-        self.G_SPAWN_POSITIONS = [(400, 100, 150, 400), (400, 400, 0, 400)]  # x, y, azimuth, depth
-        # Y, X, AZIMUTH, PITCH_ANGLE
+        self.G_SPAWN_POSITIONS = [(400, 100, 150, 400), (400, 400, 0, 400)]
+        # x, y, azimuth, depth
         self.LOCAL_POSITION = [self.G_SPAWN_POSITIONS[player_id][0], self.G_SPAWN_POSITIONS[player_id][1],
                                self.G_SPAWN_POSITIONS[player_id][2], 0, self.G_SPAWN_POSITIONS[player_id][3]]
         if player_id:
@@ -407,8 +407,8 @@ class App:
                 self.window.blit(txtsurf, (x3 - txtsurf.get_width() // 2,
                                            y3 - txtsurf.get_height() // 2))
             pygame.draw.line(self.window, 'green', (x, y), (x2, y2), width=2)
-        x = 200 + 180 * math.cos(math.radians(90))
-        y = 200 - 180 * math.sin(math.radians(90))
+        x = 200 + 180 * math.sin(math.radians(self.LOCAL_POSITION[2]))
+        y = 200 - 180 * math.cos(math.radians(self.LOCAL_POSITION[2]))
         pygame.draw.line(self.window, 'white', (200, 200), (x, y), width=1)
         pygame.draw.circle(self.window, 'green', (200, 200), 3)
 
