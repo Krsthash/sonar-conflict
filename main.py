@@ -1,6 +1,33 @@
+import colorsys
 import os
 import pygame
 import math
+
+
+def hex_to_rgb(hex_code):
+    rgb = []
+    for i in (0, 2, 4):
+        decimal = int(hex_code[i : i + 2], 16)
+        rgb.append(decimal)
+
+    return tuple(rgb)
+
+
+def darken(amount, color):
+    # pylint: disable = no-value-for-parameter
+    if amount <= 1:
+        return "#000000"
+    darkened_color = colorsys.rgb_to_hls(*hex_to_rgb(color[1:]))
+    darkened_color = (
+        darkened_color[0],
+        darkened_color[1] - (darkened_color[1] / amount),
+        darkened_color[2],
+    )
+    darkened_color = colorsys.hls_to_rgb(*darkened_color)
+    darkened_color = "#%02x%02x%02x" % tuple(
+        int(value) for value in darkened_color
+    )
+    return darkened_color
 
 
 class App:
@@ -416,8 +443,9 @@ class App:
         for contact in list(self.ACTIVE_SONAR_CONTACTS):
             self.ACTIVE_SONAR_CONTACTS[contact][2] -= 0.016
             if self.ACTIVE_SONAR_CONTACTS[contact][2] > 0:
-                pygame.draw.circle(self.window, '#386e2c', (self.ACTIVE_SONAR_CONTACTS[contact][0],
-                                                            self.ACTIVE_SONAR_CONTACTS[contact][1]), 5)
+                pygame.draw.circle(self.window, darken(self.ACTIVE_SONAR_CONTACTS[contact][2]+1, '#00ff00'),
+                                   (self.ACTIVE_SONAR_CONTACTS[contact][0],
+                                    self.ACTIVE_SONAR_CONTACTS[contact][1]), 5)
             else:
                 self.ACTIVE_SONAR_CONTACTS.pop(contact)
 
