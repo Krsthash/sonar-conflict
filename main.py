@@ -1,7 +1,13 @@
 import colorsys
+from datetime import datetime
 import os
 import pygame
 import math
+import random
+
+
+def random_int(low,high):
+    return math.floor((high-low+1)*random.random())+low
 
 
 def hex_to_rgb(hex_code):
@@ -14,7 +20,6 @@ def hex_to_rgb(hex_code):
 
 
 def darken(amount, color):
-    # pylint: disable = no-value-for-parameter
     if amount <= 1:
         return "#000000"
     darkened_color = colorsys.rgb_to_hls(*hex_to_rgb(color[1:]))
@@ -32,6 +37,7 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.small_font = pygame.font.Font('freesansbold.ttf', 10)
         self.PASSIVE_SONAR_DISPLAY_CONTACTS = []
         self.ENEMY_DETECTION_CHANCE = 0
         self.ACTIVE_SONAR_CONTACTS = {}
@@ -428,6 +434,7 @@ class App:
         self.window.fill('black')
 
         pygame.draw.circle(self.window, 'green', (200, 200), 180, width=2)
+
         for i in range(180):
             angle = i * 2 - 350
             x = 200 + 180 * math.cos(math.radians(angle + 90))
@@ -440,8 +447,7 @@ class App:
                 y2 = 200 - 170 * math.sin(math.radians(angle + 90))
                 x3 = 200 + 190 * math.cos(math.radians(angle + 90))
                 y3 = 200 - 190 * math.sin(math.radians(angle + 90))
-                font = pygame.font.Font('freesansbold.ttf', 10)
-                txtsurf = font.render(f"{abs(angle)}", True, "#b6b6d1")
+                txtsurf = self.small_font.render(f"{abs(angle)}", True, "#b6b6d1")
                 self.window.blit(txtsurf, (x3 - txtsurf.get_width() // 2,
                                            y3 - txtsurf.get_height() // 2))
             pygame.draw.line(self.window, 'green', (x, y), (x2, y2), width=2)
@@ -486,13 +492,13 @@ class App:
         p1_sonar_end = self.size[0] // 2 + (self.size[0] // 2 - 30) // 2
         p2_sonar_start = self.size[0] // 2 + (self.size[0] // 2 - 30) // 2
         p2_sonar_end = self.size[0] - 30
+        scale = (p1_sonar_end - p1_sonar_start) / 360
         pygame.draw.rect(self.window, 'gray', (self.size[0] // 2 - 30, 0, self.size[0] // 2 + 30, self.size[1]),
                          width=2)
         pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, self.size[0] // 2 - 30, self.size[1]), width=2)
         pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, (self.size[0] // 2 - 30) // 2, self.size[1]),
                          width=2)
-        font = pygame.font.Font('freesansbold.ttf', 10)
-        txtsurf = font.render(f"Time", True, "#b6b6d1")
+        txtsurf = self.small_font.render(f"Time", True, "#b6b6d1")
         txtsurf = pygame.transform.rotate(txtsurf, 90)
         self.window.blit(txtsurf, (self.size[0] // 2 + 15 - 30 - txtsurf.get_width() // 2,
                                    self.size[1] // 2 - txtsurf.get_height() // 2))
@@ -501,8 +507,7 @@ class App:
             x = self.size[0] / 2 + i * (((self.size[0] // 2 - 30) // 2) / 4 - 0.5)
             y = 30
             pygame.draw.line(self.window, 'gray', (x, y), (x, y - 5), width=1)
-            font = pygame.font.Font('freesansbold.ttf', 10)
-            txtsurf = font.render(f"{labels[i]}", True, "#b6b6d1")
+            txtsurf = self.small_font.render(f"{labels[i]}", True, "#b6b6d1")
             self.window.blit(txtsurf, (x - txtsurf.get_width() // 2,
                                        y - 10 - txtsurf.get_height() // 2))
         for i in range(5):
@@ -510,18 +515,18 @@ class App:
             y = 30
             pygame.draw.line(self.window, 'gray', (x, y), (x, y - 5), width=1)
             if i > 0:
-                font = pygame.font.Font('freesansbold.ttf', 10)
-                txtsurf = font.render(f"{labels[i]}", True, "#b6b6d1")
+                txtsurf = self.small_font.render(f"{labels[i]}", True, "#b6b6d1")
                 self.window.blit(txtsurf, (x - txtsurf.get_width() // 2,
                                            y - 10 - txtsurf.get_height() // 2))
 
         for contact in self.PASSIVE_SONAR_DISPLAY_CONTACTS:
-            if contact[1] > self.size[1]-30:
+            if contact[1] > self.size[1] - 31:
                 self.PASSIVE_SONAR_DISPLAY_CONTACTS.remove(contact)
                 continue
-            pygame.draw.circle(self.window, '#386e2c', (contact[0],
-                                                        30+contact[1]), 2)
+            # pygame.draw.circle(self.window, '#386e2c', (contact[0],
+            #                                             30+contact[1]), 1)
             contact[1] += 1
+            pygame.draw.circle(self.window, '#386e2c', (contact[0], 30 + contact[1]), 1)
 
         # Make the coordinates relative:
         rel_x = self.ENEMY_POSITION[0] - self.LOCAL_POSITION[0]
@@ -563,12 +568,17 @@ class App:
                 bearing = angle - local_position
             # print(f"Angle: {angle} Local Angle: {local_position} "
             #       f"Bearing: {bearing}")
-            rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
-            rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
-            zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
-            scale = (p1_sonar_end - p1_sonar_start)/360
-            self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([zero + rel_x*scale, 0, 'Enemy'])
-            # pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*scale, 30), 5)
+            if self.ENEMY_POSITION[3] > self.LOCAL_POSITION[3]:
+                rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
+                rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
+                zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
+                self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([(zero + rel_x * scale)+random_int(-4, 4), 1, 'Enemy'])
+                # pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*scale, 30), 5)
+            else:
+                rel_x = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2 + bearing
+                rel_x -= (p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2)
+                zero = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2
+                self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([(zero + rel_x * scale)+random_int(-4, 4), 1, 'Enemy'])
 
         pygame.display.update()
 
