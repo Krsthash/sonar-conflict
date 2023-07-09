@@ -32,6 +32,7 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.PASSIVE_SONAR_DISPLAY_CONTACTS = []
         self.ENEMY_DETECTION_CHANCE = 0
         self.ACTIVE_SONAR_CONTACTS = {}
         self.ACTIVE_SONAR_PING_DELAY = 0
@@ -425,6 +426,7 @@ class App:
         PASSIVE_SONAR_RANGE = 300
         # Active sonar
         self.window.fill('black')
+
         pygame.draw.circle(self.window, 'green', (200, 200), 180, width=2)
         for i in range(180):
             angle = i * 2 - 350
@@ -468,7 +470,7 @@ class App:
                 rel_x = self.ENEMY_POSITION[0] - self.LOCAL_POSITION[0]
                 rel_y = self.ENEMY_POSITION[1] - self.LOCAL_POSITION[1]
                 distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-                if distance * 0.6 == self.ACTIVE_SONAR_PING_RADIUS:
+                if self.ACTIVE_SONAR_PING_RADIUS < distance * 0.6 < self.ACTIVE_SONAR_PING_RADIUS + 5:
                     # Draw it on the sonar display
                     rel_x = rel_x * 0.6 + 200
                     rel_y = rel_y * 0.6 + 200
@@ -512,6 +514,15 @@ class App:
                 txtsurf = font.render(f"{labels[i]}", True, "#b6b6d1")
                 self.window.blit(txtsurf, (x - txtsurf.get_width() // 2,
                                            y - 10 - txtsurf.get_height() // 2))
+
+        for contact in self.PASSIVE_SONAR_DISPLAY_CONTACTS:
+            if contact[1] > self.size[1]-30:
+                self.PASSIVE_SONAR_DISPLAY_CONTACTS.remove(contact)
+                continue
+            pygame.draw.circle(self.window, '#386e2c', (contact[0],
+                                                        30+contact[1]), 2)
+            contact[1] += 1
+
         # Make the coordinates relative:
         rel_x = self.ENEMY_POSITION[0] - self.LOCAL_POSITION[0]
         rel_y = self.ENEMY_POSITION[1] - self.LOCAL_POSITION[1]
@@ -524,21 +535,19 @@ class App:
                 else:
                     angle = 180
             else:
-                print(rel_x, rel_y)
                 angle = math.degrees(math.asin(rel_y / distance))
                 if rel_x < 0 and rel_y > 0:
                     angle = 90 + (90 - angle)
                 elif rel_x < 0 and rel_y < 0:
                     angle = -180 + (angle*-1)
-                if angle >= -90 and angle <= 0:
+                if -90 <= angle <= 0:
                     angle += 90
-                elif angle > 0 and angle <= 90:
+                elif 0 < angle <= 90:
                     angle += 90
-                elif angle < -90 and angle >= -180:
+                elif -90 > angle >= -180:
                     angle += 90
                 else:
                     angle = -90 - (180 - angle)
-            # BROKEN
 
             if self.LOCAL_POSITION[2] < 0:
                 local_position = self.LOCAL_POSITION[2] + 360
@@ -552,12 +561,14 @@ class App:
                 bearing = ((360 - angle) + local_position)*-1
             else:
                 bearing = angle - local_position
-            print(f"Angle: {angle} Local Angle: {local_position} "
-                  f"Bearing: {bearing}")
-            rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + (bearing)
+            # print(f"Angle: {angle} Local Angle: {local_position} "
+            #       f"Bearing: {bearing}")
+            rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
             rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
             zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
-            pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*0.84722, 30), 5)
+            scale = (p1_sonar_end - p1_sonar_start)/360
+            self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([zero + rel_x*scale, 0, 'Enemy'])
+            # pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*scale, 30), 5)
 
         pygame.display.update()
 
