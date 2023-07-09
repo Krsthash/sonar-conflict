@@ -55,6 +55,7 @@ class App:
         self.host_game_rect = None
         self.join_game_rect = None
         self.fps = 60
+        self.current_fps = self.fps
         self.mapsurface = None
         self.running = True
         self.size = (1280, 720)
@@ -201,6 +202,7 @@ class App:
                 elif right > 3000 and bottom > 2000:
                     return
                 self.map_rect = pygame.Rect(left, top, right - left, bottom - top)
+                self.blitmap()
 
         elif event.type == pygame.MOUSEBUTTONUP:
             self.moving = False
@@ -210,6 +212,7 @@ class App:
                     1306 or self.map_rect.top + event.rel[1] > 0 or self.map_rect.bottom + event.rel[1] < self.size[1]:
                 return
             self.map_rect.move_ip(event.rel)
+            self.blitmap()
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_m:
@@ -334,8 +337,12 @@ class App:
 
     def on_execute(self):
         WATER_DRAG = 0.0002
+        map_delay = 0
         self.open_main_menu()
         while self.running:
+            tick_time = self.clock.tick(self.fps)
+            self.current_fps = self.clock.get_fps()
+            #print(self.clock.get_fps())
             # Scene checks
             if self.GAME_INIT:
                 # Movement calculations
@@ -383,7 +390,10 @@ class App:
                 if self.SONAR_SCREEN:
                     self.sonar_screen_render()
             elif self.MAP_OPEN:
-                self.blitmap()
+                map_delay += tick_time
+                if map_delay > self.fps*2:
+                    self.blitmap()
+                    map_delay = 0
 
             # Scene event checks
             for event in pygame.event.get():
@@ -422,8 +432,6 @@ class App:
                 elif keys[pygame.K_DOWN]:
                     if self.BALLAST > 0:
                         self.BALLAST -= 0.5
-
-            self.clock.tick(self.fps)
 
         self.on_cleanup()
 
