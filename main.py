@@ -6,8 +6,8 @@ import math
 import random
 
 
-def random_int(low,high):
-    return math.floor((high-low+1)*random.random())+low
+def random_int(low, high):
+    return math.floor((high - low + 1) * random.random()) + low
 
 
 def hex_to_rgb(hex_code):
@@ -37,6 +37,13 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.identifying_delay = 0
+        self.PASSIVE_SELECTED_CONTACT = None
+        self.PASSIVE_SONAR_FREEZE = False
+        self.sonar_cursor_position = None
+        self.OBJECTS = {}
+        self.PASSIVE_SONAR_BUTTON_HOVER = False
+        self.middle_font = pygame.font.Font('freesansbold.ttf', 15)
         self.small_font = pygame.font.Font('freesansbold.ttf', 10)
         self.PASSIVE_SONAR_DISPLAY_CONTACTS = []
         self.ENEMY_DETECTION_CHANCE = 0
@@ -231,6 +238,7 @@ class App:
         pygame.display.update()
 
     def main_menu_events(self, event):
+        pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
         if event.type == pygame.QUIT:
             self.running = False
 
@@ -242,6 +250,7 @@ class App:
                 self.game_init(0)
 
         if self.join_game_rect.collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
             pygame.draw.rect(self.window, 'white', self.join_game_rect, width=2)
             font = pygame.font.Font('freesansbold.ttf', 28)
             txtsurf = font.render("Join a game", True, "white")
@@ -257,6 +266,7 @@ class App:
                                                (
                                                        self.join_game_rect.bottom - self.join_game_rect.top) - txtsurf.get_height()) // 2))
         elif self.host_game_rect.collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
             pygame.draw.rect(self.window, 'white', self.host_game_rect, width=2)
             font = pygame.font.Font('freesansbold.ttf', 28)
             txtsurf = font.render("Host a game", True, "white")
@@ -272,6 +282,7 @@ class App:
                                                (
                                                        self.host_game_rect.bottom - self.host_game_rect.top) - txtsurf.get_height()) // 2))
         elif self.quit_rect.collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
             pygame.draw.rect(self.window, 'white', self.quit_rect, width=2)
             font = pygame.font.Font('freesansbold.ttf', 28)
             txtsurf = font.render("Quit", True, "white")
@@ -293,12 +304,16 @@ class App:
         # x, y, azimuth, depth
         self.LOCAL_POSITION = [self.G_SPAWN_POSITIONS[player_id][0], self.G_SPAWN_POSITIONS[player_id][1],
                                self.G_SPAWN_POSITIONS[player_id][2], 0, self.G_SPAWN_POSITIONS[player_id][3]]
+        # x, y, azimuth, pitch, depth
         if player_id:
             self.ENEMY_POSITION = [self.G_SPAWN_POSITIONS[0][0], self.G_SPAWN_POSITIONS[0][1],
-                                   self.G_SPAWN_POSITIONS[0][2], 0, self.G_SPAWN_POSITIONS[0][3]]
+                                   self.G_SPAWN_POSITIONS[0][2], self.G_SPAWN_POSITIONS[0][3]]
+            self.OBJECTS['Enemy'] = [self.ENEMY_POSITION, 'Submarine', 0, 1]
         else:
             self.ENEMY_POSITION = [self.G_SPAWN_POSITIONS[1][0], self.G_SPAWN_POSITIONS[1][1],
-                                   self.G_SPAWN_POSITIONS[1][2], 0, self.G_SPAWN_POSITIONS[1][3]]
+                                   self.G_SPAWN_POSITIONS[1][2], self.G_SPAWN_POSITIONS[1][3]]
+            self.OBJECTS['Enemy'] = [self.ENEMY_POSITION, 'Submarine', 0, 1]
+            # [x, y, azimuth, depth], type, velocity, detection_chance
         self.SONAR_SCREEN = True
         self.ENEMY_DETECTION_CHANCE = 1
 
@@ -306,8 +321,30 @@ class App:
         self.window.fill('black')
 
     def game_events(self, event):
+        self.PASSIVE_SONAR_BUTTON_HOVER = False
+        self.sonar_cursor_position = None
+        pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
         if event.type == pygame.QUIT:
             self.running = False
+
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if pygame.Rect(self.size[0] // 2, 30,
+                               self.size[0] // 2 - 30, self.size[1] - 30).collidepoint(pygame.mouse.get_pos()):
+                    # Select contact
+                    mouse_pos = pygame.mouse.get_pos()
+                    flag = 0
+                    for contact in self.PASSIVE_SONAR_DISPLAY_CONTACTS:
+                        # print((int(contact[0]), contact[1]+31), mouse_pos)
+                        if mouse_pos[0] - 2 < contact[0] < mouse_pos[0] + 2 and \
+                                mouse_pos[1] - 2 < contact[1] + 31 < mouse_pos[1] + 2:
+                            self.PASSIVE_SELECTED_CONTACT = contact
+                            flag = 1
+                    if not flag:
+                        self.PASSIVE_SELECTED_CONTACT = None
+                        self.identifying_delay = 0
+                elif pygame.Rect(10, 650, 200, 40).collidepoint(pygame.mouse.get_pos()):
+                    self.identifying_delay = 0.0167
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_m:
@@ -332,8 +369,20 @@ class App:
                     self.ACTIVE_SONAR = True
                     self.ACTIVE_SONAR_PING_DELAY = 0
                     self.ACTIVE_SONAR_PING_RADIUS = 0
+            elif event.key == pygame.K_f:
+                if self.PASSIVE_SONAR_FREEZE:
+                    self.PASSIVE_SONAR_FREEZE = False
+                else:
+                    self.PASSIVE_SONAR_FREEZE = True
 
-        pygame.display.update()
+        elif pygame.Rect(10, 650, 200, 40).collidepoint(pygame.mouse.get_pos()):
+            self.PASSIVE_SONAR_BUTTON_HOVER = True
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+
+        elif pygame.Rect(self.size[0] // 2, 30,
+                         self.size[0] // 2 - 30, self.size[1] - 30).collidepoint(pygame.mouse.get_pos()):
+            mouse_pos = pygame.mouse.get_pos()
+            self.sonar_cursor_position = mouse_pos
 
     def on_execute(self):
         WATER_DRAG = 0.0002
@@ -342,7 +391,7 @@ class App:
         while self.running:
             tick_time = self.clock.tick(self.fps)
             self.current_fps = self.clock.get_fps()
-            #print(self.clock.get_fps())
+            # print(self.clock.get_fps())
             # Scene checks
             if self.GAME_INIT:
                 # Movement calculations
@@ -391,7 +440,7 @@ class App:
                     self.sonar_screen_render()
             elif self.MAP_OPEN:
                 map_delay += tick_time
-                if map_delay > self.fps*2:
+                if map_delay > self.fps * 2:
                     self.blitmap()
                     map_delay = 0
 
@@ -436,6 +485,40 @@ class App:
         self.on_cleanup()
 
     def sonar_screen_render(self):
+        def calculate_bearing(rel_x, rel_y, distance):
+            if rel_x == 0:
+                if rel_y < 0:
+                    angle = 0
+                else:
+                    angle = 180
+            else:
+                angle = math.degrees(math.asin(rel_y / distance))
+                if rel_x < 0 and rel_y > 0:
+                    angle = 90 + (90 - angle)
+                elif rel_x < 0 and rel_y < 0:
+                    angle = -180 + (angle * -1)
+                if -90 <= angle <= 0:
+                    angle += 90
+                elif 0 < angle <= 90:
+                    angle += 90
+                elif -90 > angle >= -180:
+                    angle += 90
+                else:
+                    angle = -90 - (180 - angle)
+
+            if self.LOCAL_POSITION[2] < 0:
+                local_position = self.LOCAL_POSITION[2] + 360
+            else:
+                local_position = self.LOCAL_POSITION[2]
+            if angle < 0:
+                angle += 360
+            if angle - local_position < -180:
+                bearing_ = (360 - local_position) + angle
+            elif angle - local_position > 180:
+                bearing_ = ((360 - angle) + local_position) * -1
+            else:
+                bearing_ = angle - local_position
+            return bearing_
         ACTIVE_SONAR_RANGE = 300
         PASSIVE_SONAR_RANGE = 300
         # Active sonar
@@ -533,7 +616,8 @@ class App:
                 continue
             # pygame.draw.circle(self.window, '#386e2c', (contact[0],
             #                                             30+contact[1]), 1)
-            contact[1] += 1
+            if not self.PASSIVE_SONAR_FREEZE:
+                contact[1] += 1
             pygame.draw.circle(self.window, '#386e2c', (contact[0], 30 + contact[1]), 1)
 
         # Make the coordinates relative:
@@ -542,52 +626,121 @@ class App:
         distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
         if distance <= PASSIVE_SONAR_RANGE:
             # Draw it on the passive sonar display
-            if rel_x == 0:
-                if rel_y < 0:
-                    angle = 0
-                else:
-                    angle = 180
-            else:
-                angle = math.degrees(math.asin(rel_y / distance))
-                if rel_x < 0 and rel_y > 0:
-                    angle = 90 + (90 - angle)
-                elif rel_x < 0 and rel_y < 0:
-                    angle = -180 + (angle*-1)
-                if -90 <= angle <= 0:
-                    angle += 90
-                elif 0 < angle <= 90:
-                    angle += 90
-                elif -90 > angle >= -180:
-                    angle += 90
-                else:
-                    angle = -90 - (180 - angle)
+            bearing = calculate_bearing(rel_x, rel_y, distance)
 
-            if self.LOCAL_POSITION[2] < 0:
-                local_position = self.LOCAL_POSITION[2] + 360
-            else:
-                local_position = self.LOCAL_POSITION[2]
-            if angle < 0:
-                angle += 360
-            if angle - local_position < -180:
-                bearing = (360 - local_position) + angle
-            elif angle - local_position > 180:
-                bearing = ((360 - angle) + local_position)*-1
-            else:
-                bearing = angle - local_position
             # print(f"Angle: {angle} Local Angle: {local_position} "
             #       f"Bearing: {bearing}")
-            if self.ENEMY_POSITION[3] > self.LOCAL_POSITION[3]:
-                rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
-                rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
-                zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
-                self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([(zero + rel_x * scale)+random_int(-4, 4), 1, 'Enemy'])
-                # pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*scale, 30), 5)
-            else:
-                rel_x = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2 + bearing
-                rel_x -= (p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2)
-                zero = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2
-                self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([(zero + rel_x * scale)+random_int(-4, 4), 1, 'Enemy'])
+            if not self.PASSIVE_SONAR_FREEZE:
+                if self.ENEMY_POSITION[3] < self.LOCAL_POSITION[4]:
+                    rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
+                    rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
+                    zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
+                    self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([(zero + rel_x * scale) + random_int(-4, 4), 1, 'Enemy'])
+                    # pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*scale, 30), 5)
+                else:
+                    rel_x = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2 + bearing
+                    rel_x -= (p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2)
+                    zero = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2
+                    self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([(zero + rel_x * scale) + random_int(-4, 4), 1, 'Enemy'])
 
+        # Passive sonar contact identification
+        txtsurf = self.middle_font.render("Passive sonar contact identification", True, '#b6b6d1')
+        self.window.blit(txtsurf, (10, 420))
+        txtsurf = self.middle_font.render("Type: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (10, 450))
+        txtsurf = self.middle_font.render("Bearing: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (10, 480))
+        txtsurf = self.middle_font.render("Speed: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (10, 510))
+        txtsurf = self.middle_font.render("Depth: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (10, 540))
+        txtsurf = self.middle_font.render("Distance: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (10, 570))
+        txtsurf = self.middle_font.render("Heading: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (10, 600))
+
+        if 4 >= self.identifying_delay > 0:
+            self.identifying_delay += 0.0167
+
+        if self.PASSIVE_SONAR_BUTTON_HOVER:
+            # >--- SELECT FOR IDENTIFICATION BUTTON ---< #
+            pygame.draw.rect(self.window, 'white', (10, 650, 200, 40), width=2)
+            txtsurf = self.middle_font.render("Select for identification", True, 'white')
+            self.window.blit(txtsurf, (110 - txtsurf.get_width() // 2,
+                                       670 - txtsurf.get_height() // 2))
+            # <--- -------------------------------- ---> #
+        else:
+            # >--- SELECT FOR IDENTIFICATION BUTTON ---< #
+            pygame.draw.rect(self.window, '#b6b6d1', (10, 650, 200, 40), width=2)
+            txtsurf = self.middle_font.render("Select for identification", True, '#b6b6d1')
+            self.window.blit(txtsurf, (110 - txtsurf.get_width() // 2,
+                                       670 - txtsurf.get_height() // 2))
+            # <--- -------------------------------- ---> #
+        contact_type = None
+        contact_bearing = None
+        contact_speed = None
+        contact_depth = None
+        contact_distance = None
+        contact_heading = None
+        if self.PASSIVE_SELECTED_CONTACT:
+            if self.identifying_delay <= 4:
+                contact_type = 'Unidentified'
+                if self.identifying_delay > 0:
+                    contact_type = 'Identifying...'
+                if self.PASSIVE_SELECTED_CONTACT[0] > p2_sonar_start:
+                    contact_bearing = self.PASSIVE_SELECTED_CONTACT[0] - (p2_sonar_start + (
+                            p2_sonar_end - p2_sonar_start) / 2)
+                else:
+                    contact_bearing = self.PASSIVE_SELECTED_CONTACT[0] - (p1_sonar_start + (
+                            p1_sonar_end - p1_sonar_start) / 2)
+                contact_bearing /= scale
+                if contact_bearing < 0:
+                    contact_bearing += 360
+            else:
+                contact_type = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][1]
+                contact_speed = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][2]
+                contact_depth = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][3]
+                rel_x = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][0] - self.LOCAL_POSITION[0]
+                rel_y = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][1] - self.LOCAL_POSITION[1]
+                contact_distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                contact_heading = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][2]
+                contact_bearing = calculate_bearing(rel_x, rel_y, distance)
+                if contact_bearing < 0:
+                    contact_bearing += 360
+        if contact_type:
+            txtsurf = self.middle_font.render(f"{contact_type}", True, '#b6b6d1')
+        else:
+            txtsurf = self.middle_font.render("Select a contact...", True, '#b6b6d1')
+        self.window.blit(txtsurf, (110, 450))
+        txtsurf = self.middle_font.render(f"{contact_bearing}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (110, 480))
+        txtsurf = self.middle_font.render(f"{contact_speed}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (110, 510))
+        txtsurf = self.middle_font.render(f"{contact_depth}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (110, 540))
+        txtsurf = self.middle_font.render(f"{contact_distance}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (110, 570))
+        txtsurf = self.middle_font.render(f"{contact_heading} (azimuth)", True, '#b6b6d1')
+        self.window.blit(txtsurf, (110, 600))
+        if self.sonar_cursor_position:
+            if self.PASSIVE_SELECTED_CONTACT:
+                pygame.draw.line(self.window, '#00ad06', (self.size[0] // 2, self.sonar_cursor_position[1]),
+                                 self.sonar_cursor_position)
+                pygame.draw.line(self.window, '#00ad06', (self.sonar_cursor_position[0], 30),
+                                 self.sonar_cursor_position)
+                pygame.draw.line(self.window, '#00ad06', (self.size[0], self.sonar_cursor_position[1]),
+                                 self.sonar_cursor_position)
+                pygame.draw.line(self.window, '#00ad06', (self.sonar_cursor_position[0], self.size[1] - 30),
+                                 self.sonar_cursor_position)
+            else:
+                pygame.draw.line(self.window, '#ad001d', (self.size[0] // 2, self.sonar_cursor_position[1]),
+                                 self.sonar_cursor_position)
+                pygame.draw.line(self.window, '#ad001d', (self.sonar_cursor_position[0], 30),
+                                 self.sonar_cursor_position)
+                pygame.draw.line(self.window, '#ad001d', (self.size[0], self.sonar_cursor_position[1]),
+                                 self.sonar_cursor_position)
+                pygame.draw.line(self.window, '#ad001d', (self.sonar_cursor_position[0], self.size[1] - 30),
+                                 self.sonar_cursor_position)
         pygame.display.update()
 
 
