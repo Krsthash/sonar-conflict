@@ -1,9 +1,9 @@
 import colorsys
-from datetime import datetime
-import os
-import pygame
 import math
+import os
 import random
+
+import pygame
 
 
 def random_int(low, high):
@@ -391,6 +391,10 @@ class App:
         while self.running:
             tick_time = self.clock.tick(self.fps)
             self.current_fps = self.clock.get_fps()
+            if self.current_fps:
+                fps_d = self.fps / self.current_fps
+            else:
+                fps_d = 1
             # print(self.clock.get_fps())
             # Scene checks
             if self.GAME_INIT:
@@ -428,11 +432,17 @@ class App:
                 # print(f"Acceleration: {self.LOCAL_ACCELERATION} Velocity: {self.LOCAL_VELOCITY} "
                 #       f"Depth: {self.LOCAL_POSITION[4]} Pitch: {self.LOCAL_POSITION[3]} Ballast: {self.BALLAST}")
 
-                self.LOCAL_POSITION[0] += self.LOCAL_VELOCITY * math.cos(math.radians(self.LOCAL_POSITION[2] - 90))
-                self.LOCAL_POSITION[1] += self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[2] - 90))
+                self.LOCAL_POSITION[0] += (self.LOCAL_VELOCITY * fps_d) * math.cos(
+                    math.radians(self.LOCAL_POSITION[2] - 90))
+                self.LOCAL_POSITION[1] += (self.LOCAL_VELOCITY * fps_d) * math.sin(
+                    math.radians(self.LOCAL_POSITION[2] - 90))
 
-                self.LOCAL_POSITION[4] -= self.LOCAL_VELOCITY * math.sin(math.radians(self.LOCAL_POSITION[3]))
-                self.LOCAL_POSITION[4] += (self.BALLAST - 50) * 0.0008
+                self.LOCAL_POSITION[4] -= (self.LOCAL_VELOCITY * fps_d) * math.sin(math.radians(self.LOCAL_POSITION[3]))
+                self.LOCAL_POSITION[4] += (self.BALLAST - 50) * 0.0008 * fps_d
+                if self.LOCAL_POSITION[4] < 0:
+                    self.LOCAL_POSITION[4] = 0
+                elif self.LOCAL_POSITION[4] >= 700:
+                    self.LOCAL_POSITION[4] = 700
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
             elif self.GAME_OPEN:
@@ -458,29 +468,29 @@ class App:
                 if keys[pygame.K_a]:
                     if self.LOCAL_POSITION[2] > -360:
                         turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
-                        self.LOCAL_POSITION[2] -= turn_rate
+                        self.LOCAL_POSITION[2] -= turn_rate * fps_d
                     else:
                         self.LOCAL_POSITION[2] = 0
                 elif keys[pygame.K_d]:
                     if self.LOCAL_POSITION[2] < 360:
                         turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
-                        self.LOCAL_POSITION[2] += turn_rate
+                        self.LOCAL_POSITION[2] += turn_rate * fps_d
                     else:
                         self.LOCAL_POSITION[2] = 0
                 elif keys[pygame.K_w]:
                     if self.LOCAL_POSITION[3] < 45:
                         pitch_rate = 0.2 * (1 - (abs(self.LOCAL_VELOCITY) / 0.09))
-                        self.LOCAL_POSITION[3] += pitch_rate
+                        self.LOCAL_POSITION[3] += pitch_rate * fps_d
                 elif keys[pygame.K_s]:
                     if self.LOCAL_POSITION[3] > -45:
                         pitch_rate = 0.2 * (1 - (abs(self.LOCAL_VELOCITY) / 0.09))
-                        self.LOCAL_POSITION[3] -= pitch_rate
+                        self.LOCAL_POSITION[3] -= pitch_rate * fps_d
                 elif keys[pygame.K_UP]:
                     if self.BALLAST < 100:
-                        self.BALLAST += 0.5
+                        self.BALLAST += 0.5 * fps_d
                 elif keys[pygame.K_DOWN]:
                     if self.BALLAST > 0:
-                        self.BALLAST -= 0.5
+                        self.BALLAST -= 0.5 * fps_d
 
         self.on_cleanup()
 
@@ -519,6 +529,7 @@ class App:
             else:
                 bearing_ = angle - local_position
             return bearing_
+
         ACTIVE_SONAR_RANGE = 300
         PASSIVE_SONAR_RANGE = 300
         # Active sonar
@@ -548,7 +559,7 @@ class App:
         pygame.draw.circle(self.window, 'green', (200, 200), 3)
 
         for contact in list(self.ACTIVE_SONAR_CONTACTS):
-            self.ACTIVE_SONAR_CONTACTS[contact][2] -= 0.016
+            self.ACTIVE_SONAR_CONTACTS[contact][2] -= 0.016 * self.fps / self.current_fps
             if self.ACTIVE_SONAR_CONTACTS[contact][2] > 0:
                 pygame.draw.circle(self.window, darken(self.ACTIVE_SONAR_CONTACTS[contact][2] + 1, '#00ff00'),
                                    (self.ACTIVE_SONAR_CONTACTS[contact][0],
@@ -559,10 +570,10 @@ class App:
         if self.ACTIVE_SONAR:
             if self.ACTIVE_SONAR_PING_RADIUS >= 180:
                 self.ACTIVE_SONAR_PING_RADIUS = 0
-                self.ACTIVE_SONAR_PING_DELAY += 0.017
+                self.ACTIVE_SONAR_PING_DELAY += 0.017 * self.fps / self.current_fps
             if self.ACTIVE_SONAR_PING_DELAY == 0:
                 pygame.draw.circle(self.window, 'white', (200, 200), self.ACTIVE_SONAR_PING_RADIUS, width=1)
-                self.ACTIVE_SONAR_PING_RADIUS += 1.5
+                self.ACTIVE_SONAR_PING_RADIUS += 1.5 * self.fps / self.current_fps
                 # Make the coordinates relative:
                 rel_x = self.ENEMY_POSITION[0] - self.LOCAL_POSITION[0]
                 rel_y = self.ENEMY_POSITION[1] - self.LOCAL_POSITION[1]
@@ -574,10 +585,10 @@ class App:
                     pygame.draw.circle(self.window, '#386e2c', (rel_x, rel_y), 5)
                     self.ACTIVE_SONAR_CONTACTS['Enemy'] = [rel_x, rel_y, 4]
             else:
-                if self.ACTIVE_SONAR_PING_DELAY + 0.017 >= 1.5:
+                if self.ACTIVE_SONAR_PING_DELAY + 0.017 * self.fps / self.current_fps >= 1.5:
                     self.ACTIVE_SONAR_PING_DELAY = 0
                 else:
-                    self.ACTIVE_SONAR_PING_DELAY += 0.017
+                    self.ACTIVE_SONAR_PING_DELAY += 0.017 * self.fps / self.current_fps
         # Passive sonar
         p1_sonar_start = self.size[0] // 2
         p1_sonar_end = self.size[0] // 2 + (self.size[0] // 2 - 30) // 2
@@ -660,7 +671,7 @@ class App:
         self.window.blit(txtsurf, (10, 600))
 
         if 4 >= self.identifying_delay > 0:
-            self.identifying_delay += 0.0167
+            self.identifying_delay += 0.0167 * self.fps / self.current_fps
 
         if self.PASSIVE_SONAR_BUTTON_HOVER:
             # >--- SELECT FOR IDENTIFICATION BUTTON ---< #
