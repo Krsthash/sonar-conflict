@@ -37,6 +37,7 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.ACTIVE_SONAR_SELECTED_CONTACT = None
         self.identifying_delay = 0
         self.PASSIVE_SELECTED_CONTACT = None
         self.PASSIVE_SONAR_FREEZE = False
@@ -345,6 +346,12 @@ class App:
                         self.identifying_delay = 0
                 elif pygame.Rect(10, 650, 200, 40).collidepoint(pygame.mouse.get_pos()):
                     self.identifying_delay = 0.0167
+                elif pygame.Rect(0, 0, 400, 400).collidepoint(pygame.mouse.get_pos()):
+                    mouse_pos = pygame.mouse.get_pos()
+                    for contact in list(self.ACTIVE_SONAR_CONTACTS):
+                        if mouse_pos[0] - 5 < self.ACTIVE_SONAR_CONTACTS[contact][0] < mouse_pos[0] + 5 and \
+                                mouse_pos[1] - 5 < self.ACTIVE_SONAR_CONTACTS[contact][1] < mouse_pos[1]:
+                            self.ACTIVE_SONAR_SELECTED_CONTACT = contact
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_m:
@@ -557,15 +564,66 @@ class App:
         y = 200 - 180 * math.cos(math.radians(self.LOCAL_POSITION[2]))
         pygame.draw.line(self.window, 'white', (200, 200), (x, y), width=1)
         pygame.draw.circle(self.window, 'green', (200, 200), 3)
-
+        i = 0
         for contact in list(self.ACTIVE_SONAR_CONTACTS):
+            i += 1
             self.ACTIVE_SONAR_CONTACTS[contact][2] -= 0.016 * self.fps / self.current_fps
             if self.ACTIVE_SONAR_CONTACTS[contact][2] > 0:
                 pygame.draw.circle(self.window, darken(self.ACTIVE_SONAR_CONTACTS[contact][2] + 1, '#00ff00'),
                                    (self.ACTIVE_SONAR_CONTACTS[contact][0],
                                     self.ACTIVE_SONAR_CONTACTS[contact][1]), 5)
+                txtsurf = self.small_font.render(f"{i}", True, "#b6b6d1")
+                self.window.blit(txtsurf, (self.ACTIVE_SONAR_CONTACTS[contact][0] - 10,
+                                           self.ACTIVE_SONAR_CONTACTS[contact][1] - 10))
             else:
                 self.ACTIVE_SONAR_CONTACTS.pop(contact)
+
+        # Selected active sonar contact
+        txtsurf = self.middle_font.render("Selected contact: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 15))
+        txtsurf = self.middle_font.render("Type: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 40))
+        txtsurf = self.middle_font.render("Bearing: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 65))
+        txtsurf = self.middle_font.render("Speed: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 90))
+        txtsurf = self.middle_font.render("Depth: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 115))
+        txtsurf = self.middle_font.render("Distance: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 140))
+        txtsurf = self.middle_font.render("Heading: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 165))
+        a_contact_type = None
+        a_contact_bearing = 0
+        a_contact_speed = 0
+        a_contact_depth = 0
+        a_contact_distance = 0
+        a_contact_heading = 0
+        if self.ACTIVE_SONAR_SELECTED_CONTACT and \
+                list(self.ACTIVE_SONAR_CONTACTS).count(self.ACTIVE_SONAR_SELECTED_CONTACT) > 0:
+            a_contact_type = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][1]
+            rel_x = (self.ACTIVE_SONAR_CONTACTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0] - 200) / 0.6
+            rel_y = (self.ACTIVE_SONAR_CONTACTS[self.ACTIVE_SONAR_SELECTED_CONTACT][1] - 200) / 0.6
+            distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+            a_contact_bearing = calculate_bearing(rel_x, rel_y, distance)
+            if a_contact_bearing < 0:
+                a_contact_bearing += 360
+            a_contact_speed = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][2]
+            a_contact_depth = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0][3]
+            a_contact_distance = distance
+            a_contact_heading = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0][2]
+        txtsurf = self.middle_font.render(f"{a_contact_type}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (490, 40))
+        txtsurf = self.middle_font.render(f"{a_contact_bearing:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (490, 65))
+        txtsurf = self.middle_font.render(f"{a_contact_speed:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (490, 90))
+        txtsurf = self.middle_font.render(f"{a_contact_depth:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (490, 115))
+        txtsurf = self.middle_font.render(f"{a_contact_distance:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (490, 140))
+        txtsurf = self.middle_font.render(f"{a_contact_heading:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (490, 165))
 
         if self.ACTIVE_SONAR:
             if self.ACTIVE_SONAR_PING_RADIUS >= 180:
@@ -688,11 +746,11 @@ class App:
                                        670 - txtsurf.get_height() // 2))
             # <--- -------------------------------- ---> #
         contact_type = None
-        contact_bearing = None
-        contact_speed = None
-        contact_depth = None
-        contact_distance = None
-        contact_heading = None
+        contact_bearing = 0
+        contact_speed = 0
+        contact_depth = 0
+        contact_distance = 0
+        contact_heading = 0
         if self.PASSIVE_SELECTED_CONTACT:
             if self.identifying_delay <= 4:
                 contact_type = 'Unidentified'
@@ -718,20 +776,23 @@ class App:
                 contact_bearing = calculate_bearing(rel_x, rel_y, distance)
                 if contact_bearing < 0:
                     contact_bearing += 360
+                if contact_distance > PASSIVE_SONAR_RANGE:
+                    self.identifying_delay = 0
+                    self.PASSIVE_SELECTED_CONTACT = None
         if contact_type:
             txtsurf = self.middle_font.render(f"{contact_type}", True, '#b6b6d1')
         else:
             txtsurf = self.middle_font.render("Select a contact...", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 450))
-        txtsurf = self.middle_font.render(f"{contact_bearing}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{contact_bearing:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 480))
-        txtsurf = self.middle_font.render(f"{contact_speed}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{contact_speed:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 510))
-        txtsurf = self.middle_font.render(f"{contact_depth}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{contact_depth:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 540))
-        txtsurf = self.middle_font.render(f"{contact_distance}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{contact_distance:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 570))
-        txtsurf = self.middle_font.render(f"{contact_heading} (azimuth)", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{contact_heading:.2f} (azimuth)", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 600))
         if self.sonar_cursor_position:
             if self.PASSIVE_SELECTED_CONTACT:
