@@ -38,6 +38,7 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.range_indicator = 50
         self.reset_box = None
         self.passive_transfer_box = None
         self.active_transfer_box = None
@@ -130,6 +131,13 @@ class App:
         self.mapsurface = pygame.transform.smoothscale(self.map, self.map_rect.size)
         self.window.fill(0)
         self.window.blit(self.mapsurface, self.map_rect)
+        pygame.draw.line(self.window, 'green', (100, self.size[1] - 100),
+                         (100 + self.range_indicator, self.size[1] - 100))
+        pygame.draw.line(self.window, 'green', (100, self.size[1] - 100), (100, self.size[1] - 105))
+        pygame.draw.line(self.window, 'green', (100 + self.range_indicator, self.size[1] - 100),
+                         (100 + self.range_indicator, self.size[1] - 105))
+        txtsurf = self.small_font.render("100km", True, 'green')
+        self.window.blit(txtsurf, (100 + self.range_indicator//2 - txtsurf.get_width() //2, self.size[1] - 95))
 
     def map_render(self):
         # Location marker rendering
@@ -243,8 +251,10 @@ class App:
                     right = 1306
                     top = 0
                     bottom = 720
+                    self.range_indicator = 100
                 elif right > 3000 and bottom > 2000:
                     return
+                self.range_indicator *= zoom
                 self.map_rect = pygame.Rect(left, top, right - left, bottom - top)
                 self.blitmap()
 
@@ -546,9 +556,18 @@ class App:
                         print("NOT ALLOWED")
                     if flag:
                         if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
-                            speed = 0.05  # (1 pixel = 12.5 km) real proportion (speed proprtion = 1px = 0.5km)
-                            range = 165
+                            speed = 0.99  # 1 pixel = 2.09km 0.0193 = 1km/h | 1 px = actual 12.5km
+                            # range = 100  # = 2500km  # = 200 km
+                            distance = float(self.distance_var[1])
                             # VLS launch
+                            time = distance / speed
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            print(angle)
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            print(impact_x, impact_y, distance)
 
         elif event.type == pygame.KEYDOWN:
             if self.bearing_var[0]:
