@@ -392,6 +392,7 @@ class App:
                         if mouse_pos[0] - 2 < contact[0] < mouse_pos[0] + 2 and \
                                 mouse_pos[1] - 2 < contact[1] + 31 < mouse_pos[1] + 2:
                             self.PASSIVE_SELECTED_CONTACT = contact
+                            self.identifying_delay = 0
                             flag = 1
                     if not flag:
                         self.PASSIVE_SELECTED_CONTACT = None
@@ -525,6 +526,29 @@ class App:
                     self.bearing_var[1] = ''
                     self.depth_var[1] = ''
                     self.distance_var[1] = ''
+                elif pygame.Rect(self.fire_box).collidepoint(pygame.mouse.get_pos()):
+                    flag = 0
+                    if self.SELECTED_WEAPON and self.bearing_var[1].isnumeric() and self.depth_var[1].isnumeric() and \
+                            self.distance_var[1].isnumeric():
+                        if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] == 0 and \
+                                self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] != '':
+                            if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == 0 and self.mode_var == -1:
+                                print("ALLOWED")
+                                flag = 1
+                            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == 1 and self.mode_var != -1:
+                                print("ALLOWED")
+                                flag = 1
+                            else:
+                                print("NOT ALLOWED")
+                        else:
+                            print("NOT ALLOWED")
+                    else:
+                        print("NOT ALLOWED")
+                    if flag:
+                        if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
+                            speed = 0.05  # (1 pixel = 12.5 km) real proportion (speed proprtion = 1px = 0.5km)
+                            range = 165
+                            # VLS launch
 
         elif event.type == pygame.KEYDOWN:
             if self.bearing_var[0]:
@@ -624,7 +648,7 @@ class App:
         txtsurf = self.middle_font.render(f"Y: ", True, '#b6b6d1')
         self.window.blit(txtsurf, (20, 205))
 
-        txtsurf = self.middle_font.render(f"{speed:.2f}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{speed/0.0193:.2f}km/h", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 30))
         txtsurf = self.middle_font.render(f"{self.GEAR}", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 55))
@@ -842,7 +866,7 @@ class App:
         pygame.display.update()
 
     def on_execute(self):
-        WATER_DRAG = 0.0002
+        WATER_DRAG = 0.00001
         map_delay = 0
         self.open_main_menu()
         while self.running:
@@ -857,29 +881,35 @@ class App:
             if self.GAME_INIT:
                 # Movement calculations
                 if self.GEAR == 1:
-                    ratio = 1.2 - self.LOCAL_VELOCITY / 0.05
-                    self.LOCAL_ACCELERATION = 0.0007 * ratio
+                    self.LOCAL_ACCELERATION = 0.000014
+                    if self.LOCAL_VELOCITY >= 0.008:
+                        self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.008) / 200
                 elif self.GEAR == 2:
-                    ratio = 1 - self.LOCAL_VELOCITY / 0.08
-                    self.LOCAL_ACCELERATION = 0.0008 * ratio
+                    self.LOCAL_ACCELERATION = 0.000018
+                    if self.LOCAL_VELOCITY >= 0.014:
+                        self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.014) / 200
                 elif self.GEAR == 3:
-                    ratio = 1 - self.LOCAL_VELOCITY / 0.10
-                    self.LOCAL_ACCELERATION = 0.0009 * ratio
+                    self.LOCAL_ACCELERATION = 0.00002
+                    if self.LOCAL_VELOCITY >= 0.018:
+                        self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.018) / 200
                 elif self.GEAR == 0:
                     self.LOCAL_ACCELERATION = 0
                 elif self.GEAR == -1:
-                    ratio = 1.2 + self.LOCAL_VELOCITY / 0.05
-                    self.LOCAL_ACCELERATION = -0.0007 * ratio
+                    self.LOCAL_ACCELERATION = -0.000014
+                    if self.LOCAL_VELOCITY <= -0.008:
+                        self.LOCAL_ACCELERATION += (abs(self.LOCAL_VELOCITY + 0.008)) / 200
                 elif self.GEAR == -2:
-                    ratio = 1 + self.LOCAL_VELOCITY / 0.08
-                    self.LOCAL_ACCELERATION = -0.0008 * ratio
+                    self.LOCAL_ACCELERATION = -0.000018
+                    if self.LOCAL_VELOCITY <= -0.014:
+                        self.LOCAL_ACCELERATION += (abs(self.LOCAL_VELOCITY + 0.014)) / 200
                 elif self.GEAR == -3:
-                    ratio = 1 + self.LOCAL_VELOCITY / 0.10
-                    self.LOCAL_ACCELERATION = -0.0009 * ratio
+                    self.LOCAL_ACCELERATION = -0.00002
+                    if self.LOCAL_VELOCITY <= -0.018:
+                        self.LOCAL_ACCELERATION += (abs(self.LOCAL_VELOCITY + 0.018)) / 200
 
                 self.LOCAL_VELOCITY += self.LOCAL_ACCELERATION
 
-                if self.LOCAL_VELOCITY - WATER_DRAG >= 0 and self.LOCAL_ACCELERATION >= 0:
+                if self.LOCAL_VELOCITY - WATER_DRAG >= 0 and self.GEAR != 0:
                     self.LOCAL_VELOCITY -= WATER_DRAG
                 elif self.LOCAL_VELOCITY + WATER_DRAG <= 0:
                     self.LOCAL_VELOCITY += WATER_DRAG
@@ -999,8 +1029,8 @@ class App:
                 bearing_ = angle - local_position
             return bearing_
 
-        ACTIVE_SONAR_RANGE = 300
-        PASSIVE_SONAR_RANGE = 300
+        ACTIVE_SONAR_RANGE = 80
+        PASSIVE_SONAR_RANGE = 80
         # Active sonar
         self.window.fill('black')
 
@@ -1064,8 +1094,10 @@ class App:
         if self.ACTIVE_SONAR_SELECTED_CONTACT and \
                 list(self.ACTIVE_SONAR_CONTACTS).count(self.ACTIVE_SONAR_SELECTED_CONTACT) > 0:
             a_contact_type = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][1]
-            rel_x = (self.ACTIVE_SONAR_CONTACTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0] - 200) / 0.6
-            rel_y = (self.ACTIVE_SONAR_CONTACTS[self.ACTIVE_SONAR_SELECTED_CONTACT][1] - 200) / 0.6
+            rel_x = (self.ACTIVE_SONAR_CONTACTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0] - 200) / (
+                    200 / ACTIVE_SONAR_RANGE)
+            rel_y = (self.ACTIVE_SONAR_CONTACTS[self.ACTIVE_SONAR_SELECTED_CONTACT][1] - 200) / (
+                    200 / ACTIVE_SONAR_RANGE)
             distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
             a_contact_bearing = calculate_bearing(rel_x, rel_y, distance)
             if a_contact_bearing < 0:
@@ -1077,19 +1109,19 @@ class App:
             if self.TRANSFER_CONTACT_INFO_A:
                 self.bearing_var[1] = f"{float(a_contact_bearing):.2f}"
                 self.depth_var[1] = f"{float(a_contact_depth):.2f}"
-                self.distance_var[1] = f"{float(a_contact_distance):.2f}"
+                self.distance_var[1] = f"{float(a_contact_distance)*2.0923:.2f}"
                 self.TRANSFER_CONTACT_INFO_A = False
         txtsurf = self.middle_font.render(f"{a_contact_type}", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 40))
         txtsurf = self.middle_font.render(f"{a_contact_bearing:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 65))
-        txtsurf = self.middle_font.render(f"{a_contact_speed:.2f}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{(a_contact_speed*60)/0.0193:.2f}km/h", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 90))
-        txtsurf = self.middle_font.render(f"{a_contact_depth:.2f}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{a_contact_depth:.2f}m", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 115))
-        txtsurf = self.middle_font.render(f"{a_contact_distance:.2f}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{a_contact_distance:.2f}km", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 140))
-        txtsurf = self.middle_font.render(f"{a_contact_heading:.2f}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{a_contact_heading:.2f} (azimuth)", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 165))
 
         if self.ACTIVE_SONAR:
@@ -1104,10 +1136,14 @@ class App:
                     rel_x = self.OBJECTS[vessel][0][0] - self.LOCAL_POSITION[0]
                     rel_y = self.OBJECTS[vessel][0][1] - self.LOCAL_POSITION[1]
                     distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-                    if self.ACTIVE_SONAR_PING_RADIUS < distance * 0.6 < self.ACTIVE_SONAR_PING_RADIUS + 5:
+                    if self.ACTIVE_SONAR_PING_RADIUS < distance * (
+                            200 / ACTIVE_SONAR_RANGE) < self.ACTIVE_SONAR_PING_RADIUS + 5 and \
+                            distance <= ACTIVE_SONAR_RANGE:
                         # Draw it on the sonar display
-                        rel_x = rel_x * 0.6 + 200
-                        rel_y = rel_y * 0.6 + 200
+                        rel_x = rel_x * (
+                                200 / ACTIVE_SONAR_RANGE) + 200
+                        rel_y = rel_y * (
+                                200 / ACTIVE_SONAR_RANGE) + 200
                         pygame.draw.circle(self.window, '#386e2c', (rel_x, rel_y), 5)
                         self.ACTIVE_SONAR_CONTACTS[vessel] = [rel_x, rel_y, 4]
             else:
@@ -1257,11 +1293,11 @@ class App:
         self.window.blit(txtsurf, (110, 450))
         txtsurf = self.middle_font.render(f"{contact_bearing:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 480))
-        txtsurf = self.middle_font.render(f"{contact_speed:.2f}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{(contact_speed*60)/0.0193:.2f}km/h", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 510))
-        txtsurf = self.middle_font.render(f"{contact_depth:.2f}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{contact_depth:.2f}m", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 540))
-        txtsurf = self.middle_font.render(f"{contact_distance:.2f}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{contact_distance*2.0923:.2f}km", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 570))
         txtsurf = self.middle_font.render(f"{contact_heading:.2f} (azimuth)", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 600))

@@ -17,7 +17,7 @@
       0,
       0
     ],
-    "ships": [[312, 193, 150, 0, "Friendly ship", 0.01, 0.8]]
+    "ships": [[312, 193, 150, 0, "Friendly ship", 0.008, 0.8]]
   },
   "usa": {
     "ports": [
