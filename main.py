@@ -422,11 +422,13 @@ class App:
                 self.depth_var[0] = False
                 for weapon in self.WEAPON_LAYOUT:
                     if pygame.Rect(weapon).collidepoint(pygame.mouse.get_pos()):
+                        flag = 0
                         for port in self.FRIENDLY_PORT_LOCATIONS:
                             rel_x = port[0] - self.LOCAL_POSITION[0]
                             rel_y = port[1] - self.LOCAL_POSITION[1]
                             distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                             if distance <= 30:
+                                flag = 1
                                 # Weapon refilling
                                 if not self.PLAYER_ID:
                                     # RU
@@ -454,6 +456,13 @@ class App:
                                             self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
                                         else:
                                             self.WEAPON_LAYOUT[weapon][1] = 'Mk-48'
+                        if not flag:
+                            if self.WEAPON_LAYOUT[weapon][0][1] == 0 and self.SELECTED_WEAPON:
+                                if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == self.WEAPON_LAYOUT[weapon][0][0] \
+                                        and self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] != 0:
+                                    temp = self.WEAPON_LAYOUT[weapon][1]
+                                    self.WEAPON_LAYOUT[weapon][1] = self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1]
+                                    self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = temp
                         self.SELECTED_WEAPON = weapon
                 if pygame.Rect(self.bearing_box).collidepoint(pygame.mouse.get_pos()):
                     self.bearing_var[0] = True
@@ -464,7 +473,8 @@ class App:
                 elif pygame.Rect(self.change_mode_box).collidepoint(pygame.mouse.get_pos()):
                     if self.SELECTED_WEAPON:
                         if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == 1 and \
-                                self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] == 0:
+                                self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] == 0 and \
+                                self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] != 'UGM-84':
                             if self.mode_var:
                                 self.mode_var = 0
                             else:
