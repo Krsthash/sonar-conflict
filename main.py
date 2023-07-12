@@ -37,6 +37,10 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.SELECTED_WEAPON = None
+        self.FRIENDLY_PORT_LOCATIONS = []
+        self.WEAPON_LAYOUT = {}
+        self.PLAYER_ID = 1
         self.ACTIVE_SONAR_SELECTED_CONTACT = None
         self.identifying_delay = 0
         self.PASSIVE_SELECTED_CONTACT = None
@@ -120,14 +124,11 @@ class App:
         height = 10
         point1 = (self.LOCAL_POSITION[0] + width * math.cos(math.radians(self.LOCAL_POSITION[2] - 90)),
                   self.LOCAL_POSITION[1] + height * math.sin(math.radians(self.LOCAL_POSITION[2] - 90)))
-        # point2 = (self.LOCAL_POSITION[0] + width//2 * math.cos(math.radians(self.LOCAL_POSITION[2] - 180)),
-        #           self.LOCAL_POSITION[1] + height//2 * math.sin(math.radians(self.LOCAL_POSITION[2] - 180)))
-        #
-        # point3 = (self.LOCAL_POSITION[0] + width//2 * math.cos(math.radians(self.LOCAL_POSITION[2])),
-        #           self.LOCAL_POSITION[1] + height//2 * math.sin(math.radians(self.LOCAL_POSITION[2])))
-        # pygame.draw.polygon(self.map, 'red', (point1, point2, point3), width=1)
         pygame.draw.aaline(self.map, 'red', (self.LOCAL_POSITION[0], self.LOCAL_POSITION[1]), point1)
         pygame.draw.circle(self.map, 'green', (self.LOCAL_POSITION[0], self.LOCAL_POSITION[1]), 2)
+        # Port locations
+        for port in self.FRIENDLY_PORT_LOCATIONS:
+            pygame.draw.circle(self.map, 'green', (port[0], port[1]), 4)
         pygame.display.update()
 
     def on_cleanup(self):
@@ -248,7 +249,7 @@ class App:
                 self.clear_scene()
                 self.GAME_OPEN = True
                 self.GAME_INIT = True
-                self.game_init(0)
+                self.game_init()
 
         if self.join_game_rect.collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
@@ -300,13 +301,14 @@ class App:
                                                        self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2))
         pygame.display.update()
 
-    def game_init(self, player_id):
+    def game_init(self):
         self.G_SPAWN_POSITIONS = [(400, 100, 150, 400), (400, 150, 0, 400)]
+        self.FRIENDLY_PORT_LOCATIONS.append([380, 100])
         # x, y, azimuth, depth
-        self.LOCAL_POSITION = [self.G_SPAWN_POSITIONS[player_id][0], self.G_SPAWN_POSITIONS[player_id][1],
-                               self.G_SPAWN_POSITIONS[player_id][2], 0, self.G_SPAWN_POSITIONS[player_id][3]]
+        self.LOCAL_POSITION = [self.G_SPAWN_POSITIONS[self.PLAYER_ID][0], self.G_SPAWN_POSITIONS[self.PLAYER_ID][1],
+                               self.G_SPAWN_POSITIONS[self.PLAYER_ID][2], 0, self.G_SPAWN_POSITIONS[self.PLAYER_ID][3]]
         # x, y, azimuth, pitch, depth
-        if player_id:
+        if self.PLAYER_ID:
             self.ENEMY_POSITION = [self.G_SPAWN_POSITIONS[0][0], self.G_SPAWN_POSITIONS[0][1],
                                    self.G_SPAWN_POSITIONS[0][2], self.G_SPAWN_POSITIONS[0][3]]
             self.OBJECTS['Enemy'] = [self.ENEMY_POSITION, 'Submarine', 0, 1]
@@ -381,6 +383,9 @@ class App:
                     self.PASSIVE_SONAR_FREEZE = False
                 else:
                     self.PASSIVE_SONAR_FREEZE = True
+            elif event.key == pygame.K_e:
+                self.WEAPON_SCREEN = True
+                self.SONAR_SCREEN = False
 
         elif pygame.Rect(10, 650, 200, 40).collidepoint(pygame.mouse.get_pos()):
             self.PASSIVE_SONAR_BUTTON_HOVER = True
@@ -390,6 +395,274 @@ class App:
                          self.size[0] // 2 - 30, self.size[1] - 30).collidepoint(pygame.mouse.get_pos()):
             mouse_pos = pygame.mouse.get_pos()
             self.sonar_cursor_position = mouse_pos
+
+    def weapon_screen_events(self, event):
+        pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
+        if event.type == pygame.QUIT:
+            self.running = False
+
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                for weapon in self.WEAPON_LAYOUT:
+                    if pygame.Rect(weapon).collidepoint(pygame.mouse.get_pos()):
+                        for port in self.FRIENDLY_PORT_LOCATIONS:
+                            rel_x = port[0] - self.LOCAL_POSITION[0]
+                            rel_y = port[1] - self.LOCAL_POSITION[1]
+                            distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                            if distance <= 30:
+                                # Weapon refilling
+                                if not self.PLAYER_ID:
+                                    # RU
+                                    if self.WEAPON_LAYOUT[weapon][0][0] == 0:
+                                        if self.WEAPON_LAYOUT[weapon][1] == '3M54-1 Kalibr':
+                                            self.WEAPON_LAYOUT[weapon][1] = 'P-800 Oniks'
+                                        else:
+                                            self.WEAPON_LAYOUT[weapon][1] = '3M54-1 Kalibr'
+                                    else:
+                                        if self.WEAPON_LAYOUT[weapon][1] == 'Futlyar':
+                                            self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                        else:
+                                            self.WEAPON_LAYOUT[weapon][1] = 'Futlyar'
+                                else:
+                                    # American
+                                    if self.WEAPON_LAYOUT[weapon][0][0] == 0:
+                                        if self.WEAPON_LAYOUT[weapon][1] == 'TLAM-E':
+                                            self.WEAPON_LAYOUT[weapon][1] = 'TASM'
+                                        else:
+                                            self.WEAPON_LAYOUT[weapon][1] = 'TLAM-E'
+                                    else:
+                                        if self.WEAPON_LAYOUT[weapon][1] == 'Mk-48':
+                                            self.WEAPON_LAYOUT[weapon][1] = 'UGM-84'
+                                        elif self.WEAPON_LAYOUT[weapon][1] == 'UGM-84':
+                                            self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                        else:
+                                            self.WEAPON_LAYOUT[weapon][1] = 'Mk-48'
+                        self.SELECTED_WEAPON = weapon
+
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_m:
+                self.clear_scene()
+                self.MAP_OPEN = True
+                self.open_map()
+                self.map_render()
+            elif event.key == pygame.K_LCTRL:
+                if self.GEAR > -3:
+                    self.GEAR -= 1
+                print(self.GEAR)
+            elif event.key == pygame.K_LSHIFT:
+                if self.GEAR != 3:
+                    self.GEAR += 1
+                print(self.GEAR)
+            elif event.key == pygame.K_e:
+                self.WEAPON_SCREEN = False
+                self.SONAR_SCREEN = True
+            elif event.key == pygame.K_r:
+                for port in self.FRIENDLY_PORT_LOCATIONS:
+                    rel_x = port[0] - self.LOCAL_POSITION[0]
+                    rel_y = port[1] - self.LOCAL_POSITION[1]
+                    distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                    if distance <= 30:
+                        for weapon in self.WEAPON_LAYOUT:
+                            if not self.PLAYER_ID:
+                                # RU
+                                if self.WEAPON_LAYOUT[weapon][0][0] == 0:
+                                    if self.WEAPON_LAYOUT[weapon][1] == '3M54-1 Kalibr':
+                                        self.WEAPON_LAYOUT[weapon][1] = 'P-800 Oniks'
+                                    else:
+                                        self.WEAPON_LAYOUT[weapon][1] = '3M54-1 Kalibr'
+                                else:
+                                    self.WEAPON_LAYOUT[weapon][1] = 'Futlyar'
+                            else:
+                                # USA
+                                if self.WEAPON_LAYOUT[weapon][0][0] == 0:
+                                    if self.WEAPON_LAYOUT[weapon][1] == 'TLAM-E':
+                                        self.WEAPON_LAYOUT[weapon][1] = 'TASM'
+                                    else:
+                                        self.WEAPON_LAYOUT[weapon][1] = 'TLAM-E'
+                                else:
+                                    if self.WEAPON_LAYOUT[weapon][1] == 'Mk-48':
+                                        self.WEAPON_LAYOUT[weapon][1] = 'UGM-84'
+                                    elif self.WEAPON_LAYOUT[weapon][1] == 'UGM-84':
+                                        self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                    else:
+                                        self.WEAPON_LAYOUT[weapon][1] = 'Mk-48'
+
+    def weapon_screen_render(self):
+        self.window.fill(0)
+
+        # Splitter lines
+        pygame.draw.line(self.window, '#b6b6d1', (300, 0), (300, self.size[1]))
+        pygame.draw.line(self.window, '#b6b6d1', (300, 100), (self.size[0], 100))
+
+        # Position details
+        speed = self.LOCAL_VELOCITY * self.fps
+        txtsurf = self.middle_font.render(f"Speed: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (20, 30))
+        txtsurf = self.middle_font.render(f"Gear: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (20, 55))
+        txtsurf = self.middle_font.render(f"Depth: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (20, 80))
+        txtsurf = self.middle_font.render(f"Pitch: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (20, 105))
+        txtsurf = self.middle_font.render(f"Heading: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (20, 130))
+        txtsurf = self.middle_font.render(f"Ballast: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (20, 155))
+        txtsurf = self.middle_font.render(f"X: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (20, 180))
+        txtsurf = self.middle_font.render(f"Y: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (20, 205))
+
+        txtsurf = self.middle_font.render(f"{speed:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (100, 30))
+        txtsurf = self.middle_font.render(f"{self.GEAR}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (100, 55))
+        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[4]:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (100, 80))
+        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[3]:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (100, 105))
+        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[2]:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (100, 130))
+        txtsurf = self.middle_font.render(f"{self.BALLAST:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (100, 155))
+        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[0]:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (100, 180))
+        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[1]:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (100, 205))
+
+        # Russian weapon layout
+        if not self.PLAYER_ID:
+            # Vertical Launch System
+            for i in range(8):
+                rect = (320, 120 + i * 40, 50, 7)
+                if rect not in list(self.WEAPON_LAYOUT):
+                    self.WEAPON_LAYOUT[rect] = [(0, 0), '']
+                if self.WEAPON_LAYOUT[rect][1] != '':
+                    if self.WEAPON_LAYOUT[rect][1] == '3M54-1 Kalibr':
+                        pygame.draw.rect(self.window, '#c95918', rect, border_radius=5)
+                    else:
+                        pygame.draw.rect(self.window, '#16c7c7', rect, border_radius=5)
+                    txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
+                    self.window.blit(txtsurf, (rect[0], rect[1] + 10))
+                # [Rect] VLS/T (Tube/Storage), Weapon type
+                pygame.draw.rect(self.window, 'red', rect, border_radius=5, width=1)
+            # VLS Storage
+            for j in range(3):
+                for i in range(8):
+                    rect = (400 + j * 80, 120 + i * 40, 50, 7)
+                    if rect not in list(self.WEAPON_LAYOUT):
+                        self.WEAPON_LAYOUT[rect] = [(0, 1), '']
+                    if self.WEAPON_LAYOUT[rect][1] != '':
+                        if self.WEAPON_LAYOUT[rect][1] == '3M54-1 Kalibr':
+                            pygame.draw.rect(self.window, '#c95918', rect, border_radius=5)
+                        else:
+                            pygame.draw.rect(self.window, '#16c7c7', rect, border_radius=5)
+                        txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
+                        self.window.blit(txtsurf, (rect[0], rect[1] + 10))
+                    pygame.draw.rect(self.window, '#b6b6d1', rect, border_radius=5, width=1)
+            # Torpedo tubes
+            for i in range(10):
+                rect = (640, 120 + i * 40, 50, 7)
+                if rect not in list(self.WEAPON_LAYOUT):
+                    self.WEAPON_LAYOUT[rect] = [(1, 0), '']
+                if self.WEAPON_LAYOUT[rect][1] != '':
+                    if self.WEAPON_LAYOUT[rect][1] == 'Futlyar':
+                        pygame.draw.rect(self.window, '#263ded', rect, border_radius=5)
+                    else:
+                        pygame.draw.rect(self.window, '#ffff82', rect, border_radius=5)
+                    txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
+                    self.window.blit(txtsurf, (rect[0], rect[1] + 10))
+                pygame.draw.rect(self.window, 'red', rect, border_radius=5, width=1)
+            # Torpedo tube storage
+            for j in range(3):
+                for i in range(10):
+                    rect = (720 + j * 80, 120 + i * 40, 50, 7)
+                    if rect not in list(self.WEAPON_LAYOUT):
+                        self.WEAPON_LAYOUT[rect] = [(1, 1), '']
+                    if self.WEAPON_LAYOUT[rect][1] != '':
+                        if self.WEAPON_LAYOUT[rect][1] == 'Futlyar':
+                            pygame.draw.rect(self.window, '#263ded', rect, border_radius=5)
+                        else:
+                            pygame.draw.rect(self.window, '#ffff82', rect, border_radius=5)
+                        txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
+                        self.window.blit(txtsurf, (rect[0], rect[1] + 10))
+                    pygame.draw.rect(self.window, '#b6b6d1', rect, border_radius=5, width=1)
+        else:
+            # American weapon layout
+            # Vertical Launch System
+            for i in range(12):
+                rect = (320, 120 + i * 40, 50, 7)
+                if rect not in list(self.WEAPON_LAYOUT):
+                    self.WEAPON_LAYOUT[rect] = [(0, 0), '']
+                if self.WEAPON_LAYOUT[rect][1] != '':
+                    if self.WEAPON_LAYOUT[rect][1] == 'TLAM-E':
+                        pygame.draw.rect(self.window, '#c95918', rect, border_radius=5)
+                    else:
+                        pygame.draw.rect(self.window, '#16c7c7', rect, border_radius=5)
+                    txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
+                    self.window.blit(txtsurf, (rect[0], rect[1] + 10))
+                # [Rect] VLS/T (Tube/Storage), Weapon type
+                pygame.draw.rect(self.window, 'red', rect, border_radius=5, width=1)
+            for j in range(2):
+                for i in range(12):
+                    rect = (400 + j * 80, 120 + i * 40, 50, 7)
+                    if rect not in list(self.WEAPON_LAYOUT):
+                        self.WEAPON_LAYOUT[rect] = [(0, 1), '']
+                    if self.WEAPON_LAYOUT[rect][1] != '':
+                        if self.WEAPON_LAYOUT[rect][1] == 'TLAM-E':
+                            pygame.draw.rect(self.window, '#c95918', rect, border_radius=5)
+                        else:
+                            pygame.draw.rect(self.window, '#16c7c7', rect, border_radius=5)
+                        txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
+                        self.window.blit(txtsurf, (rect[0], rect[1] + 10))
+                    pygame.draw.rect(self.window, '#b6b6d1', rect, border_radius=5, width=1)
+            for i in range(4):
+                rect = (560, 120 + i * 40, 50, 7)
+                if rect not in list(self.WEAPON_LAYOUT):
+                    self.WEAPON_LAYOUT[rect] = [(0, 1), '']
+                if self.WEAPON_LAYOUT[rect][1] != '':
+                    if self.WEAPON_LAYOUT[rect][1] == 'TLAM-E':
+                        pygame.draw.rect(self.window, '#c95918', rect, border_radius=5)
+                    else:
+                        pygame.draw.rect(self.window, '#16c7c7', rect, border_radius=5)
+                    txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
+                    self.window.blit(txtsurf, (rect[0], rect[1] + 10))
+                pygame.draw.rect(self.window, '#b6b6d1', rect, border_radius=5, width=1)
+            # Torpedo tubes
+            for i in range(4):
+                rect = (640, 120 + i * 40, 50, 7)
+                if rect not in list(self.WEAPON_LAYOUT):
+                    self.WEAPON_LAYOUT[rect] = [(1, 0), '']
+                if self.WEAPON_LAYOUT[rect][1] != '':
+                    if self.WEAPON_LAYOUT[rect][1] == 'Mk-48':
+                        pygame.draw.rect(self.window, '#263ded', rect, border_radius=5)
+                    elif self.WEAPON_LAYOUT[rect][1] == 'UGM-84':
+                        pygame.draw.rect(self.window, '#16c7c7', rect, border_radius=5)
+                    else:
+                        pygame.draw.rect(self.window, '#ffff82', rect, border_radius=5)
+                    txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
+                    self.window.blit(txtsurf, (rect[0], rect[1] + 10))
+                pygame.draw.rect(self.window, 'red', rect, border_radius=5, width=1)
+            for j in range(2):
+                for i in range(11):
+                    rect = (720 + j*80, 120 + i * 40, 50, 7)
+                    if rect not in list(self.WEAPON_LAYOUT):
+                        self.WEAPON_LAYOUT[rect] = [(1, 1), '']
+                    if self.WEAPON_LAYOUT[rect][1] != '':
+                        if self.WEAPON_LAYOUT[rect][1] == 'Mk-48':
+                            pygame.draw.rect(self.window, '#263ded', rect, border_radius=5)
+                        elif self.WEAPON_LAYOUT[rect][1] == 'UGM-84':
+                            pygame.draw.rect(self.window, '#16c7c7', rect, border_radius=5)
+                        else:
+                            pygame.draw.rect(self.window, '#ffff82', rect, border_radius=5)
+                        txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
+                        self.window.blit(txtsurf, (rect[0], rect[1] + 10))
+                    pygame.draw.rect(self.window, '#b6b6d1', rect, border_radius=5, width=1)
+        # Selected weapon render
+        if self.SELECTED_WEAPON:
+            pygame.draw.rect(self.window, 'green', self.SELECTED_WEAPON, border_radius=5, width=1)
+
+        pygame.display.update()
 
     def on_execute(self):
         WATER_DRAG = 0.0002
@@ -455,6 +728,8 @@ class App:
             elif self.GAME_OPEN:
                 if self.SONAR_SCREEN:
                     self.sonar_screen_render()
+                elif self.WEAPON_SCREEN:
+                    self.weapon_screen_render()
             elif self.MAP_OPEN:
                 map_delay += tick_time
                 if map_delay > self.fps * 2:
@@ -467,8 +742,10 @@ class App:
                     self.check_map_events(event)
                 elif self.MAIN_MENU_OPEN:
                     self.main_menu_events(event)
-                elif self.GAME_OPEN:
+                elif self.SONAR_SCREEN:
                     self.game_events(event)
+                elif self.WEAPON_SCREEN:
+                    self.weapon_screen_events(event)
 
             if self.GAME_INIT:
                 keys = pygame.key.get_pressed()
@@ -800,18 +1077,18 @@ class App:
                                  self.sonar_cursor_position)
                 pygame.draw.line(self.window, '#00ad06', (self.sonar_cursor_position[0], 30),
                                  self.sonar_cursor_position)
-                pygame.draw.line(self.window, '#00ad06', (self.size[0], self.sonar_cursor_position[1]),
+                pygame.draw.line(self.window, '#00ad06', (self.size[0]-30, self.sonar_cursor_position[1]),
                                  self.sonar_cursor_position)
-                pygame.draw.line(self.window, '#00ad06', (self.sonar_cursor_position[0], self.size[1] - 30),
+                pygame.draw.line(self.window, '#00ad06', (self.sonar_cursor_position[0], self.size[1]),
                                  self.sonar_cursor_position)
             else:
                 pygame.draw.line(self.window, '#ad001d', (self.size[0] // 2, self.sonar_cursor_position[1]),
                                  self.sonar_cursor_position)
                 pygame.draw.line(self.window, '#ad001d', (self.sonar_cursor_position[0], 30),
                                  self.sonar_cursor_position)
-                pygame.draw.line(self.window, '#ad001d', (self.size[0], self.sonar_cursor_position[1]),
+                pygame.draw.line(self.window, '#ad001d', (self.size[0]-30, self.sonar_cursor_position[1]),
                                  self.sonar_cursor_position)
-                pygame.draw.line(self.window, '#ad001d', (self.sonar_cursor_position[0], self.size[1] - 30),
+                pygame.draw.line(self.window, '#ad001d', (self.sonar_cursor_position[0], self.size[1]),
                                  self.sonar_cursor_position)
         pygame.display.update()
 
