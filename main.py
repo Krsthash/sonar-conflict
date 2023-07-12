@@ -1,4 +1,5 @@
 import colorsys
+import json
 import math
 import os
 import random
@@ -54,7 +55,7 @@ class App:
         self.SELECTED_WEAPON = None
         self.FRIENDLY_PORT_LOCATIONS = []
         self.WEAPON_LAYOUT = {}
-        self.PLAYER_ID = 1
+        self.PLAYER_ID = 0
         self.ACTIVE_SONAR_SELECTED_CONTACT = None
         self.identifying_delay = 0
         self.PASSIVE_SELECTED_CONTACT = None
@@ -65,7 +66,6 @@ class App:
         self.middle_font = pygame.font.Font('freesansbold.ttf', 15)
         self.small_font = pygame.font.Font('freesansbold.ttf', 10)
         self.PASSIVE_SONAR_DISPLAY_CONTACTS = []
-        self.ENEMY_DETECTION_CHANCE = 0
         self.ACTIVE_SONAR_CONTACTS = {}
         self.ACTIVE_SONAR_PING_DELAY = 0
         self.ACTIVE_SONAR_PING_RADIUS = 0
@@ -74,9 +74,8 @@ class App:
         self.GEAR = 0
         self.LOCAL_ACCELERATION = 0
         self.LOCAL_VELOCITY = 0
-        self.ENEMY_POSITION = None
+        # self.ENEMY_POSITION = None
         self.LOCAL_POSITION = None
-        self.G_SPAWN_POSITIONS = None
         self.quit_rect = None
         self.host_game_rect = None
         self.join_game_rect = None
@@ -134,15 +133,36 @@ class App:
 
     def map_render(self):
         # Location marker rendering
-        width = 10
-        height = 10
-        point1 = (self.LOCAL_POSITION[0] + width * math.cos(math.radians(self.LOCAL_POSITION[2] - 90)),
-                  self.LOCAL_POSITION[1] + height * math.sin(math.radians(self.LOCAL_POSITION[2] - 90)))
+        length = 10
+        point1 = (self.LOCAL_POSITION[0] + length * math.cos(math.radians(self.LOCAL_POSITION[2] - 90)),
+                  self.LOCAL_POSITION[1] + length * math.sin(math.radians(self.LOCAL_POSITION[2] - 90)))
         pygame.draw.aaline(self.map, 'red', (self.LOCAL_POSITION[0], self.LOCAL_POSITION[1]), point1)
         pygame.draw.circle(self.map, 'green', (self.LOCAL_POSITION[0], self.LOCAL_POSITION[1]), 2)
+        # Friendly ship locations
+        for ship in self.OBJECTS:
+            if ship[:13] == "Friendly_ship":
+                length = 5
+                point1 = (self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
+                          self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
+                pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), point1)
+                pygame.draw.circle(self.map, 'green', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
+
         # Port locations
         for port in self.FRIENDLY_PORT_LOCATIONS:
             pygame.draw.circle(self.map, 'green', (port[0], port[1]), 4)
+
+        # Friendly target locations
+        for target in self.FRIENDLY_TARGET_LOCATIONS:
+            pygame.draw.circle(self.map, 'yellow', (target[0], target[1]), 2)
+            txtsurf = self.small_font.render(f"{target[2]}%", True, 'gray')
+            self.map.blit(txtsurf, (target[0], target[1]))
+
+        # Enemy target locations
+        for target in self.ENEMY_TARGET_LOCATIONS:
+            pygame.draw.circle(self.map, 'orange', (target[0], target[1]), 2)
+            txtsurf = self.small_font.render(f"{target[2]}%", True, 'gray')
+            self.map.blit(txtsurf, (target[0], target[1]))
+
         pygame.display.update()
 
     def on_cleanup(self):
@@ -210,6 +230,7 @@ class App:
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 self.moving = True
+                print(pygame.mouse.get_pos())
             elif event.button == 4 or event.button == 5:
                 zoom = 1.2 if event.button == 4 else 0.8
                 mx, my = event.pos
@@ -316,23 +337,38 @@ class App:
         pygame.display.update()
 
     def game_init(self):
-        self.G_SPAWN_POSITIONS = [(400, 100, 150, 400), (400, 150, 0, 400)]
-        self.FRIENDLY_PORT_LOCATIONS.append([380, 100])
+        # Load mission information from a file
+        mission = None
+        with open('mission1.json', 'r') as file:
+            mission = json.load(file)
+        code = 'usa'
+        enemy_code = 'ru'
+        if not self.PLAYER_ID:
+            code = 'ru'
+            enemy_code = 'usa'
+        self.FRIENDLY_PORT_LOCATIONS = mission[code]['ports']
+        self.FRIENDLY_TARGET_LOCATIONS = mission[code]['targets']  # X, Y, Health
+        self.ENEMY_TARGET_LOCATIONS = mission[enemy_code]['targets']
         # x, y, azimuth, depth
-        self.LOCAL_POSITION = [self.G_SPAWN_POSITIONS[self.PLAYER_ID][0], self.G_SPAWN_POSITIONS[self.PLAYER_ID][1],
-                               self.G_SPAWN_POSITIONS[self.PLAYER_ID][2], 0, self.G_SPAWN_POSITIONS[self.PLAYER_ID][3]]
+        self.LOCAL_POSITION = [mission[code]['spawn'][0], mission[code]['spawn'][1],
+                               mission[code]['spawn'][2], 0, mission[code]['spawn'][3]]
         # x, y, azimuth, pitch, depth
-        if self.PLAYER_ID:
-            self.ENEMY_POSITION = [self.G_SPAWN_POSITIONS[0][0], self.G_SPAWN_POSITIONS[0][1],
-                                   self.G_SPAWN_POSITIONS[0][2], self.G_SPAWN_POSITIONS[0][3]]
-            self.OBJECTS['Enemy'] = [self.ENEMY_POSITION, 'Submarine', 0, 1]
-        else:
-            self.ENEMY_POSITION = [self.G_SPAWN_POSITIONS[1][0], self.G_SPAWN_POSITIONS[1][1],
-                                   self.G_SPAWN_POSITIONS[1][2], self.G_SPAWN_POSITIONS[1][3]]
-            self.OBJECTS['Enemy'] = [self.ENEMY_POSITION, 'Submarine', 0, 1]
-            # [x, y, azimuth, depth], type, velocity, detection_chance
+        # self.ENEMY_POSITION = [mission[enemy_code]['spawn'][0], mission[enemy_code]['spawn'][1],
+        #                        mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]]
+        self.OBJECTS['Enemy'] = [[mission[enemy_code]['spawn'][0], mission[enemy_code]['spawn'][1],
+                                  mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]], 'Submarine', 0, 1]
+        # [x, y, azimuth, depth], type, velocity, detection_chance
+        i = 1
+        for vessel in mission[code]['ships']:
+            self.OBJECTS[f'Friendly_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], vessel[3]],
+                                                  vessel[4], vessel[5], vessel[6]]
+            i += 1
+        i = 1
+        for vessel in mission[enemy_code]['ships']:
+            self.OBJECTS[f'Enemy_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], vessel[3]],
+                                               vessel[4], vessel[5], vessel[6]]
+            i += 1
         self.SONAR_SCREEN = True
-        self.ENEMY_DETECTION_CHANCE = 1
 
     def start_game(self):
         self.window.fill('black')
@@ -720,7 +756,7 @@ class App:
                 pygame.draw.rect(self.window, 'red', rect, border_radius=5, width=1)
             for j in range(2):
                 for i in range(11):
-                    rect = (720 + j*80, 120 + i * 40, 50, 7)
+                    rect = (720 + j * 80, 120 + i * 40, 50, 7)
                     if rect not in list(self.WEAPON_LAYOUT):
                         self.WEAPON_LAYOUT[rect] = [(1, 1), '']
                     if self.WEAPON_LAYOUT[rect][1] != '':
@@ -801,7 +837,7 @@ class App:
         self.fire_box = (795, 37.5, 80, 25)
         pygame.draw.rect(self.window, 'red', self.fire_box, border_radius=2)
         txtsurf = self.middle_font.render("FIRE", True, 'white')
-        self.window.blit(txtsurf, (795 + (40 - txtsurf.get_width()//2), 37.5 + (12.5 - txtsurf.get_height() // 2)))
+        self.window.blit(txtsurf, (795 + (40 - txtsurf.get_width() // 2), 37.5 + (12.5 - txtsurf.get_height() // 2)))
 
         pygame.display.update()
 
@@ -864,6 +900,14 @@ class App:
                     self.LOCAL_POSITION[4] = 0
                 elif self.LOCAL_POSITION[4] >= 700:
                     self.LOCAL_POSITION[4] = 700
+
+                # Other vessel's simulation
+                for vessel in self.OBJECTS:
+                    if vessel != 'Enemy' and self.OBJECTS[vessel][2] != 0:
+                        self.OBJECTS[vessel][0][0] += (self.OBJECTS[vessel][2] * fps_d) * math.cos(
+                            math.radians(self.OBJECTS[vessel][0][2] - 90))
+                        self.OBJECTS[vessel][0][1] += (self.OBJECTS[vessel][2] * fps_d) * math.sin(
+                            math.radians(self.OBJECTS[vessel][0][2] - 90))
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
             elif self.GAME_OPEN:
@@ -1056,15 +1100,16 @@ class App:
                 pygame.draw.circle(self.window, 'white', (200, 200), self.ACTIVE_SONAR_PING_RADIUS, width=1)
                 self.ACTIVE_SONAR_PING_RADIUS += 1.5 * self.fps / self.current_fps
                 # Make the coordinates relative:
-                rel_x = self.ENEMY_POSITION[0] - self.LOCAL_POSITION[0]
-                rel_y = self.ENEMY_POSITION[1] - self.LOCAL_POSITION[1]
-                distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-                if self.ACTIVE_SONAR_PING_RADIUS < distance * 0.6 < self.ACTIVE_SONAR_PING_RADIUS + 5:
-                    # Draw it on the sonar display
-                    rel_x = rel_x * 0.6 + 200
-                    rel_y = rel_y * 0.6 + 200
-                    pygame.draw.circle(self.window, '#386e2c', (rel_x, rel_y), 5)
-                    self.ACTIVE_SONAR_CONTACTS['Enemy'] = [rel_x, rel_y, 4]
+                for vessel in self.OBJECTS:
+                    rel_x = self.OBJECTS[vessel][0][0] - self.LOCAL_POSITION[0]
+                    rel_y = self.OBJECTS[vessel][0][1] - self.LOCAL_POSITION[1]
+                    distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                    if self.ACTIVE_SONAR_PING_RADIUS < distance * 0.6 < self.ACTIVE_SONAR_PING_RADIUS + 5:
+                        # Draw it on the sonar display
+                        rel_x = rel_x * 0.6 + 200
+                        rel_y = rel_y * 0.6 + 200
+                        pygame.draw.circle(self.window, '#386e2c', (rel_x, rel_y), 5)
+                        self.ACTIVE_SONAR_CONTACTS[vessel] = [rel_x, rel_y, 4]
             else:
                 if self.ACTIVE_SONAR_PING_DELAY + 0.017 * self.fps / self.current_fps >= 1.5:
                     self.ACTIVE_SONAR_PING_DELAY = 0
@@ -1113,27 +1158,30 @@ class App:
             pygame.draw.circle(self.window, '#386e2c', (contact[0], 30 + contact[1]), 1)
 
         # Make the coordinates relative:
-        rel_x = self.ENEMY_POSITION[0] - self.LOCAL_POSITION[0]
-        rel_y = self.ENEMY_POSITION[1] - self.LOCAL_POSITION[1]
-        distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-        if distance <= PASSIVE_SONAR_RANGE:
-            # Draw it on the passive sonar display
-            bearing = calculate_bearing(rel_x, rel_y, distance)
+        for vessel in self.OBJECTS:
+            rel_x = self.OBJECTS[vessel][0][0] - self.LOCAL_POSITION[0]
+            rel_y = self.OBJECTS[vessel][0][1] - self.LOCAL_POSITION[1]
+            distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+            if distance <= PASSIVE_SONAR_RANGE:
+                # Draw it on the passive sonar display
+                bearing = calculate_bearing(rel_x, rel_y, distance)
 
-            # print(f"Angle: {angle} Local Angle: {local_position} "
-            #       f"Bearing: {bearing}")
-            if not self.PASSIVE_SONAR_FREEZE:
-                if self.ENEMY_POSITION[3] < self.LOCAL_POSITION[4]:
-                    rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
-                    rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
-                    zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
-                    self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([(zero + rel_x * scale) + random_int(-4, 4), 1, 'Enemy'])
-                    # pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*scale, 30), 5)
-                else:
-                    rel_x = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2 + bearing
-                    rel_x -= (p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2)
-                    zero = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2
-                    self.PASSIVE_SONAR_DISPLAY_CONTACTS.append([(zero + rel_x * scale) + random_int(-4, 4), 1, 'Enemy'])
+                # print(f"Angle: {angle} Local Angle: {local_position} "
+                #       f"Bearing: {bearing}")
+                if not self.PASSIVE_SONAR_FREEZE:
+                    if self.OBJECTS[vessel][0][3] < self.LOCAL_POSITION[4]:
+                        rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
+                        rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
+                        zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
+                        self.PASSIVE_SONAR_DISPLAY_CONTACTS.append(
+                            [(zero + rel_x * scale) + random_int(-4, 4), 1, vessel])
+                        # pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*scale, 30), 5)
+                    else:
+                        rel_x = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2 + bearing
+                        rel_x -= (p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2)
+                        zero = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2
+                        self.PASSIVE_SONAR_DISPLAY_CONTACTS.append(
+                            [(zero + rel_x * scale) + random_int(-4, 4), 1, vessel])
 
         # Passive sonar contact identification
         txtsurf = self.middle_font.render("Passive sonar contact identification", True, '#b6b6d1')
@@ -1196,7 +1244,7 @@ class App:
                 rel_y = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][1] - self.LOCAL_POSITION[1]
                 contact_distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                 contact_heading = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][2]
-                contact_bearing = calculate_bearing(rel_x, rel_y, distance)
+                contact_bearing = calculate_bearing(rel_x, rel_y, contact_distance)
                 if contact_bearing < 0:
                     contact_bearing += 360
                 if contact_distance > PASSIVE_SONAR_RANGE:
@@ -1223,7 +1271,7 @@ class App:
                                  self.sonar_cursor_position)
                 pygame.draw.line(self.window, '#00ad06', (self.sonar_cursor_position[0], 30),
                                  self.sonar_cursor_position)
-                pygame.draw.line(self.window, '#00ad06', (self.size[0]-30, self.sonar_cursor_position[1]),
+                pygame.draw.line(self.window, '#00ad06', (self.size[0] - 30, self.sonar_cursor_position[1]),
                                  self.sonar_cursor_position)
                 pygame.draw.line(self.window, '#00ad06', (self.sonar_cursor_position[0], self.size[1]),
                                  self.sonar_cursor_position)
@@ -1232,7 +1280,7 @@ class App:
                                  self.sonar_cursor_position)
                 pygame.draw.line(self.window, '#ad001d', (self.sonar_cursor_position[0], 30),
                                  self.sonar_cursor_position)
-                pygame.draw.line(self.window, '#ad001d', (self.size[0]-30, self.sonar_cursor_position[1]),
+                pygame.draw.line(self.window, '#ad001d', (self.size[0] - 30, self.sonar_cursor_position[1]),
                                  self.sonar_cursor_position)
                 pygame.draw.line(self.window, '#ad001d', (self.sonar_cursor_position[0], self.size[1]),
                                  self.sonar_cursor_position)
