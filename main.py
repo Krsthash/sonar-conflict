@@ -37,6 +37,20 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.reset_box = None
+        self.passive_transfer_box = None
+        self.active_transfer_box = None
+        self.TRANSFER_CONTACT_INFO_A = False
+        self.TRANSFER_CONTACT_INFO_P = False
+        self.mode_var = -1
+        self.depth_var = [False, ""]
+        self.distance_var = [False, ""]
+        self.bearing_var = [False, ""]
+        self.fire_box = None
+        self.change_mode_box = None
+        self.depth_box = None
+        self.distance_box = None
+        self.bearing_box = None
         self.SELECTED_WEAPON = None
         self.FRIENDLY_PORT_LOCATIONS = []
         self.WEAPON_LAYOUT = {}
@@ -403,6 +417,9 @@ class App:
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
+                self.bearing_var[0] = False
+                self.distance_var[0] = False
+                self.depth_var[0] = False
                 for weapon in self.WEAPON_LAYOUT:
                     if pygame.Rect(weapon).collidepoint(pygame.mouse.get_pos()):
                         for port in self.FRIENDLY_PORT_LOCATIONS:
@@ -438,9 +455,57 @@ class App:
                                         else:
                                             self.WEAPON_LAYOUT[weapon][1] = 'Mk-48'
                         self.SELECTED_WEAPON = weapon
+                if pygame.Rect(self.bearing_box).collidepoint(pygame.mouse.get_pos()):
+                    self.bearing_var[0] = True
+                elif pygame.Rect(self.distance_box).collidepoint(pygame.mouse.get_pos()):
+                    self.distance_var[0] = True
+                elif pygame.Rect(self.depth_box).collidepoint(pygame.mouse.get_pos()):
+                    self.depth_var[0] = True
+                elif pygame.Rect(self.change_mode_box).collidepoint(pygame.mouse.get_pos()):
+                    if self.SELECTED_WEAPON:
+                        if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == 1 and \
+                                self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] == 0:
+                            if self.mode_var:
+                                self.mode_var = 0
+                            else:
+                                self.mode_var = 1
+                        else:
+                            self.mode_var = -1
+                elif pygame.Rect(self.active_transfer_box).collidepoint(pygame.mouse.get_pos()):
+                    self.TRANSFER_CONTACT_INFO_A = True
+                elif pygame.Rect(self.passive_transfer_box).collidepoint(pygame.mouse.get_pos()):
+                    self.TRANSFER_CONTACT_INFO_P = True
+                elif pygame.Rect(self.reset_box).collidepoint(pygame.mouse.get_pos()):
+                    self.bearing_var[1] = ''
+                    self.depth_var[1] = ''
+                    self.distance_var[1] = ''
 
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_m:
+            if self.bearing_var[0]:
+                if event.key == pygame.K_BACKSPACE:
+                    self.bearing_var[1] = self.bearing_var[1][:-1]
+                elif len(self.bearing_var[1]) <= 5:
+                    if (pygame.key.name(event.key)).isnumeric():
+                        self.bearing_var[1] += pygame.key.name(event.key)
+                    elif pygame.key.name(event.key) == '.':
+                        self.bearing_var[1] += '.'
+            elif self.distance_var[0]:
+                if event.key == pygame.K_BACKSPACE:
+                    self.distance_var[1] = self.distance_var[1][:-1]
+                elif len(self.distance_var[1]) <= 8:
+                    if (pygame.key.name(event.key)).isnumeric():
+                        self.distance_var[1] += pygame.key.name(event.key)
+                    elif pygame.key.name(event.key) == '.':
+                        self.distance_var[1] += '.'
+            elif self.depth_var[0]:
+                if event.key == pygame.K_BACKSPACE:
+                    self.depth_var[1] = self.depth_var[1][:-1]
+                elif len(self.depth_var[1]) <= 5:
+                    if (pygame.key.name(event.key)).isnumeric():
+                        self.depth_var[1] += pygame.key.name(event.key)
+                    elif pygame.key.name(event.key) == '.':
+                        self.depth_var[1] += '.'
+            elif event.key == pygame.K_m:
                 self.clear_scene()
                 self.MAP_OPEN = True
                 self.open_map()
@@ -661,6 +726,72 @@ class App:
         # Selected weapon render
         if self.SELECTED_WEAPON:
             pygame.draw.rect(self.window, 'green', self.SELECTED_WEAPON, border_radius=5, width=1)
+
+        # Reset button
+        self.reset_box = (380, 70, 20, 20)
+        pygame.draw.rect(self.window, 'red', self.reset_box, border_radius=2)
+        txtsurf = self.middle_font.render("R", True, 'black')
+        self.window.blit(txtsurf, (380 + (10 - txtsurf.get_width() // 2), 70 + (10 - txtsurf.get_height() // 2)))
+
+        # Transfer contact information buttons
+        self.active_transfer_box = (320, 70, 20, 20)
+        pygame.draw.rect(self.window, 'green', self.active_transfer_box, border_radius=2)
+        txtsurf = self.middle_font.render("A", True, 'black')
+        self.window.blit(txtsurf, (320 + (10 - txtsurf.get_width() // 2), 70 + (10 - txtsurf.get_height() // 2)))
+
+        self.passive_transfer_box = (350, 70, 20, 20)
+        pygame.draw.rect(self.window, 'green', self.passive_transfer_box, border_radius=2)
+        txtsurf = self.middle_font.render("P", True, 'black')
+        self.window.blit(txtsurf, (350 + (10 - txtsurf.get_width() // 2), 70 + (10 - txtsurf.get_height() // 2)))
+
+        # Launch information
+        txtsurf = self.middle_font.render("Bearing", True, '#b6b6d1')
+        self.window.blit(txtsurf, (320, 37.5 - txtsurf.get_height()))
+        self.bearing_box = (320, 37.5, 70, 25)
+        if not self.bearing_var[0]:
+            pygame.draw.rect(self.window, '#b6b6d1', self.bearing_box, width=2)
+        else:
+            pygame.draw.rect(self.window, 'white', self.bearing_box, width=2)
+        txtsurf = self.middle_font.render(f"{self.bearing_var[1]}", True, 'white')
+        self.window.blit(txtsurf, (325, 37.5 + (12.5 - txtsurf.get_height() // 2)))
+
+        txtsurf = self.middle_font.render("Depth", True, '#b6b6d1')
+        self.window.blit(txtsurf, (410, 37.5 - txtsurf.get_height()))
+        self.depth_box = (410, 37.5, 70, 25)
+        if not self.depth_var[0]:
+            pygame.draw.rect(self.window, '#b6b6d1', self.depth_box, width=2)
+        else:
+            pygame.draw.rect(self.window, 'white', self.depth_box, width=2)
+        txtsurf = self.middle_font.render(f"{self.depth_var[1]}", True, 'white')
+        self.window.blit(txtsurf, (415, 37.5 + (12.5 - txtsurf.get_height() // 2)))
+
+        txtsurf = self.middle_font.render("Distance", True, '#b6b6d1')
+        self.window.blit(txtsurf, (500, 37.5 - txtsurf.get_height()))
+        self.distance_box = (500, 37.5, 100, 25)
+        if not self.distance_var[0]:
+            pygame.draw.rect(self.window, '#b6b6d1', self.distance_box, width=2)
+        else:
+            pygame.draw.rect(self.window, 'white', self.distance_box, width=2)
+        txtsurf = self.middle_font.render(f"{self.distance_var[1]}", True, 'white')
+        self.window.blit(txtsurf, (505, 37.5 + (12.5 - txtsurf.get_height() // 2)))
+
+        txtsurf = self.middle_font.render("Mode: ", True, 'white')
+        self.window.blit(txtsurf, (620, 37.5 + (12.5 - txtsurf.get_height() // 2)))
+        if self.mode_var == 1:
+            txtsurf = self.middle_font.render("Active", True, 'white')
+        elif self.mode_var == 0:
+            txtsurf = self.middle_font.render("Passive", True, 'white')
+        else:
+            txtsurf = self.middle_font.render("Normal", True, 'white')
+        self.window.blit(txtsurf, (680, 37.5 + (12.5 - txtsurf.get_height() // 2)))
+
+        self.change_mode_box = (750, 37.5, 25, 25)
+        pygame.draw.rect(self.window, '#b6b6d1', self.change_mode_box, border_radius=2)
+
+        self.fire_box = (795, 37.5, 80, 25)
+        pygame.draw.rect(self.window, 'red', self.fire_box, border_radius=2)
+        txtsurf = self.middle_font.render("FIRE", True, 'white')
+        self.window.blit(txtsurf, (795 + (40 - txtsurf.get_width()//2), 37.5 + (12.5 - txtsurf.get_height() // 2)))
 
         pygame.display.update()
 
@@ -889,6 +1020,11 @@ class App:
             a_contact_depth = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0][3]
             a_contact_distance = distance
             a_contact_heading = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0][2]
+            if self.TRANSFER_CONTACT_INFO_A:
+                self.bearing_var[1] = f"{float(a_contact_bearing):.2f}"
+                self.depth_var[1] = f"{float(a_contact_depth):.2f}"
+                self.distance_var[1] = f"{float(a_contact_distance):.2f}"
+                self.TRANSFER_CONTACT_INFO_A = False
         txtsurf = self.middle_font.render(f"{a_contact_type}", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 40))
         txtsurf = self.middle_font.render(f"{a_contact_bearing:.2f}", True, '#b6b6d1')
@@ -1090,6 +1226,13 @@ class App:
                                  self.sonar_cursor_position)
                 pygame.draw.line(self.window, '#ad001d', (self.sonar_cursor_position[0], self.size[1]),
                                  self.sonar_cursor_position)
+
+        if self.TRANSFER_CONTACT_INFO_P:
+            self.bearing_var[1] = f"{float(contact_bearing):.2f}"
+            self.depth_var[1] = f"{float(contact_depth):.2f}"
+            self.distance_var[1] = f"{float(contact_distance):.2f}"
+            self.TRANSFER_CONTACT_INFO_P = False
+
         pygame.display.update()
 
 
