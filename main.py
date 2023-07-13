@@ -1460,10 +1460,11 @@ class App:
             rel_x = self.OBJECTS[vessel][0][0] - self.LOCAL_POSITION[0]
             rel_y = self.OBJECTS[vessel][0][1] - self.LOCAL_POSITION[1]
             distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-            if distance <= PASSIVE_SONAR_RANGE:
+            if distance + ((1-self.OBJECTS[vessel][3]) * 100) <= PASSIVE_SONAR_RANGE:
                 # Draw it on the passive sonar display
                 bearing = calculate_bearing(rel_x, rel_y, distance)
-
+                distance_ratio = (distance / PASSIVE_SONAR_RANGE) * 10
+                detection_ratio = (1-self.OBJECTS[vessel][3]) * 10
                 # print(f"Angle: {angle} Local Angle: {local_position} "
                 #       f"Bearing: {bearing}")
                 if not self.PASSIVE_SONAR_FREEZE:
@@ -1472,14 +1473,16 @@ class App:
                         rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
                         zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
                         self.PASSIVE_SONAR_DISPLAY_CONTACTS.append(
-                            [(zero + rel_x * scale) + random_int(-4, 4), 1, vessel])
+                            [(zero + rel_x * scale) + random_int(-4 - distance_ratio - detection_ratio,
+                                                                 4 + distance_ratio + detection_ratio), 1, vessel])
                         # pygame.draw.circle(self.window, '#386e2c', (zero + rel_x*scale, 30), 5)
                     else:
                         rel_x = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2 + bearing
                         rel_x -= (p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2)
                         zero = p2_sonar_start + (p2_sonar_end - p2_sonar_start) / 2
                         self.PASSIVE_SONAR_DISPLAY_CONTACTS.append(
-                            [(zero + rel_x * scale) + random_int(-4, 4), 1, vessel])
+                            [(zero + rel_x * scale) + random_int(-4 - distance_ratio - detection_ratio,
+                                                                 4 + distance_ratio + detection_ratio), 1, vessel])
 
         # Passive sonar contact identification
         txtsurf = self.middle_font.render("Passive sonar contact identification", True, '#b6b6d1')
