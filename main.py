@@ -607,7 +607,7 @@ class App:
                                      destruction])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TLAM-E':
-                            speed = 1.5
+                            speed = 2
                             range = 200  # = 2500km  # = 400 km
                             distance = float(self.distance_var[1]) / 2  # converting to px
                             if distance > range:
@@ -647,7 +647,8 @@ class App:
                                      destruction])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'P-800 Oniks':
-                            speed = 2
+                            sensor_range = 5
+                            speed = 2.5
                             range = 40  # = 2500km  # = 80 km
                             distance = float(self.distance_var[1]) / 2  # converting to px
                             if distance > range:
@@ -670,17 +671,68 @@ class App:
                             else:
                                 message = 'Target missed!'
                             self.ASM_FIRED.append([time, impact_x, impact_y, message,
-                                                   self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                                                   self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction,
+                                                   sensor_range])
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
+                        elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TASM':
+                            sensor_range = 15
+                            speed = 2
+                            range = 70  # = 2500km  # = 140 km
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            if distance > range:
+                                time = range / speed
+                            else:
+                                time = distance / speed
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            # Anti missile defence
+                            if random_int(0, 10) < 4:
+                                destruction = 0
+                            else:
+                                destruction = random_int(50, 65)
+                            if distance > range:
+                                message = 'Out of fuel!'
+                            else:
+                                message = 'Target missed!'
+                            self.ASM_FIRED.append([time, impact_x, impact_y, message,
+                                                   self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction,
+                                                   sensor_range])
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
+                        elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84':
+                            sensor_range = 10
+                            speed = 2.1
+                            range = 70  # = 2500km  # = 140 km
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            if distance > range:
+                                time = range / speed
+                            else:
+                                time = distance / speed
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            # Anti missile defence
+                            if random_int(0, 10) < 3:
+                                destruction = 0
+                            else:
+                                destruction = random_int(45, 65)
+                            if distance > range:
+                                message = 'Out of fuel!'
+                            else:
+                                message = 'Target missed!'
+                            self.ASM_FIRED.append([time, impact_x, impact_y, message,
+                                                   self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction,
+                                                   sensor_range])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
 
         elif event.type == pygame.KEYDOWN:
             if self.bearing_var[0]:
                 if event.key == pygame.K_BACKSPACE:
                     self.bearing_var[1] = self.bearing_var[1][:-1]
-                elif event.key == pygame.K_UP:
-                    self.bearing_var[1] = str(float(self.bearing_var[1]) + 1)
-                elif event.key == pygame.K_DOWN:
-                    self.bearing_var[1] = str(float(self.bearing_var[1]) - 1)
                 elif len(self.bearing_var[1]) <= 5:
                     if (pygame.key.name(event.key)).isnumeric():
                         self.bearing_var[1] += pygame.key.name(event.key)
@@ -1124,8 +1176,9 @@ class App:
                     if missile[0] <= 0 and missile[3] == 'Target missed!':
                         for ship in list(self.OBJECTS):
                             if ship.count('ship'):
-                                if self.OBJECTS[ship][0][0] - 5 < missile[1] < self.OBJECTS[ship][0][0] + 5 and \
-                                        self.OBJECTS[ship][0][1] - 5 < missile[2] < self.OBJECTS[ship][0][1] + 5:
+                                sr = missile[6]  # Sensor range (range at which missile tracks on its own)
+                                if self.OBJECTS[ship][0][0] - sr < missile[1] < self.OBJECTS[ship][0][0] + sr and \
+                                        self.OBJECTS[ship][0][1] - sr < missile[2] < self.OBJECTS[ship][0][1] + sr:
                                     print("SHIP HIT!")
                                     missile[3] = 'Target hit!'
                                     self.OBJECTS[ship][4] -= missile[5]
@@ -1181,9 +1234,21 @@ class App:
                         pitch_rate = 0.2 * (1 - (abs(self.LOCAL_VELOCITY) / 0.09))
                         self.LOCAL_POSITION[3] -= pitch_rate * fps_d
                 elif keys[pygame.K_UP]:
-                    if self.BALLAST < 100:
+                    if self.depth_var[0]:
+                        self.depth_var[1] = str(float(self.depth_var[1])+1)
+                    elif self.bearing_var[0]:
+                        self.bearing_var[1] = str(float(self.bearing_var[1])+1)
+                    elif self.distance_var[0]:
+                        self.distance_var[1] = str(float(self.distance_var[1])+1)
+                    elif self.BALLAST < 100:
                         self.BALLAST += 0.5 * fps_d
                 elif keys[pygame.K_DOWN]:
+                    if self.depth_var[0]:
+                        self.depth_var[1] = str(float(self.depth_var[1])-1)
+                    elif self.bearing_var[0]:
+                        self.bearing_var[1] = str(float(self.bearing_var[1])-1)
+                    elif self.distance_var[0]:
+                        self.distance_var[1] = str(float(self.distance_var[1])-1)
                     if self.BALLAST > 0:
                         self.BALLAST -= 0.5 * fps_d
 
@@ -1288,7 +1353,8 @@ class App:
         a_contact_distance = 0
         a_contact_heading = 0
         if self.ACTIVE_SONAR_SELECTED_CONTACT and \
-                list(self.ACTIVE_SONAR_CONTACTS).count(self.ACTIVE_SONAR_SELECTED_CONTACT) > 0:
+                list(self.ACTIVE_SONAR_CONTACTS).count(self.ACTIVE_SONAR_SELECTED_CONTACT) > 0 and \
+                self.ACTIVE_SONAR_SELECTED_CONTACT in list(self.OBJECTS):
             a_contact_type = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][1]
             rel_x = (self.ACTIVE_SONAR_CONTACTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0] - 200) / (
                     200 / ACTIVE_SONAR_RANGE)
