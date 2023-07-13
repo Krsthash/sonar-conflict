@@ -38,6 +38,7 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.LAM_FIRED = []
         self.range_indicator = 50
         self.reset_box = None
         self.passive_transfer_box = None
@@ -56,7 +57,7 @@ class App:
         self.SELECTED_WEAPON = None
         self.FRIENDLY_PORT_LOCATIONS = []
         self.WEAPON_LAYOUT = {}
-        self.PLAYER_ID = 0
+        self.PLAYER_ID = 1
         self.ACTIVE_SONAR_SELECTED_CONTACT = None
         self.identifying_delay = 0
         self.PASSIVE_SELECTED_CONTACT = None
@@ -137,7 +138,7 @@ class App:
         pygame.draw.line(self.window, 'green', (100 + self.range_indicator, self.size[1] - 100),
                          (100 + self.range_indicator, self.size[1] - 105))
         txtsurf = self.small_font.render("100km", True, 'green')
-        self.window.blit(txtsurf, (100 + self.range_indicator//2 - txtsurf.get_width() //2, self.size[1] - 95))
+        self.window.blit(txtsurf, (100 + self.range_indicator // 2 - txtsurf.get_width() // 2, self.size[1] - 95))
 
     def map_render(self):
         # Location marker rendering
@@ -246,15 +247,17 @@ class App:
                 right = mx + (self.map_rect.right - mx) * zoom
                 top = my + (self.map_rect.top - my) * zoom
                 bottom = my + (self.map_rect.bottom - my) * zoom
+                self.range_indicator *= zoom
                 if left > 0 or right < 1306 or top > 0 or bottom < self.size[1]:
                     left = 0
                     right = 1306
                     top = 0
                     bottom = 720
-                    self.range_indicator = 100
+                    self.range_indicator = 50
                 elif right > 3000 and bottom > 2000:
+                    self.range_indicator /= zoom
                     return
-                self.range_indicator *= zoom
+
                 self.map_rect = pygame.Rect(left, top, right - left, bottom - top)
                 self.blitmap()
 
@@ -556,11 +559,14 @@ class App:
                         print("NOT ALLOWED")
                     if flag:
                         if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
-                            speed = 0.99  # 1 pixel = 2.09km 0.0193 = 1km/h | 1 px = actual 12.5km
-                            # range = 100  # = 2500km  # = 200 km
-                            distance = float(self.distance_var[1])
+                            speed = 3.5  # 1 pixel = 2.09km 0.0193 = 1km/h | 1 px = actual 12.5km # random speed idk
+                            range = 150  # = 2500km  # = 300 km
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            if distance > range:
+                                time = range / speed
+                            else:
+                                time = distance / speed
                             # VLS launch
-                            time = distance / speed
                             angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
                             if angle > 360:
                                 angle -= 360
@@ -568,6 +574,66 @@ class App:
                             impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
                             impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
                             print(impact_x, impact_y, distance)
+                            flag = None
+                            for target in self.ENEMY_TARGET_LOCATIONS:
+                                if target[0] - 10 < impact_x < target[0] + 10 and \
+                                        target[1] - 10 < impact_y < target[1] + 10:
+                                    flag = target
+                                    print(target[0], target[1])
+                                    print("HIT!")
+
+                            destruction = random_int(25, 50)
+
+                            if distance > range:
+                                flag = None
+                                print("TARGET OUT OF RANGE")
+                                self.LAM_FIRED.append(
+                                    [time, True, flag, 'Ran out of fuel!',
+                                     self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                            elif flag:
+                                self.LAM_FIRED.append(
+                                    [time, True, flag, 'Target hit!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                            else:
+                                self.LAM_FIRED.append(
+                                    [time, False, flag, 'Target missed!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
+                        elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TLAM-E':
+                            speed = 1.5
+                            range = 200  # = 2500km  # = 400 km
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            if distance > range:
+                                time = range / speed
+                            else:
+                                time = distance / speed
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            print(angle)
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            print(impact_x, impact_y, distance)
+                            flag = None
+                            for target in self.ENEMY_TARGET_LOCATIONS:
+                                if target[0] - 30 < impact_x < target[0] + 30 and \
+                                        target[1] - 30 < impact_y < target[1] + 30:
+                                    flag = target
+                                    print(target[0], target[1])
+                                    print("HIT!")
+
+                            destruction = random_int(40, 60)
+
+                            if distance > range:
+                                flag = None
+                                print("TARGET OUT OF RANGE")
+                                self.LAM_FIRED.append(
+                                    [time, True, flag, 'Ran out of fuel!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                            elif flag:
+                                self.LAM_FIRED.append(
+                                    [time, True, flag, 'Target hit!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                            else:
+                                self.LAM_FIRED.append(
+                                    [time, False, flag, 'Target missed!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
 
         elif event.type == pygame.KEYDOWN:
             if self.bearing_var[0]:
@@ -647,6 +713,22 @@ class App:
         # Splitter lines
         pygame.draw.line(self.window, '#b6b6d1', (300, 0), (300, self.size[1]))
         pygame.draw.line(self.window, '#b6b6d1', (300, 100), (self.size[0], 100))
+        pygame.draw.line(self.window, '#b6b6d1', (0, 300), (300, 300))
+
+        # Fired ordnance information
+        i = 0
+        for missile in self.LAM_FIRED:
+            if missile[0] > 0:
+                txtsurf = self.middle_font.render(f"{missile[4]}: Impact in: {float(missile[0]):.2f}", True, '#b6b6d1')
+                self.window.blit(txtsurf, (20, 320 + i * 20))
+            else:
+                if missile[3] == "Target hit!":
+                    txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'green')
+                    self.window.blit(txtsurf, (20, 320 + i * 20))
+                else:
+                    txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'red')
+                    self.window.blit(txtsurf, (20, 320 + i * 20))
+            i += 1
 
         # Position details
         speed = self.LOCAL_VELOCITY * self.fps
@@ -667,7 +749,7 @@ class App:
         txtsurf = self.middle_font.render(f"Y: ", True, '#b6b6d1')
         self.window.blit(txtsurf, (20, 205))
 
-        txtsurf = self.middle_font.render(f"{speed/0.0193:.2f}km/h", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{speed / 0.0193:.2f}km/h", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 30))
         txtsurf = self.middle_font.render(f"{self.GEAR}", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 55))
@@ -675,7 +757,10 @@ class App:
         self.window.blit(txtsurf, (100, 80))
         txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[3]:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 105))
-        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[2]:.2f}", True, '#b6b6d1')
+        heading = self.LOCAL_POSITION[2]
+        if heading < 0:
+            heading += 360
+        txtsurf = self.middle_font.render(f"{heading:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 130))
         txtsurf = self.middle_font.render(f"{self.BALLAST:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 155))
@@ -957,6 +1042,21 @@ class App:
                             math.radians(self.OBJECTS[vessel][0][2] - 90))
                         self.OBJECTS[vessel][0][1] += (self.OBJECTS[vessel][2] * fps_d) * math.sin(
                             math.radians(self.OBJECTS[vessel][0][2] - 90))
+
+                # Land attack missile simulation:
+                for missile in self.LAM_FIRED:
+                    missile[0] -= 0.01667 * fps_d
+                    if missile[0] <= 0:
+                        print("DETONATION")
+                        if missile[1] and missile[2]:  # Will hit and has a target
+                            print("TARGET HIT!")
+                            missile[2][2] -= missile[5]
+                            if missile[2][2] < 0:
+                                missile[2][2] = 0
+                        missile[1] = False
+                    if missile[0] < -5:
+                        self.LAM_FIRED.remove(missile)
+
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
             elif self.GAME_OPEN:
@@ -1128,13 +1228,13 @@ class App:
             if self.TRANSFER_CONTACT_INFO_A:
                 self.bearing_var[1] = f"{float(a_contact_bearing):.2f}"
                 self.depth_var[1] = f"{float(a_contact_depth):.2f}"
-                self.distance_var[1] = f"{float(a_contact_distance)*2.0923:.2f}"
+                self.distance_var[1] = f"{float(a_contact_distance) * 2.0923:.2f}"
                 self.TRANSFER_CONTACT_INFO_A = False
         txtsurf = self.middle_font.render(f"{a_contact_type}", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 40))
         txtsurf = self.middle_font.render(f"{a_contact_bearing:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 65))
-        txtsurf = self.middle_font.render(f"{(a_contact_speed*60)/0.0193:.2f}km/h", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{(a_contact_speed * 60) / 0.0193:.2f}km/h", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 90))
         txtsurf = self.middle_font.render(f"{a_contact_depth:.2f}m", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 115))
@@ -1312,11 +1412,11 @@ class App:
         self.window.blit(txtsurf, (110, 450))
         txtsurf = self.middle_font.render(f"{contact_bearing:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 480))
-        txtsurf = self.middle_font.render(f"{(contact_speed*60)/0.0193:.2f}km/h", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{(contact_speed * 60) / 0.0193:.2f}km/h", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 510))
         txtsurf = self.middle_font.render(f"{contact_depth:.2f}m", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 540))
-        txtsurf = self.middle_font.render(f"{contact_distance*2.0923:.2f}km", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{contact_distance * 2.0923:.2f}km", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 570))
         txtsurf = self.middle_font.render(f"{contact_heading:.2f} (azimuth)", True, '#b6b6d1')
         self.window.blit(txtsurf, (110, 600))
