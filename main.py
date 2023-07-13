@@ -38,6 +38,7 @@ def darken(amount, color):
 
 class App:
     def __init__(self):
+        self.ASM_FIRED = []
         self.LAM_FIRED = []
         self.range_indicator = 50
         self.reset_box = None
@@ -57,7 +58,7 @@ class App:
         self.SELECTED_WEAPON = None
         self.FRIENDLY_PORT_LOCATIONS = []
         self.WEAPON_LAYOUT = {}
-        self.PLAYER_ID = 1
+        self.PLAYER_ID = 0
         self.ACTIVE_SONAR_SELECTED_CONTACT = None
         self.identifying_delay = 0
         self.PASSIVE_SELECTED_CONTACT = None
@@ -370,16 +371,16 @@ class App:
         #                        mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]]
         self.OBJECTS['Enemy'] = [[mission[enemy_code]['spawn'][0], mission[enemy_code]['spawn'][1],
                                   mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]], 'Submarine', 0, 1]
-        # [x, y, azimuth, depth], type, velocity, detection_chance
+        # [x, y, azimuth, depth], type, velocity, detection_chance, HEALTH*
         i = 1
         for vessel in mission[code]['ships']:
             self.OBJECTS[f'Friendly_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], vessel[3]],
-                                                  vessel[4], vessel[5], vessel[6]]
+                                                  vessel[4], vessel[5], vessel[6], vessel[7]]
             i += 1
         i = 1
         for vessel in mission[enemy_code]['ships']:
             self.OBJECTS[f'Enemy_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], vessel[3]],
-                                               vessel[4], vessel[5], vessel[6]]
+                                               vessel[4], vessel[5], vessel[6], vessel[7]]
             i += 1
         self.SONAR_SCREEN = True
 
@@ -541,14 +542,20 @@ class App:
                     self.distance_var[1] = ''
                 elif pygame.Rect(self.fire_box).collidepoint(pygame.mouse.get_pos()):
                     flag = 0
-                    if self.SELECTED_WEAPON and self.bearing_var[1].isnumeric() and self.depth_var[1].isnumeric() and \
-                            self.distance_var[1].isnumeric():
+                    if self.SELECTED_WEAPON and self.bearing_var[1].replace(".", "").isnumeric() and self.depth_var[
+                        1].replace(".", "").isnumeric() and \
+                            self.distance_var[1].replace(".", "").isnumeric():
                         if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] == 0 and \
                                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] != '':
-                            if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == 0 and self.mode_var == -1:
+                            if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == 0 and self.mode_var == -1 and \
+                                    self.LOCAL_POSITION[4] < 60:
                                 print("ALLOWED")
                                 flag = 1
                             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == 1 and self.mode_var != -1:
+                                print("ALLOWED")
+                                flag = 1
+                            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84' and self.mode_var == -1 and \
+                                    self.LOCAL_POSITION[4] < 60:
                                 print("ALLOWED")
                                 flag = 1
                             else:
@@ -592,10 +599,12 @@ class App:
                                      self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
                             elif flag:
                                 self.LAM_FIRED.append(
-                                    [time, True, flag, 'Target hit!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                                    [time, True, flag, 'Target hit!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
+                                     destruction])
                             else:
                                 self.LAM_FIRED.append(
-                                    [time, False, flag, 'Target missed!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                                    [time, False, flag, 'Target missed!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
+                                     destruction])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TLAM-E':
                             speed = 1.5
@@ -626,19 +635,52 @@ class App:
                                 flag = None
                                 print("TARGET OUT OF RANGE")
                                 self.LAM_FIRED.append(
-                                    [time, True, flag, 'Ran out of fuel!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                                    [time, True, flag, 'Ran out of fuel!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
+                                     destruction])
                             elif flag:
                                 self.LAM_FIRED.append(
-                                    [time, True, flag, 'Target hit!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                                    [time, True, flag, 'Target hit!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
+                                     destruction])
                             else:
                                 self.LAM_FIRED.append(
-                                    [time, False, flag, 'Target missed!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
+                                    [time, False, flag, 'Target missed!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
+                                     destruction])
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
+                        elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'P-800 Oniks':
+                            speed = 2
+                            range = 40  # = 2500km  # = 80 km
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            if distance > range:
+                                time = range / speed
+                            else:
+                                time = distance / speed
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            print(angle)
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            # Anti missile defence
+                            if random_int(0, 10) < 2:
+                                destruction = 0
+                            else:
+                                destruction = random_int(40, 60)
+                            if distance > range:
+                                message = 'Out of fuel!'
+                            else:
+                                message = 'Target missed!'
+                            self.ASM_FIRED.append([time, impact_x, impact_y, message,
+                                                   self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
 
         elif event.type == pygame.KEYDOWN:
             if self.bearing_var[0]:
                 if event.key == pygame.K_BACKSPACE:
                     self.bearing_var[1] = self.bearing_var[1][:-1]
+                elif event.key == pygame.K_UP:
+                    self.bearing_var[1] = str(float(self.bearing_var[1]) + 1)
+                elif event.key == pygame.K_DOWN:
+                    self.bearing_var[1] = str(float(self.bearing_var[1]) - 1)
                 elif len(self.bearing_var[1]) <= 5:
                     if (pygame.key.name(event.key)).isnumeric():
                         self.bearing_var[1] += pygame.key.name(event.key)
@@ -647,6 +689,10 @@ class App:
             elif self.distance_var[0]:
                 if event.key == pygame.K_BACKSPACE:
                     self.distance_var[1] = self.distance_var[1][:-1]
+                elif event.key == pygame.K_UP:
+                    self.distance_var[1] = str(float(self.distance_var[1]) + 1)
+                elif event.key == pygame.K_DOWN:
+                    self.distance_var[1] = str(float(self.distance_var[1]) - 1)
                 elif len(self.distance_var[1]) <= 8:
                     if (pygame.key.name(event.key)).isnumeric():
                         self.distance_var[1] += pygame.key.name(event.key)
@@ -655,6 +701,10 @@ class App:
             elif self.depth_var[0]:
                 if event.key == pygame.K_BACKSPACE:
                     self.depth_var[1] = self.depth_var[1][:-1]
+                elif event.key == pygame.K_UP:
+                    self.depth_var[1] = str(float(self.depth_var[1]) + 1)
+                elif event.key == pygame.K_DOWN:
+                    self.depth_var[1] = str(float(self.depth_var[1]) - 1)
                 elif len(self.depth_var[1]) <= 5:
                     if (pygame.key.name(event.key)).isnumeric():
                         self.depth_var[1] += pygame.key.name(event.key)
@@ -718,6 +768,18 @@ class App:
         # Fired ordnance information
         i = 0
         for missile in self.LAM_FIRED:
+            if missile[0] > 0:
+                txtsurf = self.middle_font.render(f"{missile[4]}: Impact in: {float(missile[0]):.2f}", True, '#b6b6d1')
+                self.window.blit(txtsurf, (20, 320 + i * 20))
+            else:
+                if missile[3] == "Target hit!":
+                    txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'green')
+                    self.window.blit(txtsurf, (20, 320 + i * 20))
+                else:
+                    txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'red')
+                    self.window.blit(txtsurf, (20, 320 + i * 20))
+            i += 1
+        for missile in self.ASM_FIRED:
             if missile[0] > 0:
                 txtsurf = self.middle_font.render(f"{missile[4]}: Impact in: {float(missile[0]):.2f}", True, '#b6b6d1')
                 self.window.blit(txtsurf, (20, 320 + i * 20))
@@ -1047,7 +1109,6 @@ class App:
                 for missile in self.LAM_FIRED:
                     missile[0] -= 0.01667 * fps_d
                     if missile[0] <= 0:
-                        print("DETONATION")
                         if missile[1] and missile[2]:  # Will hit and has a target
                             print("TARGET HIT!")
                             missile[2][2] -= missile[5]
@@ -1056,6 +1117,22 @@ class App:
                         missile[1] = False
                     if missile[0] < -5:
                         self.LAM_FIRED.remove(missile)
+
+                # Anti ship missile simulation:
+                for missile in self.ASM_FIRED:
+                    missile[0] -= 0.01667 * fps_d
+                    if missile[0] <= 0 and missile[3] == 'Target missed!':
+                        for ship in list(self.OBJECTS):
+                            if ship.count('ship'):
+                                if self.OBJECTS[ship][0][0] - 5 < missile[1] < self.OBJECTS[ship][0][0] + 5 and \
+                                        self.OBJECTS[ship][0][1] - 5 < missile[2] < self.OBJECTS[ship][0][1] + 5:
+                                    print("SHIP HIT!")
+                                    missile[3] = 'Target hit!'
+                                    self.OBJECTS[ship][4] -= missile[5]
+                                    if self.OBJECTS[ship][4] <= 0:
+                                        self.OBJECTS.pop(ship)
+                    if missile[0] < -5:
+                        self.ASM_FIRED.remove(missile)
 
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
@@ -1238,7 +1315,7 @@ class App:
         self.window.blit(txtsurf, (490, 90))
         txtsurf = self.middle_font.render(f"{a_contact_depth:.2f}m", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 115))
-        txtsurf = self.middle_font.render(f"{a_contact_distance:.2f}km", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{float(a_contact_distance) * 2.0923:.2f}km", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 140))
         txtsurf = self.middle_font.render(f"{a_contact_heading:.2f} (azimuth)", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 165))
@@ -1377,7 +1454,7 @@ class App:
         contact_depth = 0
         contact_distance = 0
         contact_heading = 0
-        if self.PASSIVE_SELECTED_CONTACT:
+        if self.PASSIVE_SELECTED_CONTACT and self.PASSIVE_SELECTED_CONTACT[2] in list(self.OBJECTS):
             if self.identifying_delay <= 4:
                 contact_type = 'Unidentified'
                 if self.identifying_delay > 0:
@@ -1443,7 +1520,7 @@ class App:
         if self.TRANSFER_CONTACT_INFO_P:
             self.bearing_var[1] = f"{float(contact_bearing):.2f}"
             self.depth_var[1] = f"{float(contact_depth):.2f}"
-            self.distance_var[1] = f"{float(contact_distance):.2f}"
+            self.distance_var[1] = f"{float(contact_distance) * 2.0923:.2f}"
             self.TRANSFER_CONTACT_INFO_P = False
 
         pygame.display.update()
