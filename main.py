@@ -1289,6 +1289,14 @@ class App:
             else:
                 bearing_ = angle - local_position
             return bearing_
+        flag = 0
+        if self.PASSIVE_SELECTED_CONTACT:
+            for contact in self.PASSIVE_SONAR_DISPLAY_CONTACTS:
+                if contact[2] == self.PASSIVE_SELECTED_CONTACT[2] and contact[1] < 5:
+                    flag = 1
+        if not flag:
+            self.PASSIVE_SELECTED_CONTACT = None
+            self.identifying_delay = 0
 
         ACTIVE_SONAR_RANGE = 80
         PASSIVE_SONAR_RANGE = 80
