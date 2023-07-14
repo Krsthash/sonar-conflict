@@ -36,8 +36,36 @@ def darken(amount, color):
     return darkened_color
 
 
+def calculate_azimuth(rel_x, rel_y, distance):
+    if rel_x == 0:
+        if rel_y < 0:
+            angle = 0
+        else:
+            angle = 180
+    else:
+        angle = math.degrees(math.asin(rel_y / distance))
+        if rel_x < 0 and rel_y > 0:
+            angle = 90 + (90 - angle)
+        elif rel_x < 0 and rel_y < 0:
+            angle = -180 + (angle * -1)
+        if -90 <= angle <= 0:
+            angle += 90
+        elif 0 < angle <= 90:
+            angle += 90
+        elif -90 > angle >= -180:
+            angle += 90
+        else:
+            angle = -90 - (180 - angle)
+    if angle < 0:
+        angle += 360
+    return angle
+
+
 class App:
     def __init__(self):
+        self.HEALTH = 100
+        self.TORPEDOS = []
+        self.DETECTION_CHANCE = 0.04
         self.ASM_FIRED = []
         self.LAM_FIRED = []
         self.range_indicator = 50
@@ -172,6 +200,9 @@ class App:
             pygame.draw.circle(self.map, 'orange', (target[0], target[1]), 2)
             txtsurf = self.small_font.render(f"{target[2]}%", True, 'gray')
             self.map.blit(txtsurf, (target[0], target[1]))
+
+        # for torpedo in self.TORPEDOS:
+        #     pygame.draw.circle(self.map, 'red', (torpedo[0][0], torpedo[0][1]), 2)
 
         pygame.display.update()
 
@@ -1097,37 +1128,48 @@ class App:
             # print(self.clock.get_fps())
             # Scene checks
             if self.GAME_INIT:
+                # Checking if the player is alive
+                if self.HEALTH <= 0:
+                    print("PLAYER DIED.")
+
                 # Movement calculations
                 if self.GEAR == 1:
+                    self.DETECTION_CHANCE = 0.1
                     self.LOCAL_ACCELERATION = 0.000014
                     if self.LOCAL_VELOCITY >= 0.008:
                         self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.008) / 200
                 elif self.GEAR == 2:
+                    self.DETECTION_CHANCE = 0.3
                     self.LOCAL_ACCELERATION = 0.000018
                     if self.LOCAL_VELOCITY >= 0.014:
                         self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.014) / 200
                 elif self.GEAR == 3:
+                    self.DETECTION_CHANCE = 0.5
                     self.LOCAL_ACCELERATION = 0.00002
                     if self.LOCAL_VELOCITY >= 0.018:
                         self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.018) / 200
                 elif self.GEAR == 0:
+                    self.DETECTION_CHANCE = 0.04
                     self.LOCAL_ACCELERATION = 0
                 elif self.GEAR == -1:
+                    self.DETECTION_CHANCE = 0.1
                     self.LOCAL_ACCELERATION = -0.000014
                     if self.LOCAL_VELOCITY <= -0.008:
                         self.LOCAL_ACCELERATION += (abs(self.LOCAL_VELOCITY + 0.008)) / 200
                 elif self.GEAR == -2:
+                    self.DETECTION_CHANCE = 0.3
                     self.LOCAL_ACCELERATION = -0.000018
                     if self.LOCAL_VELOCITY <= -0.014:
                         self.LOCAL_ACCELERATION += (abs(self.LOCAL_VELOCITY + 0.014)) / 200
                 elif self.GEAR == -3:
+                    self.DETECTION_CHANCE = 0.5
                     self.LOCAL_ACCELERATION = -0.00002
                     if self.LOCAL_VELOCITY <= -0.018:
                         self.LOCAL_ACCELERATION += (abs(self.LOCAL_VELOCITY + 0.018)) / 200
 
                 self.LOCAL_VELOCITY += self.LOCAL_ACCELERATION
 
-                if self.LOCAL_VELOCITY - WATER_DRAG >= 0 and self.GEAR != 0:
+                if self.LOCAL_VELOCITY - WATER_DRAG >= 0:
                     self.LOCAL_VELOCITY -= WATER_DRAG
                 elif self.LOCAL_VELOCITY + WATER_DRAG <= 0:
                     self.LOCAL_VELOCITY += WATER_DRAG
@@ -1187,6 +1229,122 @@ class App:
                     if missile[0] < -5:
                         self.ASM_FIRED.remove(missile)
 
+                # Enemy ships trying to detect/shoot simulation
+                for ship in list(self.OBJECTS):
+                    if ship.count("Enemy_ship"):
+                        rel_x = self.OBJECTS[ship][0][0] - self.LOCAL_POSITION[0]
+                        rel_y = self.OBJECTS[ship][0][1] - self.LOCAL_POSITION[1]
+                        distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                        # Ships could only really detect you from 50km in the worst case scenario (dc = 0.5)
+                        if distance + ((1 - self.DETECTION_CHANCE) * 50) <= 50:
+                            # TODO: Ship activates active sonar to lign up a shot
+                            # TODO: Ship relays your position to the enemy submarine
+                            # TODO: Lead the ship before firing the torpedo
+                            # [x, y, azimuth, velocity, depth], [destination x, destination y, depth], sensor on/off,
+                            # timer, sender
+                            flag = 0
+                            for torpedo in self.TORPEDOS:
+                                if torpedo[4] == ship and torpedo[3] > 10:
+                                    flag = 1
+                            if not flag and distance < 20:
+                                # Leading the target
+                                time = distance / 1.6
+                                if time < 1:
+                                    time = 1
+                                dest_x = self.LOCAL_POSITION[0] + ((self.LOCAL_VELOCITY * fps_d) * math.cos(
+                                    math.radians(self.LOCAL_POSITION[2] - 90))) * time * 60
+                                dest_y = self.LOCAL_POSITION[1] + ((self.LOCAL_VELOCITY * fps_d) * math.sin(
+                                    math.radians(self.LOCAL_POSITION[2] - 90))) * time * 60
+
+                                print(self.LOCAL_POSITION[0], self.LOCAL_POSITION[1], dest_x, dest_y)
+
+                                self.TORPEDOS.append([[self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
+                                                       self.OBJECTS[ship][0][2], 0.0267, self.OBJECTS[ship][0][3]],
+                                                      [dest_x, dest_y, self.LOCAL_POSITION[3]], False, 20, ship])
+
+                # Enemy torpedo simulation
+                for torpedo in list(self.TORPEDOS):
+                    torpedo[3] -= 0.0167 * fps_d
+                    if torpedo[3] <= 0:
+                        self.TORPEDOS.remove(torpedo)
+                    if not torpedo[2]:  # Sensor hasn't been activated yet
+                        rel_x = torpedo[1][0] - torpedo[0][0]
+                        rel_y = torpedo[1][1] - torpedo[0][1]
+                        distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                        angle = calculate_azimuth(rel_x, rel_y, distance)
+                        if torpedo[0][2] - angle > 180:
+                            angle = (360 - torpedo[0][2]) + angle
+                        elif torpedo[0][2] - angle < -180:
+                            angle = -((360 - angle) + torpedo[0][2])
+                        else:
+                            angle = -(torpedo[0][2] - angle)
+                        turn = 0.34 * fps_d
+                        if turn > abs(angle):
+                            turn = abs(angle)
+                        if angle > 0:
+                            torpedo[0][2] += turn
+                        else:
+                            torpedo[0][2] -= turn
+                        dive_rate = 0.167 * fps_d
+                        depth = torpedo[1][2] - torpedo[0][4]
+                        if dive_rate > depth:
+                            dive_rate = depth
+                        if depth > 0:
+                            torpedo[0][4] += dive_rate
+                        else:
+                            torpedo[0][4] -= dive_rate
+                        torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                            math.radians(torpedo[0][2] - 90))
+                        torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                            math.radians(torpedo[0][2] - 90))
+                        if -10 < distance < 10:
+                            torpedo[2] = True
+                    else:
+                        # Go into seeking mode
+                        rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
+                        rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
+                        distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                        angle = calculate_azimuth(rel_x, rel_y, distance)
+                        if torpedo[0][2] - angle > 180:
+                            angle = (360 - torpedo[0][2]) + angle
+                        elif torpedo[0][2] - angle < -180:
+                            angle = -((360 - angle) + torpedo[0][2])
+                        else:
+                            angle = -(torpedo[0][2] - angle)
+                        depth = torpedo[1][2] - torpedo[0][4]
+                        if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
+                            turn = 0.34 * fps_d
+                            if turn > abs(angle):
+                                turn = abs(angle)
+                            if angle > 0:
+                                torpedo[0][2] += turn
+                            else:
+                                torpedo[0][2] -= turn
+                            dive_rate = 0.167 * fps_d
+                            if dive_rate > depth:
+                                dive_rate = depth
+                            if depth > 0:
+                                torpedo[0][4] += dive_rate
+                            else:
+                                torpedo[0][4] -= dive_rate
+                            # Updating torpedo's position
+                            torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                math.radians(torpedo[0][2] - 90))
+                            torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                math.radians(torpedo[0][2] - 90))
+                            if -1 < distance < 1:
+                                print("TORPEDO HIT!")
+                                self.TORPEDOS.remove(torpedo)
+                                self.HEALTH -= random_int(10, 30)
+                        else:
+                            # Updating torpedo's position
+                            torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                math.radians(torpedo[0][2] - 90))
+                            torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                math.radians(torpedo[0][2] - 90))
+                            # TODO: MAKE TORPEDO VISIBLE ON PASSIVE SONAR
+                            # todo: MAKE THE PLAYER VISIBLE FOR A BRIEF MOMENT AFTER FIRING A TORPEDO
+
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
             elif self.GAME_OPEN:
@@ -1235,20 +1393,20 @@ class App:
                         self.LOCAL_POSITION[3] -= pitch_rate * fps_d
                 elif keys[pygame.K_UP]:
                     if self.depth_var[0]:
-                        self.depth_var[1] = str(float(self.depth_var[1])+1)
+                        self.depth_var[1] = str(float(self.depth_var[1]) + 1)
                     elif self.bearing_var[0]:
-                        self.bearing_var[1] = str(float(self.bearing_var[1])+1)
+                        self.bearing_var[1] = str(float(self.bearing_var[1]) + 1)
                     elif self.distance_var[0]:
-                        self.distance_var[1] = str(float(self.distance_var[1])+1)
+                        self.distance_var[1] = str(float(self.distance_var[1]) + 1)
                     elif self.BALLAST < 100:
                         self.BALLAST += 0.5 * fps_d
                 elif keys[pygame.K_DOWN]:
                     if self.depth_var[0]:
-                        self.depth_var[1] = str(float(self.depth_var[1])-1)
+                        self.depth_var[1] = str(float(self.depth_var[1]) - 1)
                     elif self.bearing_var[0]:
-                        self.bearing_var[1] = str(float(self.bearing_var[1])-1)
+                        self.bearing_var[1] = str(float(self.bearing_var[1]) - 1)
                     elif self.distance_var[0]:
-                        self.distance_var[1] = str(float(self.distance_var[1])-1)
+                        self.distance_var[1] = str(float(self.distance_var[1]) - 1)
                     if self.BALLAST > 0:
                         self.BALLAST -= 0.5 * fps_d
 
@@ -1289,6 +1447,7 @@ class App:
             else:
                 bearing_ = angle - local_position
             return bearing_
+
         flag = 0
         if self.PASSIVE_SELECTED_CONTACT:
             for contact in self.PASSIVE_SONAR_DISPLAY_CONTACTS:
@@ -1468,11 +1627,11 @@ class App:
             rel_x = self.OBJECTS[vessel][0][0] - self.LOCAL_POSITION[0]
             rel_y = self.OBJECTS[vessel][0][1] - self.LOCAL_POSITION[1]
             distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-            if distance + ((1-self.OBJECTS[vessel][3]) * 100) <= PASSIVE_SONAR_RANGE:
+            if distance + ((1 - self.OBJECTS[vessel][3]) * PASSIVE_SONAR_RANGE) <= PASSIVE_SONAR_RANGE:
                 # Draw it on the passive sonar display
                 bearing = calculate_bearing(rel_x, rel_y, distance)
                 distance_ratio = (distance / PASSIVE_SONAR_RANGE) * 10
-                detection_ratio = (1-self.OBJECTS[vessel][3]) * 10
+                detection_ratio = (1 - self.OBJECTS[vessel][3]) * 10
                 # print(f"Angle: {angle} Local Angle: {local_position} "
                 #       f"Bearing: {bearing}")
                 if not self.PASSIVE_SONAR_FREEZE:
