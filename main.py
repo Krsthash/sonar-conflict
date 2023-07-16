@@ -63,6 +63,7 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.WEAPON_SCREEN = False
         self.FRIENDLY_TARGET_LOCATIONS = []
         self.ENEMY_TARGET_LOCATIONS = []
         self.HEALTH = 100
@@ -385,7 +386,6 @@ class App:
 
     def game_init(self):
         # Load mission information from a file
-        mission = None
         with open('mission1.json', 'r') as file:
             mission = json.load(file)
         code = 'usa'
@@ -1270,13 +1270,12 @@ class App:
                                 if flag == 0:
                                     id = 0
                                 else:
-                                    id = int(flag.split('_')[-1])+1
+                                    id = int(flag.split('_')[-1]) + 1
                                 self.TORPEDOES[f'Enemy_ship_torpedo_{id}'] = [
                                     [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
                                      self.OBJECTS[ship][0][2], 0.0367, self.OBJECTS[ship][0][3]],
                                     [dest_x, dest_y, self.LOCAL_POSITION[3]], False, 20, ship, 0,
                                     True]
-                            print(self.TORPEDOES)
 
                 # Enemy torpedo simulation
                 for key in list(self.TORPEDOES):
@@ -1362,7 +1361,6 @@ class App:
                                 math.radians(torpedo[0][2] - 90))
                             torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                 math.radians(torpedo[0][2] - 90))
-                            # TODO: MAKE TORPEDO'S ACTIVE PING VISIBLE
 
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
@@ -1391,26 +1389,31 @@ class App:
             if self.GAME_INIT:
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_a]:
-                    if self.LOCAL_POSITION[2] > -360:
-                        turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
-                        self.LOCAL_POSITION[2] -= turn_rate * fps_d
-                    else:
-                        self.LOCAL_POSITION[2] = 0
+                    if not self.LOCAL_VELOCITY == 0:
+                        if self.LOCAL_POSITION[2] > -360:
+                            if not self.GEAR == 0:
+                                turn_rate = 0.15 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
+                                self.LOCAL_POSITION[2] -= turn_rate * fps_d
+                        else:
+                            self.LOCAL_POSITION[2] = 0
                 elif keys[pygame.K_d]:
-                    if self.LOCAL_POSITION[2] < 360:
-                        turn_rate = 0.5 * (1 - (abs(self.LOCAL_VELOCITY) / 0.3))
-                        self.LOCAL_POSITION[2] += turn_rate * fps_d
-                    else:
-                        self.LOCAL_POSITION[2] = 0
-                elif keys[pygame.K_w]:
-                    if self.LOCAL_POSITION[3] < 45:
-                        pitch_rate = 0.2 * (1 - (abs(self.LOCAL_VELOCITY) / 0.09))
-                        self.LOCAL_POSITION[3] += pitch_rate * fps_d
+                    if not self.LOCAL_VELOCITY == 0:
+                        if self.LOCAL_POSITION[2] < 360:
+                            turn_rate = 0.15 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
+                            self.LOCAL_POSITION[2] += turn_rate * fps_d
+                        else:
+                            self.LOCAL_POSITION[2] = 0
+                if keys[pygame.K_w]:
+                    if not self.LOCAL_VELOCITY == 0:
+                        if self.LOCAL_POSITION[3] < 45:
+                            pitch_rate = 0.18 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
+                            self.LOCAL_POSITION[3] += pitch_rate * fps_d
                 elif keys[pygame.K_s]:
-                    if self.LOCAL_POSITION[3] > -45:
-                        pitch_rate = 0.2 * (1 - (abs(self.LOCAL_VELOCITY) / 0.09))
-                        self.LOCAL_POSITION[3] -= pitch_rate * fps_d
-                elif keys[pygame.K_UP]:
+                    if not self.LOCAL_VELOCITY == 0:
+                        if self.LOCAL_POSITION[3] > -45:
+                            pitch_rate = 0.18 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
+                            self.LOCAL_POSITION[3] -= pitch_rate * fps_d
+                if keys[pygame.K_UP]:
                     if self.depth_var[0]:
                         self.depth_var[1] = str(float(self.depth_var[1]) + 1)
                     elif self.bearing_var[0]:
@@ -1882,6 +1885,39 @@ class App:
             self.depth_var[1] = f"{float(contact_depth):.2f}"
             self.distance_var[1] = f"{float(contact_distance) * 2.0923:.2f}"
             self.TRANSFER_CONTACT_INFO_P = False
+
+        # Position details
+        txtsurf = self.middle_font.render(f"Submarine position:", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 420))
+        speed = self.LOCAL_VELOCITY * self.fps
+        txtsurf = self.middle_font.render(f"Speed: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 445))
+        txtsurf = self.middle_font.render(f"Gear: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 470))
+        txtsurf = self.middle_font.render(f"Depth: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 495))
+        txtsurf = self.middle_font.render(f"Pitch: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 520))
+        txtsurf = self.middle_font.render(f"Heading: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 545))
+        txtsurf = self.middle_font.render(f"Ballast: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 570))
+
+        txtsurf = self.middle_font.render(f"{speed / 0.0193:.2f}km/h", True, '#b6b6d1')
+        self.window.blit(txtsurf, (480, 445))
+        txtsurf = self.middle_font.render(f"{self.GEAR}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (480, 470))
+        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[4]:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (480, 495))
+        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[3]:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (480, 520))
+        heading = self.LOCAL_POSITION[2]
+        if heading < 0:
+            heading += 360
+        txtsurf = self.middle_font.render(f"{heading:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (480, 545))
+        txtsurf = self.middle_font.render(f"{self.BALLAST:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (480, 570))
 
         pygame.display.update()
 
