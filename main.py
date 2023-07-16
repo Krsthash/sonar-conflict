@@ -64,7 +64,7 @@ def calculate_azimuth(rel_x, rel_y, distance):
 class App:
     def __init__(self):
         self.HEALTH = 100
-        self.TORPEDOS = []
+        self.TORPEDOES = []
         self.DETECTION_CHANCE = 0.04
         self.ASM_FIRED = []
         self.LAM_FIRED = []
@@ -201,7 +201,7 @@ class App:
             txtsurf = self.small_font.render(f"{target[2]}%", True, 'gray')
             self.map.blit(txtsurf, (target[0], target[1]))
 
-        # for torpedo in self.TORPEDOS:
+        # for torpedo in self.TORPEDOES:
         #     pygame.draw.circle(self.map, 'red', (torpedo[0][0], torpedo[0][1]), 2)
 
         pygame.display.update()
@@ -1243,7 +1243,7 @@ class App:
                             # [x, y, azimuth, velocity, depth], [destination x, destination y, depth], sensor on/off,
                             # timer, sender
                             flag = 0
-                            for torpedo in self.TORPEDOS:
+                            for torpedo in self.TORPEDOES:
                                 if torpedo[4] == ship and torpedo[3] > 10:
                                     flag = 1
                             if not flag and distance < 20:
@@ -1258,15 +1258,15 @@ class App:
 
                                 print(self.LOCAL_POSITION[0], self.LOCAL_POSITION[1], dest_x, dest_y)
 
-                                self.TORPEDOS.append([[self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
-                                                       self.OBJECTS[ship][0][2], 0.0267, self.OBJECTS[ship][0][3]],
-                                                      [dest_x, dest_y, self.LOCAL_POSITION[3]], False, 20, ship])
+                                self.TORPEDOES.append([[self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
+                                                        self.OBJECTS[ship][0][2], 0.0267, self.OBJECTS[ship][0][3]],
+                                                       [dest_x, dest_y, self.LOCAL_POSITION[3]], False, 20, ship])
 
                 # Enemy torpedo simulation
-                for torpedo in list(self.TORPEDOS):
+                for torpedo in list(self.TORPEDOES):
                     torpedo[3] -= 0.0167 * fps_d
                     if torpedo[3] <= 0:
-                        self.TORPEDOS.remove(torpedo)
+                        self.TORPEDOES.remove(torpedo)
                     if not torpedo[2]:  # Sensor hasn't been activated yet
                         rel_x = torpedo[1][0] - torpedo[0][0]
                         rel_y = torpedo[1][1] - torpedo[0][1]
@@ -1334,7 +1334,7 @@ class App:
                                 math.radians(torpedo[0][2] - 90))
                             if -1 < distance < 1:
                                 print("TORPEDO HIT!")
-                                self.TORPEDOS.remove(torpedo)
+                                self.TORPEDOES.remove(torpedo)
                                 self.HEALTH -= random_int(10, 30)
                         else:
                             # Updating torpedo's position
