@@ -66,7 +66,7 @@ class App:
         self.FRIENDLY_TARGET_LOCATIONS = []
         self.ENEMY_TARGET_LOCATIONS = []
         self.HEALTH = 100
-        self.TORPEDOES = []
+        self.TORPEDOES = {}
         self.DETECTION_CHANCE = 0.04
         self.ASM_FIRED = []
         self.LAM_FIRED = []
@@ -404,17 +404,17 @@ class App:
         #                        mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]]
         self.OBJECTS['Enemy'] = [[mission[enemy_code]['spawn'][0], mission[enemy_code]['spawn'][1],
                                   mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]], 'Submarine', 0, 1,
-                                 100, 0]
+                                 100, -25]
         # [x, y, azimuth, depth], type, velocity, detection_chance, HEALTH* ACTIVE_SONAR**
         i = 1
         for vessel in mission[code]['ships']:
             self.OBJECTS[f'Friendly_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], vessel[3]],
-                                                  vessel[4], vessel[5], vessel[6], vessel[7], 0]
+                                                  vessel[4], vessel[5], vessel[6], vessel[7], -25]
             i += 1
         i = 1
         for vessel in mission[enemy_code]['ships']:
             self.OBJECTS[f'Enemy_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], vessel[3]],
-                                               vessel[4], vessel[5], vessel[6], vessel[7], 0]
+                                               vessel[4], vessel[5], vessel[6], vessel[7], -25]
             i += 1
         self.SONAR_SCREEN = True
 
@@ -1239,18 +1239,24 @@ class App:
                         rel_y = self.OBJECTS[ship][0][1] - self.LOCAL_POSITION[1]
                         distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                         # Ships could only really detect you from 50km in the worst case scenario (dc = 0.5)
+                        # if -20 < self.OBJECTS[ship][5] < 1:
+                        #     self.OBJECTS[ship][5] = 2
                         if distance + ((1 - self.DETECTION_CHANCE) * 50) <= 50:
-                            if self.OBJECTS[ship][5] <= 0:
+                            if self.OBJECTS[ship][5] < 1:
                                 self.OBJECTS[ship][5] = 2
                             # TODO: Ship relays your position to the enemy submarine
-                        if self.OBJECTS[ship][5] > 0:
+                        if self.OBJECTS[ship][5] > -20 and distance < 60:  # Ship's active sonar range 120km
                             # [x, y, azimuth, velocity, depth], [destination x, destination y, depth], sensor on/off,
                             # timer, sender
+                            if self.OBJECTS[ship][5] < 1:
+                                self.OBJECTS[ship][5] = 2
                             flag = 0
                             for torpedo in self.TORPEDOES:
-                                if torpedo[4] == ship and torpedo[3] > 10:
-                                    flag = 1
-                            if not flag and distance < 25:  # distance check redundant
+                                if self.TORPEDOES[torpedo][4] == ship:
+                                    flag = torpedo
+                                    if self.TORPEDOES[torpedo][3] > 10:
+                                        flag = 1
+                            if flag != 1 and distance < 25:  # distance check redundant
                                 # Leading the target
                                 time = distance / 2.2
                                 if time < 1:
@@ -1261,20 +1267,26 @@ class App:
                                     math.radians(self.LOCAL_POSITION[2] - 90))) * time * 60
 
                                 print(self.LOCAL_POSITION[0], self.LOCAL_POSITION[1], dest_x, dest_y)
-
-                                self.TORPEDOES.append([[self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
-                                                        self.OBJECTS[ship][0][2], 0.0367, self.OBJECTS[ship][0][3]],
-                                                       [dest_x, dest_y, self.LOCAL_POSITION[3]], False, 20, ship, 0,
-                                                       True])
+                                if flag == 0:
+                                    id = 0
+                                else:
+                                    id = int(flag.split('_')[-1])+1
+                                self.TORPEDOES[f'Enemy_ship_torpedo_{id}'] = [
+                                    [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
+                                     self.OBJECTS[ship][0][2], 0.0367, self.OBJECTS[ship][0][3]],
+                                    [dest_x, dest_y, self.LOCAL_POSITION[3]], False, 20, ship, 0,
+                                    True]
+                            print(self.TORPEDOES)
 
                 # Enemy torpedo simulation
-                for torpedo in list(self.TORPEDOES):
+                for key in list(self.TORPEDOES):
+                    torpedo = self.TORPEDOES[key]
                     if torpedo[6]:  # If torpedo is in the active mode
-                        if torpedo[5] <= 0:
-                            torpedo[5] = 1
+                        if torpedo[5] <= 1:
+                            torpedo[5] = 2
                     torpedo[3] -= 0.0167 * fps_d
                     if torpedo[3] <= 0:
-                        self.TORPEDOES.remove(torpedo)
+                        self.TORPEDOES.pop(key)
                     if not torpedo[2]:  # Sensor hasn't been activated yet
                         rel_x = torpedo[1][0] - torpedo[0][0]
                         rel_y = torpedo[1][1] - torpedo[0][1]
@@ -1342,7 +1354,7 @@ class App:
                                 math.radians(torpedo[0][2] - 90))
                             if -1 < distance < 1:
                                 print("TORPEDO HIT!")
-                                self.TORPEDOES.remove(torpedo)
+                                self.TORPEDOES.pop(key)
                                 self.HEALTH -= random_int(30, 50)
                         else:
                             # Updating torpedo's position
@@ -1659,7 +1671,7 @@ class App:
                             [(zero + rel_x * scale) + random_int(-4 - distance_ratio - detection_ratio,
                                                                  4 + distance_ratio + detection_ratio), 1, vessel,
                              '#386e2c'])
-            if self.OBJECTS[vessel][5] > 0.5:
+            if self.OBJECTS[vessel][5] > 1.5:
                 if not self.PASSIVE_SONAR_FREEZE:
                     if self.OBJECTS[vessel][0][3] < self.LOCAL_POSITION[4]:
                         rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
@@ -1676,12 +1688,13 @@ class App:
                         self.PASSIVE_SONAR_DISPLAY_CONTACTS.append(
                             [(zero + rel_x * scale) + random_int(-distance_ratio, distance_ratio), 1, 'sonar',
                              'yellow'])
-            if self.OBJECTS[vessel][5] - 0.0167 > 0:
+            if self.OBJECTS[vessel][5] - 0.0167 > -25:
                 self.OBJECTS[vessel][5] -= 0.0167
             else:
-                self.OBJECTS[vessel][5] = 0
+                self.OBJECTS[vessel][5] = -25
 
         for torpedo in self.TORPEDOES:
+            torpedo = self.TORPEDOES[torpedo]
             rel_x = torpedo[0][0] - self.LOCAL_POSITION[0]
             rel_y = torpedo[0][1] - self.LOCAL_POSITION[1]
             distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
@@ -1707,7 +1720,7 @@ class App:
                         self.PASSIVE_SONAR_DISPLAY_CONTACTS.append(
                             [(zero + rel_x * scale) + random_int(-1 - distance_ratio,
                                                                  1 + distance_ratio), 1, torpedo, '#2c6e5f'])
-            if torpedo[5] > 0.5:
+            if torpedo[5] > 1.5:
                 if not self.PASSIVE_SONAR_FREEZE:
                     if torpedo[0][4] < self.LOCAL_POSITION[4]:
                         rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
@@ -1724,10 +1737,10 @@ class App:
                         self.PASSIVE_SONAR_DISPLAY_CONTACTS.append(
                             [(zero + rel_x * scale) + random_int(-distance_ratio, distance_ratio), 1, 'sonar',
                              'yellow'])
-            if torpedo[5] - 0.0167 > 0:
+            if torpedo[5] - 0.0167 > -5:
                 torpedo[5] -= 0.0167
             else:
-                torpedo[5] = 0
+                torpedo[5] = -5
 
         # Passive sonar contact identification
         txtsurf = self.middle_font.render("Passive sonar contact identification", True, '#b6b6d1')
@@ -1796,7 +1809,7 @@ class App:
                 if contact_distance > PASSIVE_SONAR_RANGE:
                     self.identifying_delay = 0
                     self.PASSIVE_SELECTED_CONTACT = None
-        elif self.PASSIVE_SELECTED_CONTACT and self.PASSIVE_SELECTED_CONTACT[2] in self.TORPEDOES:
+        elif self.PASSIVE_SELECTED_CONTACT and self.PASSIVE_SELECTED_CONTACT[2] in list(self.TORPEDOES):
             if self.identifying_delay <= 2:
                 contact_type = 'Unidentified'
                 if self.identifying_delay > 0:
@@ -1811,7 +1824,7 @@ class App:
                 if contact_bearing < 0:
                     contact_bearing += 360
             elif not self.PASSIVE_SONAR_FREEZE:
-                torpedo = self.TORPEDOES[self.TORPEDOES.index(self.PASSIVE_SELECTED_CONTACT[2])]
+                torpedo = self.TORPEDOES[self.PASSIVE_SELECTED_CONTACT[2]]
                 contact_type = 'Torpedo'
                 contact_speed = torpedo[0][3]
                 contact_depth = torpedo[0][4]
