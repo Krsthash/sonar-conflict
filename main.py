@@ -345,6 +345,12 @@ class App:
             if event.button == 1 and self.join_game_rect.collidepoint(pygame.mouse.get_pos()):
                 self.PLAYER_ID = 0
                 server_api.PLAYER = self.PLAYER_ID
+                if self.PLAYER_ID:
+                    server_api.CHANNEL = server_api.fetch_channel_object(1130614819146444832)
+                    server_api.LISTENING_CHANNEL = server_api.fetch_channel_object(1130614839631413269)
+                else:
+                    server_api.CHANNEL = server_api.fetch_channel_object(1130614839631413269)
+                    server_api.LISTENING_CHANNEL = server_api.fetch_channel_object(1130614819146444832)
                 self.clear_scene()
                 self.GAME_OPEN = True
                 self.GAME_INIT = True
@@ -352,6 +358,12 @@ class App:
             elif event.button == 1 and self.host_game_rect.collidepoint(pygame.mouse.get_pos()):
                 self.PLAYER_ID = 1
                 server_api.PLAYER = self.PLAYER_ID
+                if self.PLAYER_ID:
+                    server_api.CHANNEL = server_api.fetch_channel_object(1130614819146444832)
+                    server_api.LISTENING_CHANNEL = server_api.fetch_channel_object(1130614839631413269)
+                else:
+                    server_api.CHANNEL = server_api.fetch_channel_object(1130614839631413269)
+                    server_api.LISTENING_CHANNEL = server_api.fetch_channel_object(1130614819146444832)
                 self.clear_scene()
                 self.GAME_OPEN = True
                 self.GAME_INIT = True
@@ -1239,9 +1251,9 @@ class App:
                         self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.014) / 200
                 elif self.GEAR == 3:
                     self.DETECTION_CHANCE = 0.5
-                    self.LOCAL_ACCELERATION = 0.00012
+                    self.LOCAL_ACCELERATION = 0.00002
                     if self.LOCAL_VELOCITY >= 0.018:
-                        self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.068) / 200
+                        self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.018) / 200
                 elif self.GEAR == 0:
                     self.DETECTION_CHANCE = 0.04
                     self.LOCAL_ACCELERATION = 0
@@ -1287,7 +1299,7 @@ class App:
 
                 # Other vessel's simulation
                 for vessel in self.OBJECTS:
-                    if vessel != 'Enemy' and self.OBJECTS[vessel][2] != 0:
+                    if self.OBJECTS[vessel][2] != 0:
                         self.OBJECTS[vessel][0][0] += (self.OBJECTS[vessel][2] * fps_d) * math.cos(
                             math.radians(self.OBJECTS[vessel][0][2] - 90))
                         self.OBJECTS[vessel][0][1] += (self.OBJECTS[vessel][2] * fps_d) * math.sin(
@@ -1415,8 +1427,8 @@ class App:
                         min_distance = [None, None]
                         for ship in self.OBJECTS:
                             if ship.count('Friendly_ship'):
-                                rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
-                                rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
+                                rel_x = self.OBJECTS[ship][0][0] - torpedo[0][0]
+                                rel_y = self.OBJECTS[ship][0][1] - torpedo[0][1]
                                 distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                                 if not min_distance[0]:
                                     min_distance[0] = distance
@@ -1573,8 +1585,8 @@ class App:
                             pitch_rate = 0.18 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
                             self.LOCAL_POSITION[3] -= pitch_rate * fps_d
                 if keys[pygame.K_UP]:
-                    self.LOCAL_POSITION[0] = 762
-                    self.LOCAL_POSITION[1] = 228
+                    # self.LOCAL_POSITION[0] = 762
+                    # self.LOCAL_POSITION[1] = 228
                     if self.depth_var[0]:
                         self.depth_var[1] = str(float(self.depth_var[1]) + 1)
                     elif self.bearing_var[0]:

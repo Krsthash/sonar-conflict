@@ -23,6 +23,7 @@ UPDATE_INFO = None
 SEND_INFO = None
 TORPEDO_INFO = []
 CHANNEL = None
+LISTENING_CHANNEL = None
 # ---------------------------------- #
 
 
@@ -70,12 +71,20 @@ async def on_ready():
         SERVER = BOT.guilds[1]
     except IndexError:
         print("Server not found.")
-    CHANNEL = SERVER.get_channel(1084976743565234289)
     api_listener.start()  # Starts the loop.
     update_game.start()
     bot_started = True
 
     log.info("Connected.")
+
+
+@execute
+def fetch_channel_object(id):
+    """
+    Example function to demonstrate how the api_listener function executes commands.
+    """
+    print("Fetching channel...")
+    return SERVER.get_channel(id)
 
 
 @execute
@@ -96,7 +105,7 @@ async def on_message(msg):
     log.info(f"Message! {msg}")
     print(f"MESSAGE FOUND...{PLAYER}")
     # ON_MESSAGE_BUFFER.append(msg)
-    if str(msg.content[1]) != str(PLAYER) and msg.channel.id == 1084976743565234289:
+    if str(msg.content[1]) != str(PLAYER) and msg.channel.id == LISTENING_CHANNEL.id:
         if msg.content[2] == ']':
             print("UPDATE MSG!", msg.content[1], PLAYER)
             UPDATE_INFO = msg.content[3:].replace('[', '').replace(']', '').replace(' ', '').split('AND')[0].split(',')
@@ -176,7 +185,7 @@ async def wait_for_message():
     return
 
 
-@tasks.loop(seconds=2)
+@tasks.loop(seconds=1)
 async def update_game():
     """
     Every update that goes to the other player *MUST* be sent through this function to ensure efficiency.
