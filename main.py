@@ -1,10 +1,14 @@
+import asyncio
 import colorsys
 import json
 import math
 import os
 import random
+import threading
 
 import pygame
+
+import server_api
 
 
 def random_int(low, high):
@@ -134,7 +138,7 @@ class App:
         pygame.display.set_caption("Sonar Conflict")
 
         # create map
-        current_dir = os.path.dirname(os.path.realpath(__file__))
+        current_dir = os.path.dirname(os.path.realpath(__name__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
         self.map_rect = self.map.get_rect(topleft=self.window.get_rect().topleft)
 
@@ -153,7 +157,7 @@ class App:
         self.blitmap()
 
     def blitmap(self):
-        current_dir = os.path.dirname(os.path.realpath(__file__))
+        current_dir = os.path.dirname(os.path.realpath(__name__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
         # Collision detection
         if self.map.get_at((int(self.LOCAL_POSITION[0]), int(self.LOCAL_POSITION[1])))[:3] != (2, 16, 25):
@@ -210,7 +214,7 @@ class App:
         pygame.display.update()
 
     def on_cleanup(self):
-        pygame.quit()
+        os._exit(0)
 
     def open_main_menu(self):
         self.window.fill("#021019")
@@ -1922,6 +1926,17 @@ class App:
         pygame.display.update()
 
 
-pygame.init()
-start = App()
-start.on_execute()
+def start_the_game():
+    pygame.init()
+    app = App()
+    app.on_execute()
+
+
+if __name__ == "__main__":
+    threading.Thread(target=start_the_game).start()
+    asyncio.run(server_api.start_bot())
+
+
+
+
+
