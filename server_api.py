@@ -19,6 +19,10 @@ PLAYER = None
 OPPONENT = None
 ON_MESSAGE_BUFFER = []
 ALLOW_WAIT = True
+UPDATE_INFO = None
+SEND_INFO = None
+TORPEDO_INFO = []
+CHANNEL = None
 # ---------------------------------- #
 
 
@@ -61,12 +65,16 @@ def execute(function):
 async def on_ready():
     global bot_started
     global SERVER
-    api_listener.start()  # Starts the loop.
-    bot_started = True
+    global CHANNEL
     try:
         SERVER = BOT.guilds[1]
     except IndexError:
         print("Server not found.")
+    CHANNEL = SERVER.get_channel(1084976743565234289)
+    api_listener.start()  # Starts the loop.
+    update_game.start()
+    bot_started = True
+
     log.info("Connected.")
 
 
@@ -83,9 +91,20 @@ def do_something(something):
 
 @BOT.event
 async def on_message(msg):
+    global UPDATE_INFO
+    global TORPEDO_INFO
     log.info(f"Message! {msg}")
-    print(msg)
-    ON_MESSAGE_BUFFER.append(msg)
+    print(f"MESSAGE FOUND...{PLAYER}")
+    # ON_MESSAGE_BUFFER.append(msg)
+    if str(msg.content[1]) != str(PLAYER) and msg.channel.id == 1084976743565234289:
+        if msg.content[2] == ']':
+            print("UPDATE MSG!", msg.content[1], PLAYER)
+            UPDATE_INFO = msg.content[3:].replace('[', '').replace(']', '').replace(' ', '').split(',')
+        elif msg.content[2] == '-':
+            print("TOPEDO MESSAGE!")
+            TORPEDO_INFO = msg.content[11:].replace('[', '').replace(']', '').replace(' ', '').split(',')
+
+
 
 
 @execute
@@ -152,7 +171,21 @@ async def wait_for_message():
     message = ON_MESSAGE_BUFFER[0]
     ON_MESSAGE_BUFFER.pop(0)
     log.info("Awaited the message!")
-    return message
+    return
+
+
+@tasks.loop(seconds=2)
+async def update_game():
+    """
+    Every update that goes to the other player *MUST* be sent through this function to ensure efficiency.
+    """
+    global SEND_INFO
+    log.info(f'update game running.. {PLAYER}, {SEND_INFO}')
+    print(f'update game running.. {PLAYER}, {SEND_INFO}')
+    if SEND_INFO:
+        await CHANNEL.send(SEND_INFO)
+        log.info("SENT SEND INFO.")
+        print(f"SENT INFO, {PLAYER}")
 
 
 @tasks.loop(seconds=1)
@@ -161,6 +194,7 @@ async def api_listener():
     Listens for any new commands in the execution queue.
     Upon finding new commands it executes them and removes them from the queue.
     """
+    print(f"API LISTENER WORKING...{PLAYER}")
     if len(toExecute):
         for function in toExecute:
             try:

@@ -67,6 +67,7 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.FIRED_TORPEDOES = {}
         self.WEAPON_SCREEN = False
         self.FRIENDLY_TARGET_LOCATIONS = []
         self.ENEMY_TARGET_LOCATIONS = []
@@ -93,7 +94,8 @@ class App:
         self.SELECTED_WEAPON = None
         self.FRIENDLY_PORT_LOCATIONS = []
         self.WEAPON_LAYOUT = {}
-        self.PLAYER_ID = 0
+        self.PLAYER_ID = 1
+        server_api.PLAYER = self.PLAYER_ID
         self.ACTIVE_SONAR_SELECTED_CONTACT = None
         self.identifying_delay = 0
         self.PASSIVE_SELECTED_CONTACT = None
@@ -208,8 +210,14 @@ class App:
             txtsurf = self.small_font.render(f"{target[2]}%", True, 'gray')
             self.map.blit(txtsurf, (target[0], target[1]))
 
-        # for torpedo in self.TORPEDOES:
-        #     pygame.draw.circle(self.map, 'red', (torpedo[0][0], torpedo[0][1]), 2)
+        for torpedo in self.TORPEDOES:
+            pygame.draw.circle(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), 2)
+
+        length = 5
+        point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
+                  self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
+        pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
+        pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
 
         pygame.display.update()
 
@@ -519,36 +527,38 @@ class App:
                             if distance <= 30:
                                 flag = 1
                                 # Weapon refilling
-                                if not self.PLAYER_ID:
-                                    # RU
-                                    if self.WEAPON_LAYOUT[weapon][0][0] == 0:
-                                        if self.WEAPON_LAYOUT[weapon][1] == '3M54-1 Kalibr':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'P-800 Oniks'
+                                if self.WEAPON_LAYOUT[weapon][1] != 'Fired':
+                                    if not self.PLAYER_ID:
+                                        # RU
+                                        if self.WEAPON_LAYOUT[weapon][0][0] == 0:
+                                            if self.WEAPON_LAYOUT[weapon][1] == '3M54-1 Kalibr':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'P-800 Oniks'
+                                            else:
+                                                self.WEAPON_LAYOUT[weapon][1] = '3M54-1 Kalibr'
                                         else:
-                                            self.WEAPON_LAYOUT[weapon][1] = '3M54-1 Kalibr'
+                                            if self.WEAPON_LAYOUT[weapon][1] == 'Futlyar':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                            else:
+                                                self.WEAPON_LAYOUT[weapon][1] = 'Futlyar'
                                     else:
-                                        if self.WEAPON_LAYOUT[weapon][1] == 'Futlyar':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                        # American
+                                        if self.WEAPON_LAYOUT[weapon][0][0] == 0:
+                                            if self.WEAPON_LAYOUT[weapon][1] == 'TLAM-E':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'TASM'
+                                            else:
+                                                self.WEAPON_LAYOUT[weapon][1] = 'TLAM-E'
                                         else:
-                                            self.WEAPON_LAYOUT[weapon][1] = 'Futlyar'
-                                else:
-                                    # American
-                                    if self.WEAPON_LAYOUT[weapon][0][0] == 0:
-                                        if self.WEAPON_LAYOUT[weapon][1] == 'TLAM-E':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'TASM'
-                                        else:
-                                            self.WEAPON_LAYOUT[weapon][1] = 'TLAM-E'
-                                    else:
-                                        if self.WEAPON_LAYOUT[weapon][1] == 'Mk-48':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'UGM-84'
-                                        elif self.WEAPON_LAYOUT[weapon][1] == 'UGM-84':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
-                                        else:
-                                            self.WEAPON_LAYOUT[weapon][1] = 'Mk-48'
+                                            if self.WEAPON_LAYOUT[weapon][1] == 'Mk-48':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'UGM-84'
+                                            elif self.WEAPON_LAYOUT[weapon][1] == 'UGM-84':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                            else:
+                                                self.WEAPON_LAYOUT[weapon][1] = 'Mk-48'
                         if not flag:
                             if self.WEAPON_LAYOUT[weapon][0][1] == 0 and self.SELECTED_WEAPON:
                                 if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == self.WEAPON_LAYOUT[weapon][0][0] \
-                                        and self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] != 0:
+                                        and self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] != 0 and \
+                                        self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] != 'Fired':
                                     temp = self.WEAPON_LAYOUT[weapon][1]
                                     self.WEAPON_LAYOUT[weapon][1] = self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1]
                                     self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = temp
@@ -766,6 +776,46 @@ class App:
                                                    self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction,
                                                    sensor_range])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
+                        elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
+                            print("FIRED!")
+                            speed = 0.0367
+                            range = 35  # 70 km
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            time = range / (speed * 60)
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            mode = True
+                            if self.mode_var == 0:
+                                mode = False
+                            torpedo_info = [
+                                [self.LOCAL_POSITION[0], self.LOCAL_POSITION[1],
+                                 self.LOCAL_POSITION[2], speed, self.LOCAL_POSITION[3]],
+                                [impact_x, impact_y, float(self.depth_var[1])], False, time, 'Enemy', 0,
+                                mode, self.SELECTED_WEAPON]
+                            server_api.send_message(f"[{self.PLAYER_ID}-torpedo] {torpedo_info}", 1084976743565234289)
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
+                            self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode]
+                        elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Fired':
+                            print("TORPEDO UPDATE!!")
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            mode = True
+                            if self.mode_var == 0:
+                                mode = False
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            torpedo_info = [
+                                [self.LOCAL_POSITION[0], self.LOCAL_POSITION[1],
+                                 self.LOCAL_POSITION[2], 'update', self.LOCAL_POSITION[3]],
+                                [impact_x, impact_y, float(self.depth_var[1])], False, 'update', 'Enemy', 0,
+                                mode, self.SELECTED_WEAPON]
+                            server_api.send_message(f"[{self.PLAYER_ID}-torpedo] {torpedo_info}", 1084976743565234289)
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
 
         elif event.type == pygame.KEYDOWN:
             if self.bearing_var[0]:
@@ -881,6 +931,13 @@ class App:
                     txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'red')
                     self.window.blit(txtsurf, (20, 320 + i * 20))
             i += 1
+        for torpedo in self.FIRED_TORPEDOES:
+            index = list(self.WEAPON_LAYOUT.keys()).index(torpedo) - 31
+            txtsurf = self.middle_font.render(
+                f"Torp {index}: S:{self.FIRED_TORPEDOES[torpedo][0]} M: {self.FIRED_TORPEDOES[torpedo][1]}", True,
+                '#b6b6d1')
+            self.window.blit(txtsurf, (20, 320 + i * 20))
+            i += 1
 
         # Position details
         speed = self.LOCAL_VELOCITY * self.fps
@@ -959,6 +1016,8 @@ class App:
                 if self.WEAPON_LAYOUT[rect][1] != '':
                     if self.WEAPON_LAYOUT[rect][1] == 'Futlyar':
                         pygame.draw.rect(self.window, '#263ded', rect, border_radius=5)
+                    elif self.WEAPON_LAYOUT[rect][1] == 'Fired':
+                        pygame.draw.rect(self.window, '#5e0801', rect, border_radius=5)
                     else:
                         pygame.draw.rect(self.window, '#ffff82', rect, border_radius=5)
                     txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
@@ -1251,7 +1310,7 @@ class App:
                             # TODO: Ship relays your position to the enemy submarine
                         if self.OBJECTS[ship][5] > -20 and distance < 60:  # Ship's active sonar range 120km
                             # [x, y, azimuth, velocity, depth], [destination x, destination y, depth], sensor on/off,
-                            # timer, sender
+                            # timer, sender, active_sonar_ping_duration, active sonar on/off, weapon_bay
                             if self.OBJECTS[ship][5] < 1:
                                 self.OBJECTS[ship][5] = 2
                             flag = 0
@@ -1278,7 +1337,7 @@ class App:
                                 self.TORPEDOES[f'Enemy_ship_torpedo_{id}'] = [
                                     [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
                                      self.OBJECTS[ship][0][2], 0.0367, self.OBJECTS[ship][0][3]],
-                                    [dest_x, dest_y, self.LOCAL_POSITION[3]], False, 20, ship, 0,
+                                    [dest_x, dest_y, self.LOCAL_POSITION[4]], False, 20, ship, 0,
                                     True]
 
                 # Enemy torpedo simulation
@@ -1324,47 +1383,114 @@ class App:
                             torpedo[2] = True
                     else:
                         # Go into seeking mode
+                        min_distance = [None, None]
+                        for ship in self.OBJECTS:
+                            if ship.count('Friendly_ship'):
+                                rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
+                                rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
+                                distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                                if not min_distance[0]:
+                                    min_distance[0] = distance
+                                    min_distance[1] = ship
+                                if min_distance[0] > distance:
+                                    min_distance[0] = distance
+                                    min_distance[1] = ship
                         rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
                         rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
                         distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-                        angle = calculate_azimuth(rel_x, rel_y, distance)
-                        if torpedo[0][2] - angle > 180:
-                            angle = (360 - torpedo[0][2]) + angle
-                        elif torpedo[0][2] - angle < -180:
-                            angle = -((360 - angle) + torpedo[0][2])
-                        else:
-                            angle = -(torpedo[0][2] - angle)
-                        depth = self.LOCAL_POSITION[3] - torpedo[0][4]
-                        if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
-                            turn = 0.34 * fps_d
-                            if turn > abs(angle):
-                                turn = abs(angle)
-                            if angle > 0:
-                                torpedo[0][2] += turn
+                        if not min_distance[0]:
+                            min_distance[0] = distance
+                            min_distance[1] = 'Player'
+                        if min_distance[0] > distance:
+                            min_distance[0] = distance
+                            min_distance[1] = 'Player'
+                        if min_distance[1] == 'Player':
+                            rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
+                            rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
+                            distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                            angle = calculate_azimuth(rel_x, rel_y, distance)
+                            if torpedo[0][2] - angle > 180:
+                                angle = (360 - torpedo[0][2]) + angle
+                            elif torpedo[0][2] - angle < -180:
+                                angle = -((360 - angle) + torpedo[0][2])
                             else:
-                                torpedo[0][2] -= turn
-                            dive_rate = 0.22 * fps_d
-                            if dive_rate > depth:
-                                dive_rate = depth
-                            if depth > 0:
-                                torpedo[0][4] += dive_rate
+                                angle = -(torpedo[0][2] - angle)
+                            depth = self.LOCAL_POSITION[4] - torpedo[0][4]
+                            if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
+                                turn = 0.34 * fps_d
+                                if turn > abs(angle):
+                                    turn = abs(angle)
+                                if angle > 0:
+                                    torpedo[0][2] += turn
+                                else:
+                                    torpedo[0][2] -= turn
+                                dive_rate = 0.22 * fps_d
+                                if dive_rate > depth:
+                                    dive_rate = depth
+                                if depth > 0:
+                                    torpedo[0][4] += dive_rate
+                                else:
+                                    torpedo[0][4] -= dive_rate
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
+                                if -1 < distance < 1:
+                                    print("TORPEDO HIT!")
+                                    self.TORPEDOES.pop(key)
+                                    self.HEALTH -= random_int(30, 50)
                             else:
-                                torpedo[0][4] -= dive_rate
-                            # Updating torpedo's position
-                            torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
-                                math.radians(torpedo[0][2] - 90))
-                            torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
-                                math.radians(torpedo[0][2] - 90))
-                            if -1 < distance < 1:
-                                print("TORPEDO HIT!")
-                                self.TORPEDOES.pop(key)
-                                self.HEALTH -= random_int(30, 50)
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
                         else:
-                            # Updating torpedo's position
-                            torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
-                                math.radians(torpedo[0][2] - 90))
-                            torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
-                                math.radians(torpedo[0][2] - 90))
+                            rel_x = self.OBJECTS[min_distance[1]][0][0] - torpedo[0][0]
+                            rel_y = self.OBJECTS[min_distance[1]][0][1] - torpedo[0][1]
+                            distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                            angle = calculate_azimuth(rel_x, rel_y, distance)
+                            if torpedo[0][2] - angle > 180:
+                                angle = (360 - torpedo[0][2]) + angle
+                            elif torpedo[0][2] - angle < -180:
+                                angle = -((360 - angle) + torpedo[0][2])
+                            else:
+                                angle = -(torpedo[0][2] - angle)
+                            depth = self.OBJECTS[min_distance[1]][0][3] - torpedo[0][4]
+                            if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
+                                turn = 0.34 * fps_d
+                                if turn > abs(angle):
+                                    turn = abs(angle)
+                                if angle > 0:
+                                    torpedo[0][2] += turn
+                                else:
+                                    torpedo[0][2] -= turn
+                                dive_rate = 0.22 * fps_d
+                                if dive_rate > depth:
+                                    dive_rate = depth
+                                if depth > 0:
+                                    torpedo[0][4] += dive_rate
+                                else:
+                                    torpedo[0][4] -= dive_rate
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
+                                if -1 < distance < 1:
+                                    print("TORPEDO HIT!")
+                                    self.TORPEDOES.pop(key)
+                                    self.OBJECTS[min_distance[1]][4] -= random_int(30, 50)
+                                    if self.OBJECTS[min_distance[1]][4] <= 0:
+                                        self.OBJECTS.pop(min_distance[1])
+                                        print("TORPEDO SUNK THE SHIP!")
+                            else:
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
 
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
@@ -1435,6 +1561,86 @@ class App:
                         self.distance_var[1] = str(float(self.distance_var[1]) - 1)
                     if self.BALLAST > 0:
                         self.BALLAST -= 0.5 * fps_d
+                torpedo_send_info = []
+                for torpedo in self.TORPEDOES:
+                    torpedo_send_info.append(f"{str(torpedo).replace(',', 'C')}!{self.TORPEDOES[torpedo][2]}!{self.TORPEDOES[torpedo][6]}")
+                if not len(torpedo_send_info):
+                    torpedo_send_info = None
+                server_api.SEND_INFO = f"[{self.PLAYER_ID}] [{self.LOCAL_POSITION[0]:.2f}, " \
+                                       f"{self.LOCAL_POSITION[1]:.2f}, {self.LOCAL_POSITION[2]:.2f}, " \
+                                       f"{self.LOCAL_POSITION[4]:.2f}, {self.LOCAL_VELOCITY:.5f}, " \
+                                       f"{self.DETECTION_CHANCE}, {torpedo_send_info}]"
+                # print(f'appending info {self.PLAYER_ID}')
+                if server_api.UPDATE_INFO:
+                    self.OBJECTS['Enemy'][0][0] = float(server_api.UPDATE_INFO[0])
+                    self.OBJECTS['Enemy'][0][1] = float(server_api.UPDATE_INFO[1])
+                    self.OBJECTS['Enemy'][0][2] = float(server_api.UPDATE_INFO[2])
+                    self.OBJECTS['Enemy'][0][3] = float(server_api.UPDATE_INFO[3])
+                    self.OBJECTS['Enemy'][2] = float(server_api.UPDATE_INFO[4])
+                    self.OBJECTS['Enemy'][3] = float(server_api.UPDATE_INFO[5])
+                    torpedo_update_info = server_api.UPDATE_INFO[6:]
+                    print(torpedo_update_info)
+                    for weapon in list(self.WEAPON_LAYOUT):
+                        if weapon in list(self.FIRED_TORPEDOES):
+                            print("DOGGERRRRRRRR")
+                            flag = 0
+                            torp_info = None
+                            for info in torpedo_update_info:
+                                # print(info.replace("'", '').split('!')[0].replace('C', ','), str(weapon).replace(' ', ''))
+                                if info.replace("'", '').split('!')[0].replace('C', ',') == str(weapon).replace(' ', ''):
+                                    flag = 1
+                                    torp_info = info.replace("'", '')
+                                    break
+                            if not flag:
+                                self.WEAPON_LAYOUT[weapon][1] = ''
+                                self.FIRED_TORPEDOES.pop(weapon)
+                            else:
+                                t1 = False
+                                t2 = False
+                                if torp_info.split('!')[1] == 'True':
+                                    t1 = True
+                                if torp_info.split('!')[2] == 'True':
+                                    t2 = True
+                                self.FIRED_TORPEDOES[weapon][0] = t1  # Sensor active (bool)
+                                self.FIRED_TORPEDOES[weapon][1] = t2  # Mode (bool) (act./pas.)
+
+
+
+                    server_api.UPDATE_INFO = None
+                if server_api.TORPEDO_INFO:
+                    if server_api.TORPEDO_INFO[8] == 'True':
+                        t1 = True
+                    else:
+                        t1 = False
+                    if server_api.TORPEDO_INFO[12] == 'True':
+                        t2 = True
+                    else:
+                        t2 = False
+                    flag = 0
+                    torp_key = (int(server_api.TORPEDO_INFO[13].replace("(", '')),
+                        int(server_api.TORPEDO_INFO[14]),
+                        int(server_api.TORPEDO_INFO[15]),
+                        int(server_api.TORPEDO_INFO[16].replace(")", '')))
+                    if torp_key in list(self.TORPEDOES.keys()):
+                        flag = 1
+                    if flag:
+                        self.TORPEDOES[torp_key][1][0] = float(server_api.TORPEDO_INFO[5])
+                        self.TORPEDOES[torp_key][1][1] = float(server_api.TORPEDO_INFO[6])
+                        self.TORPEDOES[torp_key][1][2] = float(server_api.TORPEDO_INFO[7])
+                        self.TORPEDOES[torp_key][6] = t2
+                    else:
+                        try:
+                            torp = [[float(server_api.TORPEDO_INFO[0]), float(server_api.TORPEDO_INFO[1]),
+                                     float(server_api.TORPEDO_INFO[2]),
+                                     float(server_api.TORPEDO_INFO[3]), float(server_api.TORPEDO_INFO[4])],
+                                    [float(server_api.TORPEDO_INFO[5]), float(server_api.TORPEDO_INFO[6]),
+                                     float(server_api.TORPEDO_INFO[7])],
+                                    t1, float(server_api.TORPEDO_INFO[9]), server_api.TORPEDO_INFO[10],
+                                    float(server_api.TORPEDO_INFO[11]), t2]
+                            self.TORPEDOES[torp_key] = torp
+                        except ValueError:
+                            print("Torpedo no longer exists.")
+                    server_api.TORPEDO_INFO = None
 
         self.on_cleanup()
 
@@ -1810,6 +2016,8 @@ class App:
                 rel_y = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][1] - self.LOCAL_POSITION[1]
                 contact_distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                 contact_heading = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][2]
+                if contact_heading < 0:
+                    contact_heading += 360
                 contact_bearing = calculate_bearing(rel_x, rel_y, contact_distance)
                 if contact_bearing < 0:
                     contact_bearing += 360
@@ -1935,8 +2143,3 @@ def start_the_game():
 if __name__ == "__main__":
     threading.Thread(target=start_the_game).start()
     asyncio.run(server_api.start_bot())
-
-
-
-
-
