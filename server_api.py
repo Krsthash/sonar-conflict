@@ -99,10 +99,12 @@ async def on_message(msg):
     if str(msg.content[1]) != str(PLAYER) and msg.channel.id == 1084976743565234289:
         if msg.content[2] == ']':
             print("UPDATE MSG!", msg.content[1], PLAYER)
-            UPDATE_INFO = msg.content[3:].replace('[', '').replace(']', '').replace(' ', '').split(',')
-        elif msg.content[2] == '-':
-            print("TOPEDO MESSAGE!")
-            TORPEDO_INFO = msg.content[11:].replace('[', '').replace(']', '').replace(' ', '').split(',')
+            UPDATE_INFO = msg.content[3:].replace('[', '').replace(']', '').replace(' ', '').split('AND')[0].split(',')
+            TORPEDO_INFO = msg.content[3:].split('AND')[1:]
+            temp = []
+            for info in TORPEDO_INFO:
+                temp.append(info.replace('[', '').replace(']', '').replace(' ', '').split(','))
+            TORPEDO_INFO = temp
 
 
 
@@ -186,6 +188,7 @@ async def update_game():
         await CHANNEL.send(SEND_INFO)
         log.info("SENT SEND INFO.")
         print(f"SENT INFO, {PLAYER}")
+        SEND_INFO = None
 
 
 @tasks.loop(seconds=1)

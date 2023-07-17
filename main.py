@@ -67,6 +67,7 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.UPDATE_TORP_QUEUE = []
         self.FIRED_TORPEDOES = {}
         self.WEAPON_SCREEN = False
         self.FRIENDLY_TARGET_LOCATIONS = []
@@ -95,7 +96,6 @@ class App:
         self.FRIENDLY_PORT_LOCATIONS = []
         self.WEAPON_LAYOUT = {}
         self.PLAYER_ID = 1
-        server_api.PLAYER = self.PLAYER_ID
         self.ACTIVE_SONAR_SELECTED_CONTACT = None
         self.identifying_delay = 0
         self.PASSIVE_SELECTED_CONTACT = None
@@ -341,6 +341,15 @@ class App:
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1 and self.join_game_rect.collidepoint(pygame.mouse.get_pos()):
+                self.PLAYER_ID = 0
+                server_api.PLAYER = self.PLAYER_ID
+                self.clear_scene()
+                self.GAME_OPEN = True
+                self.GAME_INIT = True
+                self.game_init()
+            elif event.button == 1 and self.host_game_rect.collidepoint(pygame.mouse.get_pos()):
+                self.PLAYER_ID = 1
+                server_api.PLAYER = self.PLAYER_ID
                 self.clear_scene()
                 self.GAME_OPEN = True
                 self.GAME_INIT = True
@@ -429,6 +438,8 @@ class App:
                                                vessel[4], vessel[5], vessel[6], vessel[7], -25]
             i += 1
         self.SONAR_SCREEN = True
+        self.sonar_screen_render()
+        self.weapon_screen_render()
 
     def start_game(self):
         self.window.fill('black')
@@ -795,9 +806,10 @@ class App:
                                  self.LOCAL_POSITION[2], speed, self.LOCAL_POSITION[3]],
                                 [impact_x, impact_y, float(self.depth_var[1])], False, time, 'Enemy', 0,
                                 mode, self.SELECTED_WEAPON]
-                            server_api.send_message(f"[{self.PLAYER_ID}-torpedo] {torpedo_info}", 1084976743565234289)
+                            self.UPDATE_TORP_QUEUE.append(f"{torpedo_info}")
+                            #server_api.send_message(, 1084976743565234289)
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
-                            self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode]
+                            self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Fired':
                             print("TORPEDO UPDATE!!")
                             distance = float(self.distance_var[1]) / 2  # converting to px
@@ -933,10 +945,24 @@ class App:
             i += 1
         for torpedo in self.FIRED_TORPEDOES:
             index = list(self.WEAPON_LAYOUT.keys()).index(torpedo) - 31
-            txtsurf = self.middle_font.render(
-                f"Torp {index}: S:{self.FIRED_TORPEDOES[torpedo][0]} M: {self.FIRED_TORPEDOES[torpedo][1]}", True,
+            txtsurf1 = self.middle_font.render(
+                f"Torp {index}: ", True,
                 '#b6b6d1')
-            self.window.blit(txtsurf, (20, 320 + i * 20))
+            self.window.blit(txtsurf1, (20, 320 + i * 20))
+            color = "red"
+            if self.FIRED_TORPEDOES[torpedo][0]:
+                color = "green"
+            txtsurf2 = self.middle_font.render(
+                f"S:{self.FIRED_TORPEDOES[torpedo][0]} ", True,
+                color)
+            self.window.blit(txtsurf2, (20 + txtsurf1.get_width(), 320 + i * 20))
+            color = "red"
+            if self.FIRED_TORPEDOES[torpedo][1]:
+                color = "green"
+            txtsurf3 = self.middle_font.render(
+                f"M: {self.FIRED_TORPEDOES[torpedo][1]}", True,
+                color)
+            self.window.blit(txtsurf3, (20 + txtsurf2.get_width() + txtsurf1.get_width(), 320 + i * 20))
             i += 1
 
         # Position details
@@ -1566,10 +1592,21 @@ class App:
                     torpedo_send_info.append(f"{str(torpedo).replace(',', 'C')}!{self.TORPEDOES[torpedo][2]}!{self.TORPEDOES[torpedo][6]}")
                 if not len(torpedo_send_info):
                     torpedo_send_info = None
-                server_api.SEND_INFO = f"[{self.PLAYER_ID}] [{self.LOCAL_POSITION[0]:.2f}, " \
-                                       f"{self.LOCAL_POSITION[1]:.2f}, {self.LOCAL_POSITION[2]:.2f}, " \
-                                       f"{self.LOCAL_POSITION[4]:.2f}, {self.LOCAL_VELOCITY:.5f}, " \
-                                       f"{self.DETECTION_CHANCE}, {torpedo_send_info}]"
+                if not server_api.SEND_INFO:
+                    for weapon in self.FIRED_TORPEDOES:
+                        if self.FIRED_TORPEDOES[weapon][2] < 0:
+                            self.FIRED_TORPEDOES[weapon][2] = 0
+                    torpedo_send_info2 = ""
+                    for torp in self.UPDATE_TORP_QUEUE:
+                        torpedo_send_info2 += f'AND{torp}'
+                    print(torpedo_send_info2)
+
+                    server_api.SEND_INFO = f"[{self.PLAYER_ID}] [{self.LOCAL_POSITION[0]:.2f}, " \
+                                           f"{self.LOCAL_POSITION[1]:.2f}, {self.LOCAL_POSITION[2]:.2f}, " \
+                                           f"{self.LOCAL_POSITION[4]:.2f}, {self.LOCAL_VELOCITY:.5f}, " \
+                                           f"{self.DETECTION_CHANCE}, {torpedo_send_info}]" \
+                                           f" {torpedo_send_info2}"
+                    self.UPDATE_TORP_QUEUE = []
                 # print(f'appending info {self.PLAYER_ID}')
                 if server_api.UPDATE_INFO:
                     self.OBJECTS['Enemy'][0][0] = float(server_api.UPDATE_INFO[0])
@@ -1580,21 +1617,27 @@ class App:
                     self.OBJECTS['Enemy'][3] = float(server_api.UPDATE_INFO[5])
                     torpedo_update_info = server_api.UPDATE_INFO[6:]
                     print(torpedo_update_info)
+                    #print(list(self.WEAPON_LAYOUT), list(self.FIRED_TORPEDOES))
                     for weapon in list(self.WEAPON_LAYOUT):
-                        if weapon in list(self.FIRED_TORPEDOES):
+                        if weapon in list(self.FIRED_TORPEDOES) and self.FIRED_TORPEDOES[weapon][2] >= 0:
                             print("DOGGERRRRRRRR")
                             flag = 0
                             torp_info = None
                             for info in torpedo_update_info:
-                                # print(info.replace("'", '').split('!')[0].replace('C', ','), str(weapon).replace(' ', ''))
+                                print(info.replace("'", '').split('!')[0].replace('C', ','), str(weapon).replace(' ', ''))
                                 if info.replace("'", '').split('!')[0].replace('C', ',') == str(weapon).replace(' ', ''):
                                     flag = 1
                                     torp_info = info.replace("'", '')
                                     break
                             if not flag:
-                                self.WEAPON_LAYOUT[weapon][1] = ''
-                                self.FIRED_TORPEDOES.pop(weapon)
+                                self.FIRED_TORPEDOES[weapon][2] += 1
+                                if self.FIRED_TORPEDOES[weapon][2] > 2:
+                                    self.WEAPON_LAYOUT[weapon][1] = ''
+                                    self.FIRED_TORPEDOES.pop(weapon)
+                                else:
+                                    print("YOU GOT A CHANCE")
                             else:
+                                print("THAT'S IT, THAT'S MY BOY")
                                 t1 = False
                                 t2 = False
                                 if torp_info.split('!')[1] == 'True':
@@ -1608,39 +1651,41 @@ class App:
 
                     server_api.UPDATE_INFO = None
                 if server_api.TORPEDO_INFO:
-                    if server_api.TORPEDO_INFO[8] == 'True':
-                        t1 = True
-                    else:
-                        t1 = False
-                    if server_api.TORPEDO_INFO[12] == 'True':
-                        t2 = True
-                    else:
-                        t2 = False
-                    flag = 0
-                    torp_key = (int(server_api.TORPEDO_INFO[13].replace("(", '')),
-                        int(server_api.TORPEDO_INFO[14]),
-                        int(server_api.TORPEDO_INFO[15]),
-                        int(server_api.TORPEDO_INFO[16].replace(")", '')))
-                    if torp_key in list(self.TORPEDOES.keys()):
-                        flag = 1
-                    if flag:
-                        self.TORPEDOES[torp_key][1][0] = float(server_api.TORPEDO_INFO[5])
-                        self.TORPEDOES[torp_key][1][1] = float(server_api.TORPEDO_INFO[6])
-                        self.TORPEDOES[torp_key][1][2] = float(server_api.TORPEDO_INFO[7])
-                        self.TORPEDOES[torp_key][6] = t2
-                    else:
-                        try:
-                            torp = [[float(server_api.TORPEDO_INFO[0]), float(server_api.TORPEDO_INFO[1]),
-                                     float(server_api.TORPEDO_INFO[2]),
-                                     float(server_api.TORPEDO_INFO[3]), float(server_api.TORPEDO_INFO[4])],
-                                    [float(server_api.TORPEDO_INFO[5]), float(server_api.TORPEDO_INFO[6]),
-                                     float(server_api.TORPEDO_INFO[7])],
-                                    t1, float(server_api.TORPEDO_INFO[9]), server_api.TORPEDO_INFO[10],
-                                    float(server_api.TORPEDO_INFO[11]), t2]
-                            self.TORPEDOES[torp_key] = torp
-                        except ValueError:
-                            print("Torpedo no longer exists.")
-                    server_api.TORPEDO_INFO = None
+                    print(server_api.TORPEDO_INFO)
+                    for info in server_api.TORPEDO_INFO:
+                        if info[8] == 'True':
+                            t1 = True
+                        else:
+                            t1 = False
+                        if info[12] == 'True':
+                            t2 = True
+                        else:
+                            t2 = False
+                        flag = 0
+                        torp_key = (int(info[13].replace("(", '')),
+                            int(info[14]),
+                            int(info[15]),
+                            int(info[16].replace(")", '')))
+                        if torp_key in list(self.TORPEDOES.keys()):
+                            flag = 1
+                        if flag:
+                            self.TORPEDOES[torp_key][1][0] = float(info[5])
+                            self.TORPEDOES[torp_key][1][1] = float(info[6])
+                            self.TORPEDOES[torp_key][1][2] = float(info[7])
+                            self.TORPEDOES[torp_key][6] = t2
+                        else:
+                            try:
+                                torp = [[float(info[0]), float(info[1]),
+                                         float(info[2]),
+                                         float(info[3]), float(info[4])],
+                                        [float(info[5]), float(info[6]),
+                                         float(info[7])],
+                                        t1, float(info[9]), info[10],
+                                        float(info[11]), t2]
+                                self.TORPEDOES[torp_key] = torp
+                            except ValueError:
+                                print("Torpedo no longer exists.")
+                        server_api.TORPEDO_INFO = None
 
         self.on_cleanup()
 
