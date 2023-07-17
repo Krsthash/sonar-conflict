@@ -67,6 +67,8 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.TARGET_DAMAGE_QUEUE = []
+        self.SINK_QUEUE = []
         self.UPDATE_TORP_QUEUE = []
         self.FIRED_TORPEDOES = {}
         self.WEAPON_SCREEN = False
@@ -1237,9 +1239,9 @@ class App:
                         self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.014) / 200
                 elif self.GEAR == 3:
                     self.DETECTION_CHANCE = 0.5
-                    self.LOCAL_ACCELERATION = 0.00002
+                    self.LOCAL_ACCELERATION = 0.00012
                     if self.LOCAL_VELOCITY >= 0.018:
-                        self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.018) / 200
+                        self.LOCAL_ACCELERATION -= (self.LOCAL_VELOCITY - 0.068) / 200
                 elif self.GEAR == 0:
                     self.DETECTION_CHANCE = 0.04
                     self.LOCAL_ACCELERATION = 0
@@ -1300,6 +1302,7 @@ class App:
                             missile[2][2] -= missile[5]
                             if missile[2][2] < 0:
                                 missile[2][2] = 0
+                            self.TARGET_DAMAGE_QUEUE.append([missile[2][0], missile[2][1], missile[5]])
                         missile[1] = False
                     if missile[0] < -5:
                         self.LAM_FIRED.remove(missile)
@@ -1509,6 +1512,7 @@ class App:
                                     self.TORPEDOES.pop(key)
                                     self.OBJECTS[min_distance[1]][4] -= random_int(30, 50)
                                     if self.OBJECTS[min_distance[1]][4] <= 0:
+                                        self.SINK_QUEUE.append(min_distance[1])
                                         self.OBJECTS.pop(min_distance[1])
                                         print("TORPEDO SUNK THE SHIP!")
                             else:
@@ -1547,9 +1551,8 @@ class App:
                 if keys[pygame.K_a]:
                     if not self.LOCAL_VELOCITY == 0:
                         if self.LOCAL_POSITION[2] > -360:
-                            if not self.GEAR == 0:
-                                turn_rate = 0.15 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
-                                self.LOCAL_POSITION[2] -= turn_rate * fps_d
+                            turn_rate = 0.15 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
+                            self.LOCAL_POSITION[2] -= turn_rate * fps_d
                         else:
                             self.LOCAL_POSITION[2] = 0
                 elif keys[pygame.K_d]:
@@ -1570,6 +1573,8 @@ class App:
                             pitch_rate = 0.18 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
                             self.LOCAL_POSITION[3] -= pitch_rate * fps_d
                 if keys[pygame.K_UP]:
+                    self.LOCAL_POSITION[0] = 762
+                    self.LOCAL_POSITION[1] = 228
                     if self.depth_var[0]:
                         self.depth_var[1] = str(float(self.depth_var[1]) + 1)
                     elif self.bearing_var[0]:
@@ -1599,14 +1604,32 @@ class App:
                     torpedo_send_info2 = ""
                     for torp in self.UPDATE_TORP_QUEUE:
                         torpedo_send_info2 += f'AND{torp}'
+                    sink_info = ""
+                    for ship in self.SINK_QUEUE:
+                        sink_info += f'{ship}!'
+                    if sink_info == "":
+                        sink_info = "None"
+                    else:
+                        sink_info = sink_info[:-1]
+
+                    target_info = ""
+                    for target in self.TARGET_DAMAGE_QUEUE:
+                        target_info += f'{target[0]}!{target[1]}!{target[2]}?'
+                    if target_info == "":
+                        target_info = "None"
+                    else:
+                        target_info = target_info[:-1]
+
                     print(torpedo_send_info2)
 
                     server_api.SEND_INFO = f"[{self.PLAYER_ID}] [{self.LOCAL_POSITION[0]:.2f}, " \
                                            f"{self.LOCAL_POSITION[1]:.2f}, {self.LOCAL_POSITION[2]:.2f}, " \
                                            f"{self.LOCAL_POSITION[4]:.2f}, {self.LOCAL_VELOCITY:.5f}, " \
-                                           f"{self.DETECTION_CHANCE}, {torpedo_send_info}]" \
+                                           f"{self.DETECTION_CHANCE}, {sink_info}, {target_info},{torpedo_send_info}]" \
                                            f" {torpedo_send_info2}"
                     self.UPDATE_TORP_QUEUE = []
+                    self.SINK_QUEUE = []
+                    self.TARGET_DAMAGE_QUEUE = []
                 # print(f'appending info {self.PLAYER_ID}')
                 if server_api.UPDATE_INFO:
                     self.OBJECTS['Enemy'][0][0] = float(server_api.UPDATE_INFO[0])
@@ -1615,7 +1638,23 @@ class App:
                     self.OBJECTS['Enemy'][0][3] = float(server_api.UPDATE_INFO[3])
                     self.OBJECTS['Enemy'][2] = float(server_api.UPDATE_INFO[4])
                     self.OBJECTS['Enemy'][3] = float(server_api.UPDATE_INFO[5])
-                    torpedo_update_info = server_api.UPDATE_INFO[6:]
+                    if server_api.UPDATE_INFO[6] != 'None':
+                        for ship in server_api.UPDATE_INFO[6].split("!"):
+                            ship = ship.replace("Friendly", "Enemy")
+                            print(ship)
+                            if ship in list(self.OBJECTS):
+                                self.OBJECTS.pop(ship)
+                                print(f"Ship {ship} has been sunk!")
+                    if server_api.UPDATE_INFO[7] != 'None':
+                        for target in server_api.UPDATE_INFO[7].split("?"):
+                            target = target.split("!")
+                            for enemy_target in self.FRIENDLY_TARGET_LOCATIONS:
+                                if str(enemy_target[0]) == target[0] and str(enemy_target[1]) == target[1]:
+                                    enemy_target[2] -= int(target[2])
+                                    if enemy_target[2] < 0:
+                                        enemy_target[2] = 0
+                                    break
+                    torpedo_update_info = server_api.UPDATE_INFO[8:]
                     print(torpedo_update_info)
                     #print(list(self.WEAPON_LAYOUT), list(self.FIRED_TORPEDOES))
                     for weapon in list(self.WEAPON_LAYOUT):
