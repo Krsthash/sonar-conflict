@@ -88,6 +88,11 @@ def fetch_channel_object(id):
 
 
 @execute
+def get_all_channel_names():
+    return SERVER.channels
+
+
+@execute
 def do_something(something):
     """
     Example function to demonstrate how the api_listener function executes commands.
@@ -103,17 +108,28 @@ async def on_message(msg):
     global UPDATE_INFO
     global TORPEDO_INFO
     log.info(f"Message! {msg}")
-    print(f"MESSAGE FOUND...{PLAYER}")
-    # ON_MESSAGE_BUFFER.append(msg)
-    if str(msg.content[1]) != str(PLAYER) and msg.channel.id == LISTENING_CHANNEL.id:
+    print(f"MESSAGE FOUND...{PLAYER}, {msg.content},{msg}")
+    if str(msg.content) == "":
+        if msg.channel.id == LISTENING_CHANNEL.id:
+            print("Possible attachments message found!")
+            if len(msg.attachments):
+                print("Has attachments!")
+                msg.content = f"MISSION-INFORMATION{await msg.attachments[0].read()}"
+                ON_MESSAGE_BUFFER.append(msg)
+    elif str(msg.content[1]) != str(PLAYER) and msg.channel.id == LISTENING_CHANNEL.id:
+        print("DOG")
         if msg.content[2] == ']':
-            print("UPDATE MSG!", msg.content[1], PLAYER)
-            UPDATE_INFO = msg.content[3:].replace('[', '').replace(']', '').replace(' ', '').split('AND')[0].split(',')
-            TORPEDO_INFO = msg.content[3:].split('AND')[1:]
-            temp = []
-            for info in TORPEDO_INFO:
-                temp.append(info.replace('[', '').replace(']', '').replace(' ', '').split(','))
-            TORPEDO_INFO = temp
+            print("DOGGER1")
+            ON_MESSAGE_BUFFER.append(msg)
+            if msg.content[4] == '[':
+                print("DOGGER2")
+                print("UPDATE MSG!", msg.content[1], PLAYER)
+                UPDATE_INFO = msg.content[3:].replace('[', '').replace(']', '').replace(' ', '').split('AND')[0].split(',')
+                TORPEDO_INFO = msg.content[3:].split('AND')[1:]
+                temp = []
+                for info in TORPEDO_INFO:
+                    temp.append(info.replace('[', '').replace(']', '').replace(' ', '').split(','))
+                TORPEDO_INFO = temp
 
 
 
@@ -182,7 +198,7 @@ async def wait_for_message():
     message = ON_MESSAGE_BUFFER[0]
     ON_MESSAGE_BUFFER.pop(0)
     log.info("Awaited the message!")
-    return
+    return message
 
 
 @tasks.loop(seconds=1)
@@ -194,10 +210,17 @@ async def update_game():
     log.info(f'update game running.. {PLAYER}, {SEND_INFO}')
     print(f'update game running.. {PLAYER}, {SEND_INFO}')
     if SEND_INFO:
-        await CHANNEL.send(SEND_INFO)
-        log.info("SENT SEND INFO.")
-        print(f"SENT INFO, {PLAYER}")
-        SEND_INFO = None
+        if len(SEND_INFO.split("%!%")) > 1:
+            print("FILE SEND INFO!")
+            await CHANNEL.send(file=discord.File(SEND_INFO.split("%!%")[-1]))
+            log.info("SENT SEND FILE INFO.")
+            print(f"SENT FILE INFO, {PLAYER}")
+            SEND_INFO = None
+        else:
+            await CHANNEL.send(SEND_INFO)
+            log.info("SENT SEND INFO.")
+            print(f"SENT INFO, {PLAYER}")
+            SEND_INFO = None
 
 
 @tasks.loop(seconds=1)
