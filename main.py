@@ -2339,10 +2339,6 @@ class App:
         print("Finished loading, ready to start.")
         self.HOST_STATUS = 3
         self.must_update = True
-        self.clear_scene()
-        self.GAME_OPEN = True
-        self.GAME_INIT = True
-        self.game_init()
 
     def host_game_screen_events(self, event):
         if not self.random_game_rect:  # Make sure the screen has been loaded first
@@ -2387,6 +2383,27 @@ class App:
                         self.HOST_STATUS = 1
                         hosting_thread = threading.Thread(target=self.start_hosting)
                         hosting_thread.start()
+                elif self.HOST_STATUS == 3:
+                    server_api.SEND_INFO = f"[{self.PLAYER_ID}] Start the game."
+                    while server_api.SEND_INFO:
+                        print("Waiting to send start game info...")
+                    print("Starting the game!")
+                    current_time = datetime.datetime.now()
+                    seconds = current_time.strftime('%S')
+                    wait_until = int(seconds[0]) + 1
+                    if wait_until > 5:
+                        wait_until = 0
+                    if int(seconds[1]) > 8:
+                        wait_until += 1
+                        if wait_until > 5:
+                            wait_until = 0
+                    while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
+                        print("Waiting!")
+                    print((datetime.datetime.now()).strftime('%S'))
+                    self.clear_scene()
+                    self.GAME_OPEN = True
+                    self.GAME_INIT = True
+                    self.game_init()
             elif self.copy_box:
                 if event.button == 1 and pygame.Rect(self.copy_box).collidepoint(pygame.mouse.get_pos()):
                     pyperclip.copy(self.GAME_CODE)
@@ -2574,6 +2591,30 @@ class App:
             server_api.SEND_INFO = f"[{self.PLAYER_ID}] Mission loaded."
             self.JOIN_STATUS = 2
             self.must_update = True
+            # Waiting for start
+            msg = server_api.wait_for_message()
+            if msg is None:  # Used to check if the player decided to abort the game
+                server_api.ALLOW_WAIT = True
+                return
+            while msg.content != f"[{enemy}] Start the game.":
+                time.sleep(0.5)
+                msg = server_api.wait_for_message()
+                if msg is None:
+                    server_api.ALLOW_WAIT = True
+                    return
+            print("Starting the game!")
+            current_time = datetime.datetime.now()
+            seconds = current_time.strftime('%S')
+            wait_until = int(seconds[0]) + 1
+            if wait_until > 5:
+                wait_until = 0
+            if int(seconds[1]) > 8:
+                wait_until += 1
+                if wait_until > 5:
+                    wait_until = 0
+            while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
+                print("Waiting!")
+            print((datetime.datetime.now()).strftime('%S'))
             self.clear_scene()
             self.GAME_OPEN = True
             self.GAME_INIT = True

@@ -180,6 +180,7 @@ async def remove_old_games():
                 log.info("Channel will be deleted.")
                 await channel.delete()
                 log.info("Channel deleted.")
+        await asyncio.sleep(1)
 
 
 @execute
