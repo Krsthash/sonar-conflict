@@ -130,6 +130,8 @@ async def on_message(msg):
                 for info in TORPEDO_INFO:
                     temp.append(info.replace('[', '').replace(']', '').replace(' ', '').split(','))
                 TORPEDO_INFO = temp
+            elif msg.content.count("Player has died."):
+                UPDATE_INFO = "PLAYER HAS DIED"
 
 
 

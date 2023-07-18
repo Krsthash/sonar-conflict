@@ -82,6 +82,9 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.LOSS_SCREEN = False
+        self.WIN_SCREEN = False
+        self.ENEMY_VISIBLE = False
         self.ERROR_DELAY = 0
         self.join_game_box = None
         self.JOIN_STATUS = 0
@@ -261,12 +264,12 @@ class App:
 
         for torpedo in self.TORPEDOES:
             pygame.draw.circle(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), 2)
-
-        length = 5
-        point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
-                  self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
-        pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
-        pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
+        if self.ENEMY_VISIBLE:
+            length = 5
+            point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
+                      self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
+            pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
+            pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
 
         pygame.display.update()
 
@@ -1295,9 +1298,9 @@ class App:
                     self.LOCAL_ACCELERATION = 0
                     self.HEALTH = 0
 
-                # Checking if the player is alive
-                if self.HEALTH <= 0:
-                    print("PLAYER DIED.")
+                # # Checking if the player is alive
+                # if self.HEALTH <= 0:
+                #     print("PLAYER DIED.")
 
                 # Movement calculations
                 if self.GEAR == 1:
@@ -1407,6 +1410,25 @@ class App:
                                         self.OBJECTS.pop(ship)
                     if missile[0] < -5:
                         self.ASM_FIRED.remove(missile)
+
+                # Friendly ships relaying enemy positions
+                flag = 0
+                for ship in list(self.OBJECTS):
+                    if ship.count("Friendly_ship"):
+                        rel_x = self.OBJECTS[ship][0][0] - self.OBJECTS["Enemy"][0][0]
+                        rel_y = self.OBJECTS[ship][0][1] - self.OBJECTS["Enemy"][0][1]
+                        distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                        # Ships could only really detect you from 50km in the worst case scenario (dc = 0.5)
+                        # if -20 < self.OBJECTS[ship][5] < 1:
+                        #     self.OBJECTS[ship][5] = 2
+                        if distance + ((1 - self.OBJECTS["Enemy"][3]) * 50) <= 50:
+                            # TODO: Visible warning in all screens that a submarine has been seen
+                            print("Enemy visible to friendly ships!")
+                            flag = 1
+                if flag:
+                    self.ENEMY_VISIBLE = True
+                else:
+                    self.ENEMY_VISIBLE = False
 
                 # Enemy ships trying to detect/shoot simulation
                 for ship in list(self.OBJECTS):
@@ -1622,6 +1644,10 @@ class App:
                 self.host_game_render()
             elif self.JOIN_GAME_SCREEN:
                 self.join_game_render()
+            elif self.WIN_SCREEN:
+                self.win_screen_render()
+            elif self.LOSS_SCREEN:
+                self.loss_screen_render()
 
             # Scene event checks
             for event in pygame.event.get():
@@ -1691,6 +1717,11 @@ class App:
                 if not len(torpedo_send_info):
                     torpedo_send_info = None
                 if not server_api.SEND_INFO:
+                    if self.HEALTH <= 0:
+                        server_api.SEND_INFO = f"[{self.PLAYER_ID}] Player has died."
+                        self.clear_scene()
+                        self.LOSS_SCREEN = True
+                        continue
                     for weapon in self.FIRED_TORPEDOES:
                         if self.FIRED_TORPEDOES[weapon][2] < 0:
                             self.FIRED_TORPEDOES[weapon][2] = 0
@@ -1725,6 +1756,11 @@ class App:
                     self.TARGET_DAMAGE_QUEUE = []
                 # print(f'appending info {self.PLAYER_ID}')
                 if server_api.UPDATE_INFO:
+                    if server_api.UPDATE_INFO.count("PLAYER HAS DIED"):
+                        print("Recieved information about player's death, R.I.P.")
+                        self.clear_scene()
+                        self.WIN_SCREEN = True
+                        continue
                     self.OBJECTS['Enemy'][0][0] = float(server_api.UPDATE_INFO[0])
                     self.OBJECTS['Enemy'][0][1] = float(server_api.UPDATE_INFO[1])
                     self.OBJECTS['Enemy'][0][2] = float(server_api.UPDATE_INFO[2])
@@ -2750,6 +2786,22 @@ class App:
         if self.must_update:
             self.must_update = False
             pygame.display.update()
+
+    def win_screen_render(self):
+        chunk = 33
+        self.pos = self.size[1] / chunk
+        txtsurf = self.big_font.render('You won!', True, 'green')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 16 * self.pos))
+
+        pygame.display.update()
+
+    def loss_screen_render(self):
+        chunk = 33
+        self.pos = self.size[1] / chunk
+        txtsurf = self.big_font.render('You lost!', True, 'red')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 16 * self.pos))
+
+        pygame.display.update()
 
 
 def start_the_game():
