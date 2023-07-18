@@ -184,6 +184,9 @@ class App:
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
         self.map_rect = self.map.get_rect(topleft=self.window.get_rect().topleft)
 
+        # collision detection map
+        self.coll_detection = pygame.image.load(current_dir + '/Assets/map.png')
+
         # create window
         pygame.display.flip()
 
@@ -202,11 +205,6 @@ class App:
     def blitmap(self):
         current_dir = os.path.dirname(os.path.realpath(__name__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
-        # Collision detection
-        if self.map.get_at((int(self.LOCAL_POSITION[0]), int(self.LOCAL_POSITION[1])))[:3] != (2, 16, 25):
-            print("COLLIDED WITH LAND.")
-            self.LOCAL_VELOCITY = 0
-            self.LOCAL_ACCELERATION = 0
         self.map_render()
         self.mapsurface = pygame.transform.smoothscale(self.map, self.map_rect.size)
         self.window.fill(0)
@@ -234,6 +232,16 @@ class App:
                           self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
                 pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), point1)
                 pygame.draw.circle(self.map, 'green', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
+        # # Enemy ship locations
+        # for ship in self.OBJECTS:
+        #     if ship.count("Enemy_ship"):
+        #         length = 5
+        #         point1 = (
+        #         self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
+        #         self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
+        #         pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]),
+        #                            point1)
+        #         pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
 
         # Port locations
         for port in self.FRIENDLY_PORT_LOCATIONS:
@@ -1280,6 +1288,13 @@ class App:
             # print(self.clock.get_fps())
             # Scene checks
             if self.GAME_INIT:
+                # Collision detection
+                if self.coll_detection.get_at((int(self.LOCAL_POSITION[0]), int(self.LOCAL_POSITION[1])))[:3] != (2, 16, 25):
+                    print("COLLIDED WITH LAND.")
+                    self.LOCAL_VELOCITY = 0
+                    self.LOCAL_ACCELERATION = 0
+                    self.HEALTH = 0
+
                 # Checking if the player is alive
                 if self.HEALTH <= 0:
                     print("PLAYER DIED.")
@@ -1350,6 +1365,17 @@ class App:
                             math.radians(self.OBJECTS[vessel][0][2] - 90))
                         self.OBJECTS[vessel][0][1] += (self.OBJECTS[vessel][2] * fps_d) * math.sin(
                             math.radians(self.OBJECTS[vessel][0][2] - 90))
+                    try:
+                        if self.coll_detection.get_at((int(self.OBJECTS[vessel][0][0]), int(self.OBJECTS[vessel][0][1])))[:3] != (
+                        2, 16, 25):
+                            self.OBJECTS[vessel][0][2] += 180
+                            if self.OBJECTS[vessel][0][2] > 360:
+                                self.OBJECTS[vessel][0][2] -= 360
+                    except Exception as e:
+                        print(e)
+                        self.OBJECTS[vessel][0][2] += 180
+                        if self.OBJECTS[vessel][0][2] > 360:
+                            self.OBJECTS[vessel][0][2] -= 360
 
                 # Land attack missile simulation:
                 for missile in self.LAM_FIRED:
@@ -2386,7 +2412,7 @@ class App:
                 elif self.HOST_STATUS == 3:
                     server_api.SEND_INFO = f"[{self.PLAYER_ID}] Start the game."
                     while server_api.SEND_INFO:
-                        print("Waiting to send start game info...")
+                        pass
                     print("Starting the game!")
                     current_time = datetime.datetime.now()
                     seconds = current_time.strftime('%S')
@@ -2398,7 +2424,7 @@ class App:
                         if wait_until > 5:
                             wait_until = 0
                     while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
-                        print("Waiting!")
+                        pass
                     print((datetime.datetime.now()).strftime('%S'))
                     self.clear_scene()
                     self.GAME_OPEN = True
@@ -2560,11 +2586,11 @@ class App:
         else:
             enemy = 1
         for channel in server_api.get_all_channel_names():
-            if channel.name.count(f"{self.PLAYER_ID}{self.GAME_CODE_VAR[1][:-1]}"):
+            if channel.name.count(f"{self.PLAYER_ID}{self.GAME_CODE_VAR[1][:-1].lower()}"):
                 print("Sending channel found!")
                 server_api.CHANNEL = channel
                 flag += 1
-            elif channel.name.count(f"{enemy}{self.GAME_CODE_VAR[1][:-1]}"):
+            elif channel.name.count(f"{enemy}{self.GAME_CODE_VAR[1][:-1].lower()}"):
                 print("Listening channel found!")
                 server_api.LISTENING_CHANNEL = channel
                 flag += 1
@@ -2613,7 +2639,7 @@ class App:
                 if wait_until > 5:
                     wait_until = 0
             while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
-                print("Waiting!")
+                pass
             print((datetime.datetime.now()).strftime('%S'))
             self.clear_scene()
             self.GAME_OPEN = True
@@ -2662,12 +2688,7 @@ class App:
                 elif len(self.GAME_CODE_VAR[1]) < 20:
                     k = str(pygame.key.name(event.key))
                     if len(k) == 1 and k.isascii():
-                        if (pygame.key.get_mods() & pygame.KMOD_SHIFT and not pygame.key.get_mods() & pygame.KMOD_CAPS) \
-                                or (
-                                not pygame.key.get_mods() & pygame.KMOD_SHIFT and pygame.key.get_mods() & pygame.KMOD_CAPS):
-                            self.GAME_CODE_VAR[1] += k.upper()
-                        else:
-                            self.GAME_CODE_VAR[1] += k
+                        self.GAME_CODE_VAR[1] += k.upper()
 
         if pygame.Rect(self.game_code_box).collidepoint(pygame.mouse.get_pos()):
             pygame.draw.rect(self.window, 'white', self.game_code_box, width=2, border_radius=2)
