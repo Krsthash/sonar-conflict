@@ -1,14 +1,33 @@
+import asyncio
 import colorsys
+import datetime
 import json
 import math
 import os
 import random
+import string
+import threading
+import time
+import tkinter
+from tkinter import filedialog
 
 import pygame
+import pyperclip
+
+import server_api
 
 
 def random_int(low, high):
     return math.floor((high - low + 1) * random.random()) + low
+
+
+def prompt_file():
+    """Create a Tk file dialog and cleanup when finished"""
+    top = tkinter.Tk()
+    top.withdraw()  # hide window
+    file_name = tkinter.filedialog.askopenfilename(parent=top)
+    top.destroy()
+    return file_name
 
 
 def hex_to_rgb(hex_code):
@@ -63,6 +82,35 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.LOSS_SCREEN = False
+        self.WIN_SCREEN = False
+        self.ENEMY_VISIBLE = False
+        self.ERROR_DELAY = 0
+        self.join_game_box = None
+        self.JOIN_STATUS = 0
+        self.GAME_CODE_VAR = [False, "Game code"]
+        self.game_code_box = None
+        self.copy_box = None
+        self.must_update = False
+        self.HOST_STATUS = 0
+        self.GAME_CODE = None
+        self.mission_name = None
+        self.team_selected = 2
+        self.pos = None
+        self.back_box = None
+        self.host_game_box = None
+        self.usa_team_box = None
+        self.random_team_box = None
+        self.ru_team_box = None
+        self.random_game_rect = None
+        self.mission_name_box = None
+        self.browse_game_rect = None
+        self.JOIN_GAME_SCREEN = False
+        self.HOST_GAME_SCREEN = False
+        self.TARGET_DAMAGE_QUEUE = []
+        self.SINK_QUEUE = []
+        self.UPDATE_TORP_QUEUE = []
+        self.FIRED_TORPEDOES = {}
         self.WEAPON_SCREEN = False
         self.FRIENDLY_TARGET_LOCATIONS = []
         self.ENEMY_TARGET_LOCATIONS = []
@@ -89,7 +137,7 @@ class App:
         self.SELECTED_WEAPON = None
         self.FRIENDLY_PORT_LOCATIONS = []
         self.WEAPON_LAYOUT = {}
-        self.PLAYER_ID = 0
+        self.PLAYER_ID = 1
         self.ACTIVE_SONAR_SELECTED_CONTACT = None
         self.identifying_delay = 0
         self.PASSIVE_SELECTED_CONTACT = None
@@ -97,6 +145,7 @@ class App:
         self.sonar_cursor_position = None
         self.OBJECTS = {}
         self.PASSIVE_SONAR_BUTTON_HOVER = False
+        self.big_font = pygame.font.Font('freesansbold.ttf', 32)
         self.middle_font = pygame.font.Font('freesansbold.ttf', 15)
         self.small_font = pygame.font.Font('freesansbold.ttf', 10)
         self.PASSIVE_SONAR_DISPLAY_CONTACTS = []
@@ -134,9 +183,12 @@ class App:
         pygame.display.set_caption("Sonar Conflict")
 
         # create map
-        current_dir = os.path.dirname(os.path.realpath(__file__))
+        current_dir = os.path.dirname(os.path.realpath(__name__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
         self.map_rect = self.map.get_rect(topleft=self.window.get_rect().topleft)
+
+        # collision detection map
+        self.coll_detection = pygame.image.load(current_dir + '/Assets/map.png')
 
         # create window
         pygame.display.flip()
@@ -144,8 +196,9 @@ class App:
     def clear_scene(self):
         self.MAP_OPEN = False
         self.MAIN_MENU_OPEN = False
-        self.JOIN_GAME_OPEN = False
         self.GAME_OPEN = False
+        self.JOIN_GAME_SCREEN = False
+        self.HOST_GAME_SCREEN = False
 
     def open_map(self):
         # Uncomment to reset map's position
@@ -153,13 +206,8 @@ class App:
         self.blitmap()
 
     def blitmap(self):
-        current_dir = os.path.dirname(os.path.realpath(__file__))
+        current_dir = os.path.dirname(os.path.realpath(__name__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
-        # Collision detection
-        if self.map.get_at((int(self.LOCAL_POSITION[0]), int(self.LOCAL_POSITION[1])))[:3] != (2, 16, 25):
-            print("COLLIDED WITH LAND.")
-            self.LOCAL_VELOCITY = 0
-            self.LOCAL_ACCELERATION = 0
         self.map_render()
         self.mapsurface = pygame.transform.smoothscale(self.map, self.map_rect.size)
         self.window.fill(0)
@@ -187,6 +235,16 @@ class App:
                           self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
                 pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), point1)
                 pygame.draw.circle(self.map, 'green', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
+        # # Enemy ship locations
+        # for ship in self.OBJECTS:
+        #     if ship.count("Enemy_ship"):
+        #         length = 5
+        #         point1 = (
+        #         self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
+        #         self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
+        #         pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]),
+        #                            point1)
+        #         pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
 
         # Port locations
         for port in self.FRIENDLY_PORT_LOCATIONS:
@@ -195,27 +253,33 @@ class App:
         # Friendly target locations
         for target in self.FRIENDLY_TARGET_LOCATIONS:
             pygame.draw.circle(self.map, 'yellow', (target[0], target[1]), 2)
-            txtsurf = self.small_font.render(f"{target[2]}%", True, 'gray')
+            txtsurf = self.small_font.render(f"{target[2]}%", True, '#b6b6d1')
             self.map.blit(txtsurf, (target[0], target[1]))
 
         # Enemy target locations
         for target in self.ENEMY_TARGET_LOCATIONS:
             pygame.draw.circle(self.map, 'orange', (target[0], target[1]), 2)
-            txtsurf = self.small_font.render(f"{target[2]}%", True, 'gray')
+            txtsurf = self.small_font.render(f"{target[2]}%", True, '#b6b6d1')
             self.map.blit(txtsurf, (target[0], target[1]))
 
-        # for torpedo in self.TORPEDOES:
-        #     pygame.draw.circle(self.map, 'red', (torpedo[0][0], torpedo[0][1]), 2)
+        for torpedo in self.TORPEDOES:
+            pygame.draw.circle(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), 2)
+        if self.ENEMY_VISIBLE:
+            length = 5
+            point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
+                      self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
+            pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
+            pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
 
         pygame.display.update()
 
     def on_cleanup(self):
-        pygame.quit()
+        os._exit(0)
 
     def open_main_menu(self):
         self.window.fill("#021019")
-        font = pygame.font.Font('freesansbold.ttf', 32)
-        txtsurf = font.render("Sonar Conflict", True, "#b6b6d1")
+
+        txtsurf = self.big_font.render("Sonar Conflict", True, "#b6b6d1")
         self.window.blit(txtsurf, (self.size[0] // 2 - txtsurf.get_width() // 2,
                                    self.size[1] // 4 - txtsurf.get_height() // 2))
         width = 200
@@ -330,9 +394,37 @@ class App:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1 and self.join_game_rect.collidepoint(pygame.mouse.get_pos()):
                 self.clear_scene()
-                self.GAME_OPEN = True
-                self.GAME_INIT = True
-                self.game_init()
+                self.JOIN_GAME_SCREEN = True
+                # self.PLAYER_ID = 0
+                # server_api.PLAYER = self.PLAYER_ID
+                # if self.PLAYER_ID:
+                #     server_api.CHANNEL = server_api.fetch_channel_object(1130614819146444832)
+                #     server_api.LISTENING_CHANNEL = server_api.fetch_channel_object(1130614839631413269)
+                # else:
+                #     server_api.CHANNEL = server_api.fetch_channel_object(1130614839631413269)
+                #     server_api.LISTENING_CHANNEL = server_api.fetch_channel_object(1130614819146444832)
+                # self.clear_scene()
+                # self.GAME_OPEN = True
+                # self.GAME_INIT = True
+                # self.game_init()
+            elif event.button == 1 and self.host_game_rect.collidepoint(pygame.mouse.get_pos()):
+                self.clear_scene()
+                self.HOST_GAME_SCREEN = True
+                # self.PLAYER_ID = 1
+                # server_api.PLAYER = self.PLAYER_ID
+                # if self.PLAYER_ID:
+                #     server_api.CHANNEL = server_api.fetch_channel_object(1130614819146444832)
+                #     server_api.LISTENING_CHANNEL = server_api.fetch_channel_object(1130614839631413269)
+                # else:
+                #     server_api.CHANNEL = server_api.fetch_channel_object(1130614839631413269)
+                #     server_api.LISTENING_CHANNEL = server_api.fetch_channel_object(1130614819146444832)
+                # self.clear_scene()
+                # self.GAME_OPEN = True
+                # self.GAME_INIT = True
+                # self.game_init()
+            elif event.button == 1 and self.quit_rect.collidepoint(pygame.mouse.get_pos()):
+                self.clear_scene()
+                self.running = False
 
         if self.join_game_rect.collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
@@ -386,7 +478,7 @@ class App:
 
     def game_init(self):
         # Load mission information from a file
-        with open('mission1.json', 'r') as file:
+        with open(self.mission_name, 'r') as file:
             mission = json.load(file)
         code = 'usa'
         enemy_code = 'ru'
@@ -417,6 +509,8 @@ class App:
                                                vessel[4], vessel[5], vessel[6], vessel[7], -25]
             i += 1
         self.SONAR_SCREEN = True
+        self.sonar_screen_render()
+        self.weapon_screen_render()
 
     def start_game(self):
         self.window.fill('black')
@@ -515,36 +609,38 @@ class App:
                             if distance <= 30:
                                 flag = 1
                                 # Weapon refilling
-                                if not self.PLAYER_ID:
-                                    # RU
-                                    if self.WEAPON_LAYOUT[weapon][0][0] == 0:
-                                        if self.WEAPON_LAYOUT[weapon][1] == '3M54-1 Kalibr':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'P-800 Oniks'
+                                if self.WEAPON_LAYOUT[weapon][1] != 'Fired':
+                                    if not self.PLAYER_ID:
+                                        # RU
+                                        if self.WEAPON_LAYOUT[weapon][0][0] == 0:
+                                            if self.WEAPON_LAYOUT[weapon][1] == '3M54-1 Kalibr':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'P-800 Oniks'
+                                            else:
+                                                self.WEAPON_LAYOUT[weapon][1] = '3M54-1 Kalibr'
                                         else:
-                                            self.WEAPON_LAYOUT[weapon][1] = '3M54-1 Kalibr'
+                                            if self.WEAPON_LAYOUT[weapon][1] == 'Futlyar':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                            else:
+                                                self.WEAPON_LAYOUT[weapon][1] = 'Futlyar'
                                     else:
-                                        if self.WEAPON_LAYOUT[weapon][1] == 'Futlyar':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                        # American
+                                        if self.WEAPON_LAYOUT[weapon][0][0] == 0:
+                                            if self.WEAPON_LAYOUT[weapon][1] == 'TLAM-E':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'TASM'
+                                            else:
+                                                self.WEAPON_LAYOUT[weapon][1] = 'TLAM-E'
                                         else:
-                                            self.WEAPON_LAYOUT[weapon][1] = 'Futlyar'
-                                else:
-                                    # American
-                                    if self.WEAPON_LAYOUT[weapon][0][0] == 0:
-                                        if self.WEAPON_LAYOUT[weapon][1] == 'TLAM-E':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'TASM'
-                                        else:
-                                            self.WEAPON_LAYOUT[weapon][1] = 'TLAM-E'
-                                    else:
-                                        if self.WEAPON_LAYOUT[weapon][1] == 'Mk-48':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'UGM-84'
-                                        elif self.WEAPON_LAYOUT[weapon][1] == 'UGM-84':
-                                            self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
-                                        else:
-                                            self.WEAPON_LAYOUT[weapon][1] = 'Mk-48'
+                                            if self.WEAPON_LAYOUT[weapon][1] == 'Mk-48':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'UGM-84'
+                                            elif self.WEAPON_LAYOUT[weapon][1] == 'UGM-84':
+                                                self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                            else:
+                                                self.WEAPON_LAYOUT[weapon][1] = 'Mk-48'
                         if not flag:
                             if self.WEAPON_LAYOUT[weapon][0][1] == 0 and self.SELECTED_WEAPON:
                                 if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == self.WEAPON_LAYOUT[weapon][0][0] \
-                                        and self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] != 0:
+                                        and self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] != 0 and \
+                                        self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] != 'Fired':
                                     temp = self.WEAPON_LAYOUT[weapon][1]
                                     self.WEAPON_LAYOUT[weapon][1] = self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1]
                                     self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = temp
@@ -762,6 +858,47 @@ class App:
                                                    self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction,
                                                    sensor_range])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
+                        elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
+                            print("FIRED!")
+                            speed = 0.0367
+                            range = 35  # 70 km
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            time = range / (speed * 60)
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            mode = True
+                            if self.mode_var == 0:
+                                mode = False
+                            torpedo_info = [
+                                [self.LOCAL_POSITION[0], self.LOCAL_POSITION[1],
+                                 self.LOCAL_POSITION[2], speed, self.LOCAL_POSITION[3]],
+                                [impact_x, impact_y, float(self.depth_var[1])], False, time, 'Enemy', 0,
+                                mode, self.SELECTED_WEAPON]
+                            self.UPDATE_TORP_QUEUE.append(f"{torpedo_info}")
+                            # server_api.send_message(, 1084976743565234289)
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
+                            self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
+                        elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Fired':
+                            print("TORPEDO UPDATE!!")
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            mode = True
+                            if self.mode_var == 0:
+                                mode = False
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            torpedo_info = [
+                                [self.LOCAL_POSITION[0], self.LOCAL_POSITION[1],
+                                 self.LOCAL_POSITION[2], 'update', self.LOCAL_POSITION[3]],
+                                [impact_x, impact_y, float(self.depth_var[1])], False, 'update', 'Enemy', 0,
+                                mode, self.SELECTED_WEAPON]
+                            server_api.send_message(f"[{self.PLAYER_ID}-torpedo] {torpedo_info}", 1084976743565234289)
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
 
         elif event.type == pygame.KEYDOWN:
             if self.bearing_var[0]:
@@ -877,6 +1014,27 @@ class App:
                     txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'red')
                     self.window.blit(txtsurf, (20, 320 + i * 20))
             i += 1
+        for torpedo in self.FIRED_TORPEDOES:
+            index = list(self.WEAPON_LAYOUT.keys()).index(torpedo) - 31
+            txtsurf1 = self.middle_font.render(
+                f"Torp {index}: ", True,
+                '#b6b6d1')
+            self.window.blit(txtsurf1, (20, 320 + i * 20))
+            color = "red"
+            if self.FIRED_TORPEDOES[torpedo][0]:
+                color = "green"
+            txtsurf2 = self.middle_font.render(
+                f"S:{self.FIRED_TORPEDOES[torpedo][0]} ", True,
+                color)
+            self.window.blit(txtsurf2, (20 + txtsurf1.get_width(), 320 + i * 20))
+            color = "red"
+            if self.FIRED_TORPEDOES[torpedo][1]:
+                color = "green"
+            txtsurf3 = self.middle_font.render(
+                f"M: {self.FIRED_TORPEDOES[torpedo][1]}", True,
+                color)
+            self.window.blit(txtsurf3, (20 + txtsurf2.get_width() + txtsurf1.get_width(), 320 + i * 20))
+            i += 1
 
         # Position details
         speed = self.LOCAL_VELOCITY * self.fps
@@ -955,6 +1113,8 @@ class App:
                 if self.WEAPON_LAYOUT[rect][1] != '':
                     if self.WEAPON_LAYOUT[rect][1] == 'Futlyar':
                         pygame.draw.rect(self.window, '#263ded', rect, border_radius=5)
+                    elif self.WEAPON_LAYOUT[rect][1] == 'Fired':
+                        pygame.draw.rect(self.window, '#5e0801', rect, border_radius=5)
                     else:
                         pygame.draw.rect(self.window, '#ffff82', rect, border_radius=5)
                     txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
@@ -1131,9 +1291,16 @@ class App:
             # print(self.clock.get_fps())
             # Scene checks
             if self.GAME_INIT:
-                # Checking if the player is alive
-                if self.HEALTH <= 0:
-                    print("PLAYER DIED.")
+                # Collision detection
+                if self.coll_detection.get_at((int(self.LOCAL_POSITION[0]), int(self.LOCAL_POSITION[1])))[:3] != (2, 16, 25):
+                    print("COLLIDED WITH LAND.")
+                    self.LOCAL_VELOCITY = 0
+                    self.LOCAL_ACCELERATION = 0
+                    self.HEALTH = 0
+
+                # # Checking if the player is alive
+                # if self.HEALTH <= 0:
+                #     print("PLAYER DIED.")
 
                 # Movement calculations
                 if self.GEAR == 1:
@@ -1196,11 +1363,22 @@ class App:
 
                 # Other vessel's simulation
                 for vessel in self.OBJECTS:
-                    if vessel != 'Enemy' and self.OBJECTS[vessel][2] != 0:
+                    if self.OBJECTS[vessel][2] != 0:
                         self.OBJECTS[vessel][0][0] += (self.OBJECTS[vessel][2] * fps_d) * math.cos(
                             math.radians(self.OBJECTS[vessel][0][2] - 90))
                         self.OBJECTS[vessel][0][1] += (self.OBJECTS[vessel][2] * fps_d) * math.sin(
                             math.radians(self.OBJECTS[vessel][0][2] - 90))
+                    try:
+                        if self.coll_detection.get_at((int(self.OBJECTS[vessel][0][0]), int(self.OBJECTS[vessel][0][1])))[:3] != (
+                        2, 16, 25):
+                            self.OBJECTS[vessel][0][2] += 180
+                            if self.OBJECTS[vessel][0][2] > 360:
+                                self.OBJECTS[vessel][0][2] -= 360
+                    except Exception as e:
+                        print(e)
+                        self.OBJECTS[vessel][0][2] += 180
+                        if self.OBJECTS[vessel][0][2] > 360:
+                            self.OBJECTS[vessel][0][2] -= 360
 
                 # Land attack missile simulation:
                 for missile in self.LAM_FIRED:
@@ -1211,6 +1389,7 @@ class App:
                             missile[2][2] -= missile[5]
                             if missile[2][2] < 0:
                                 missile[2][2] = 0
+                            self.TARGET_DAMAGE_QUEUE.append([missile[2][0], missile[2][1], missile[5]])
                         missile[1] = False
                     if missile[0] < -5:
                         self.LAM_FIRED.remove(missile)
@@ -1232,6 +1411,25 @@ class App:
                     if missile[0] < -5:
                         self.ASM_FIRED.remove(missile)
 
+                # Friendly ships relaying enemy positions
+                flag = 0
+                for ship in list(self.OBJECTS):
+                    if ship.count("Friendly_ship"):
+                        rel_x = self.OBJECTS[ship][0][0] - self.OBJECTS["Enemy"][0][0]
+                        rel_y = self.OBJECTS[ship][0][1] - self.OBJECTS["Enemy"][0][1]
+                        distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                        # Ships could only really detect you from 50km in the worst case scenario (dc = 0.5)
+                        # if -20 < self.OBJECTS[ship][5] < 1:
+                        #     self.OBJECTS[ship][5] = 2
+                        if distance + ((1 - self.OBJECTS["Enemy"][3]) * 50) <= 50:
+                            # TODO: Visible warning in all screens that a submarine has been seen
+                            print("Enemy visible to friendly ships!")
+                            flag = 1
+                if flag:
+                    self.ENEMY_VISIBLE = True
+                else:
+                    self.ENEMY_VISIBLE = False
+
                 # Enemy ships trying to detect/shoot simulation
                 for ship in list(self.OBJECTS):
                     if ship.count("Enemy_ship"):
@@ -1247,7 +1445,7 @@ class App:
                             # TODO: Ship relays your position to the enemy submarine
                         if self.OBJECTS[ship][5] > -20 and distance < 60:  # Ship's active sonar range 120km
                             # [x, y, azimuth, velocity, depth], [destination x, destination y, depth], sensor on/off,
-                            # timer, sender
+                            # timer, sender, active_sonar_ping_duration, active sonar on/off, weapon_bay
                             if self.OBJECTS[ship][5] < 1:
                                 self.OBJECTS[ship][5] = 2
                             flag = 0
@@ -1274,7 +1472,7 @@ class App:
                                 self.TORPEDOES[f'Enemy_ship_torpedo_{id}'] = [
                                     [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
                                      self.OBJECTS[ship][0][2], 0.0367, self.OBJECTS[ship][0][3]],
-                                    [dest_x, dest_y, self.LOCAL_POSITION[3]], False, 20, ship, 0,
+                                    [dest_x, dest_y, self.LOCAL_POSITION[4]], False, 20, ship, 0,
                                     True]
 
                 # Enemy torpedo simulation
@@ -1320,47 +1518,115 @@ class App:
                             torpedo[2] = True
                     else:
                         # Go into seeking mode
+                        min_distance = [None, None]
+                        for ship in self.OBJECTS:
+                            if ship.count('Friendly_ship'):
+                                rel_x = self.OBJECTS[ship][0][0] - torpedo[0][0]
+                                rel_y = self.OBJECTS[ship][0][1] - torpedo[0][1]
+                                distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                                if not min_distance[0]:
+                                    min_distance[0] = distance
+                                    min_distance[1] = ship
+                                if min_distance[0] > distance:
+                                    min_distance[0] = distance
+                                    min_distance[1] = ship
                         rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
                         rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
                         distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-                        angle = calculate_azimuth(rel_x, rel_y, distance)
-                        if torpedo[0][2] - angle > 180:
-                            angle = (360 - torpedo[0][2]) + angle
-                        elif torpedo[0][2] - angle < -180:
-                            angle = -((360 - angle) + torpedo[0][2])
-                        else:
-                            angle = -(torpedo[0][2] - angle)
-                        depth = self.LOCAL_POSITION[3] - torpedo[0][4]
-                        if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
-                            turn = 0.34 * fps_d
-                            if turn > abs(angle):
-                                turn = abs(angle)
-                            if angle > 0:
-                                torpedo[0][2] += turn
+                        if not min_distance[0]:
+                            min_distance[0] = distance
+                            min_distance[1] = 'Player'
+                        if min_distance[0] > distance:
+                            min_distance[0] = distance
+                            min_distance[1] = 'Player'
+                        if min_distance[1] == 'Player':
+                            rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
+                            rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
+                            distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                            angle = calculate_azimuth(rel_x, rel_y, distance)
+                            if torpedo[0][2] - angle > 180:
+                                angle = (360 - torpedo[0][2]) + angle
+                            elif torpedo[0][2] - angle < -180:
+                                angle = -((360 - angle) + torpedo[0][2])
                             else:
-                                torpedo[0][2] -= turn
-                            dive_rate = 0.22 * fps_d
-                            if dive_rate > depth:
-                                dive_rate = depth
-                            if depth > 0:
-                                torpedo[0][4] += dive_rate
+                                angle = -(torpedo[0][2] - angle)
+                            depth = self.LOCAL_POSITION[4] - torpedo[0][4]
+                            if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
+                                turn = 0.34 * fps_d
+                                if turn > abs(angle):
+                                    turn = abs(angle)
+                                if angle > 0:
+                                    torpedo[0][2] += turn
+                                else:
+                                    torpedo[0][2] -= turn
+                                dive_rate = 0.22 * fps_d
+                                if dive_rate > depth:
+                                    dive_rate = depth
+                                if depth > 0:
+                                    torpedo[0][4] += dive_rate
+                                else:
+                                    torpedo[0][4] -= dive_rate
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
+                                if -1 < distance < 1:
+                                    print("TORPEDO HIT!")
+                                    self.TORPEDOES.pop(key)
+                                    self.HEALTH -= random_int(30, 50)
                             else:
-                                torpedo[0][4] -= dive_rate
-                            # Updating torpedo's position
-                            torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
-                                math.radians(torpedo[0][2] - 90))
-                            torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
-                                math.radians(torpedo[0][2] - 90))
-                            if -1 < distance < 1:
-                                print("TORPEDO HIT!")
-                                self.TORPEDOES.pop(key)
-                                self.HEALTH -= random_int(30, 50)
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
                         else:
-                            # Updating torpedo's position
-                            torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
-                                math.radians(torpedo[0][2] - 90))
-                            torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
-                                math.radians(torpedo[0][2] - 90))
+                            rel_x = self.OBJECTS[min_distance[1]][0][0] - torpedo[0][0]
+                            rel_y = self.OBJECTS[min_distance[1]][0][1] - torpedo[0][1]
+                            distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                            angle = calculate_azimuth(rel_x, rel_y, distance)
+                            if torpedo[0][2] - angle > 180:
+                                angle = (360 - torpedo[0][2]) + angle
+                            elif torpedo[0][2] - angle < -180:
+                                angle = -((360 - angle) + torpedo[0][2])
+                            else:
+                                angle = -(torpedo[0][2] - angle)
+                            depth = self.OBJECTS[min_distance[1]][0][3] - torpedo[0][4]
+                            if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
+                                turn = 0.34 * fps_d
+                                if turn > abs(angle):
+                                    turn = abs(angle)
+                                if angle > 0:
+                                    torpedo[0][2] += turn
+                                else:
+                                    torpedo[0][2] -= turn
+                                dive_rate = 0.22 * fps_d
+                                if dive_rate > depth:
+                                    dive_rate = depth
+                                if depth > 0:
+                                    torpedo[0][4] += dive_rate
+                                else:
+                                    torpedo[0][4] -= dive_rate
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
+                                if -1 < distance < 1:
+                                    print("TORPEDO HIT!")
+                                    self.TORPEDOES.pop(key)
+                                    self.OBJECTS[min_distance[1]][4] -= random_int(30, 50)
+                                    if self.OBJECTS[min_distance[1]][4] <= 0:
+                                        self.SINK_QUEUE.append(min_distance[1])
+                                        self.OBJECTS.pop(min_distance[1])
+                                        print("TORPEDO SUNK THE SHIP!")
+                            else:
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
 
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
@@ -1374,6 +1640,14 @@ class App:
                 if map_delay > self.fps * 2:
                     self.blitmap()
                     map_delay = 0
+            elif self.HOST_GAME_SCREEN:
+                self.host_game_render()
+            elif self.JOIN_GAME_SCREEN:
+                self.join_game_render()
+            elif self.WIN_SCREEN:
+                self.win_screen_render()
+            elif self.LOSS_SCREEN:
+                self.loss_screen_render()
 
             # Scene event checks
             for event in pygame.event.get():
@@ -1385,15 +1659,18 @@ class App:
                     self.game_events(event)
                 elif self.WEAPON_SCREEN:
                     self.weapon_screen_events(event)
+                elif self.HOST_GAME_SCREEN:
+                    self.host_game_screen_events(event)
+                elif self.JOIN_GAME_SCREEN:
+                    self.join_game_screen_events(event)
 
             if self.GAME_INIT:
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_a]:
                     if not self.LOCAL_VELOCITY == 0:
                         if self.LOCAL_POSITION[2] > -360:
-                            if not self.GEAR == 0:
-                                turn_rate = 0.15 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
-                                self.LOCAL_POSITION[2] -= turn_rate * fps_d
+                            turn_rate = 0.15 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
+                            self.LOCAL_POSITION[2] -= turn_rate * fps_d
                         else:
                             self.LOCAL_POSITION[2] = 0
                 elif keys[pygame.K_d]:
@@ -1414,6 +1691,8 @@ class App:
                             pitch_rate = 0.18 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
                             self.LOCAL_POSITION[3] -= pitch_rate * fps_d
                 if keys[pygame.K_UP]:
+                    # self.LOCAL_POSITION[0] = 762
+                    # self.LOCAL_POSITION[1] = 228
                     if self.depth_var[0]:
                         self.depth_var[1] = str(float(self.depth_var[1]) + 1)
                     elif self.bearing_var[0]:
@@ -1431,6 +1710,150 @@ class App:
                         self.distance_var[1] = str(float(self.distance_var[1]) - 1)
                     if self.BALLAST > 0:
                         self.BALLAST -= 0.5 * fps_d
+                torpedo_send_info = []
+                for torpedo in self.TORPEDOES:
+                    torpedo_send_info.append(
+                        f"{str(torpedo).replace(',', 'C')}!{self.TORPEDOES[torpedo][2]}!{self.TORPEDOES[torpedo][6]}")
+                if not len(torpedo_send_info):
+                    torpedo_send_info = None
+                if not server_api.SEND_INFO:
+                    if self.HEALTH <= 0:
+                        server_api.SEND_INFO = f"[{self.PLAYER_ID}] Player has died."
+                        self.clear_scene()
+                        self.LOSS_SCREEN = True
+                        continue
+                    for weapon in self.FIRED_TORPEDOES:
+                        if self.FIRED_TORPEDOES[weapon][2] < 0:
+                            self.FIRED_TORPEDOES[weapon][2] = 0
+                    torpedo_send_info2 = ""
+                    for torp in self.UPDATE_TORP_QUEUE:
+                        torpedo_send_info2 += f'AND{torp}'
+                    sink_info = ""
+                    for ship in self.SINK_QUEUE:
+                        sink_info += f'{ship}!'
+                    if sink_info == "":
+                        sink_info = "None"
+                    else:
+                        sink_info = sink_info[:-1]
+
+                    target_info = ""
+                    for target in self.TARGET_DAMAGE_QUEUE:
+                        target_info += f'{target[0]}!{target[1]}!{target[2]}?'
+                    if target_info == "":
+                        target_info = "None"
+                    else:
+                        target_info = target_info[:-1]
+
+                    print(torpedo_send_info2)
+
+                    server_api.SEND_INFO = f"[{self.PLAYER_ID}] [{self.LOCAL_POSITION[0]:.2f}, " \
+                                           f"{self.LOCAL_POSITION[1]:.2f}, {self.LOCAL_POSITION[2]:.2f}, " \
+                                           f"{self.LOCAL_POSITION[4]:.2f}, {self.LOCAL_VELOCITY:.5f}, " \
+                                           f"{self.DETECTION_CHANCE}, {sink_info}, {target_info},{torpedo_send_info}]" \
+                                           f" {torpedo_send_info2}"
+                    self.UPDATE_TORP_QUEUE = []
+                    self.SINK_QUEUE = []
+                    self.TARGET_DAMAGE_QUEUE = []
+                # print(f'appending info {self.PLAYER_ID}')
+                if server_api.UPDATE_INFO:
+                    if server_api.UPDATE_INFO.count("PLAYER HAS DIED"):
+                        print("Recieved information about player's death, R.I.P.")
+                        self.clear_scene()
+                        self.WIN_SCREEN = True
+                        continue
+                    self.OBJECTS['Enemy'][0][0] = float(server_api.UPDATE_INFO[0])
+                    self.OBJECTS['Enemy'][0][1] = float(server_api.UPDATE_INFO[1])
+                    self.OBJECTS['Enemy'][0][2] = float(server_api.UPDATE_INFO[2])
+                    self.OBJECTS['Enemy'][0][3] = float(server_api.UPDATE_INFO[3])
+                    self.OBJECTS['Enemy'][2] = float(server_api.UPDATE_INFO[4])
+                    self.OBJECTS['Enemy'][3] = float(server_api.UPDATE_INFO[5])
+                    if server_api.UPDATE_INFO[6] != 'None':
+                        for ship in server_api.UPDATE_INFO[6].split("!"):
+                            ship = ship.replace("Friendly", "Enemy")
+                            print(ship)
+                            if ship in list(self.OBJECTS):
+                                self.OBJECTS.pop(ship)
+                                print(f"Ship {ship} has been sunk!")
+                    if server_api.UPDATE_INFO[7] != 'None':
+                        for target in server_api.UPDATE_INFO[7].split("?"):
+                            target = target.split("!")
+                            for enemy_target in self.FRIENDLY_TARGET_LOCATIONS:
+                                if str(enemy_target[0]) == target[0] and str(enemy_target[1]) == target[1]:
+                                    enemy_target[2] -= int(target[2])
+                                    if enemy_target[2] < 0:
+                                        enemy_target[2] = 0
+                                    break
+                    torpedo_update_info = server_api.UPDATE_INFO[8:]
+                    print(torpedo_update_info)
+                    # print(list(self.WEAPON_LAYOUT), list(self.FIRED_TORPEDOES))
+                    for weapon in list(self.WEAPON_LAYOUT):
+                        if weapon in list(self.FIRED_TORPEDOES) and self.FIRED_TORPEDOES[weapon][2] >= 0:
+                            print("DOGGERRRRRRRR")
+                            flag = 0
+                            torp_info = None
+                            for info in torpedo_update_info:
+                                print(info.replace("'", '').split('!')[0].replace('C', ','),
+                                      str(weapon).replace(' ', ''))
+                                if info.replace("'", '').split('!')[0].replace('C', ',') == str(weapon).replace(' ',
+                                                                                                                ''):
+                                    flag = 1
+                                    torp_info = info.replace("'", '')
+                                    break
+                            if not flag:
+                                self.FIRED_TORPEDOES[weapon][2] += 1
+                                if self.FIRED_TORPEDOES[weapon][2] > 2:
+                                    self.WEAPON_LAYOUT[weapon][1] = ''
+                                    self.FIRED_TORPEDOES.pop(weapon)
+                                else:
+                                    print("YOU GOT A CHANCE")
+                            else:
+                                print("THAT'S IT, THAT'S MY BOY")
+                                t1 = False
+                                t2 = False
+                                if torp_info.split('!')[1] == 'True':
+                                    t1 = True
+                                if torp_info.split('!')[2] == 'True':
+                                    t2 = True
+                                self.FIRED_TORPEDOES[weapon][0] = t1  # Sensor active (bool)
+                                self.FIRED_TORPEDOES[weapon][1] = t2  # Mode (bool) (act./pas.)
+
+                    server_api.UPDATE_INFO = None
+                if server_api.TORPEDO_INFO:
+                    print(server_api.TORPEDO_INFO)
+                    for info in server_api.TORPEDO_INFO:
+                        if info[8] == 'True':
+                            t1 = True
+                        else:
+                            t1 = False
+                        if info[12] == 'True':
+                            t2 = True
+                        else:
+                            t2 = False
+                        flag = 0
+                        torp_key = (int(info[13].replace("(", '')),
+                                    int(info[14]),
+                                    int(info[15]),
+                                    int(info[16].replace(")", '')))
+                        if torp_key in list(self.TORPEDOES.keys()):
+                            flag = 1
+                        if flag:
+                            self.TORPEDOES[torp_key][1][0] = float(info[5])
+                            self.TORPEDOES[torp_key][1][1] = float(info[6])
+                            self.TORPEDOES[torp_key][1][2] = float(info[7])
+                            self.TORPEDOES[torp_key][6] = t2
+                        else:
+                            try:
+                                torp = [[float(info[0]), float(info[1]),
+                                         float(info[2]),
+                                         float(info[3]), float(info[4])],
+                                        [float(info[5]), float(info[6]),
+                                         float(info[7])],
+                                        t1, float(info[9]), info[10],
+                                        float(info[11]), t2]
+                                self.TORPEDOES[torp_key] = torp
+                            except ValueError:
+                                print("Torpedo no longer exists.")
+                        server_api.TORPEDO_INFO = None
 
         self.on_cleanup()
 
@@ -1608,10 +2031,10 @@ class App:
         p2_sonar_start = self.size[0] // 2 + (self.size[0] // 2 - 30) // 2
         p2_sonar_end = self.size[0] - 30
         scale = (p1_sonar_end - p1_sonar_start) / 360
-        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2 - 30, 0, self.size[0] // 2 + 30, self.size[1]),
+        pygame.draw.rect(self.window, '#b6b6d1', (self.size[0] // 2 - 30, 0, self.size[0] // 2 + 30, self.size[1]),
                          width=2)
-        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, self.size[0] // 2 - 30, self.size[1]), width=2)
-        pygame.draw.rect(self.window, 'gray', (self.size[0] // 2, 30, (self.size[0] // 2 - 30) // 2, self.size[1]),
+        pygame.draw.rect(self.window, '#b6b6d1', (self.size[0] // 2, 30, self.size[0] // 2 - 30, self.size[1]), width=2)
+        pygame.draw.rect(self.window, '#b6b6d1', (self.size[0] // 2, 30, (self.size[0] // 2 - 30) // 2, self.size[1]),
                          width=2)
         txtsurf = self.small_font.render(f"Time", True, "#b6b6d1")
         txtsurf = pygame.transform.rotate(txtsurf, 90)
@@ -1621,14 +2044,14 @@ class App:
         for i in range(5):
             x = self.size[0] / 2 + i * (((self.size[0] // 2 - 30) // 2) / 4 - 0.5)
             y = 30
-            pygame.draw.line(self.window, 'gray', (x, y), (x, y - 5), width=1)
+            pygame.draw.line(self.window, '#b6b6d1', (x, y), (x, y - 5), width=1)
             txtsurf = self.small_font.render(f"{labels[i]}", True, "#b6b6d1")
             self.window.blit(txtsurf, (x - txtsurf.get_width() // 2,
                                        y - 10 - txtsurf.get_height() // 2))
         for i in range(5):
             x = self.size[0] / 2 + (self.size[0] // 2 - 30) // 2 + i * ((self.size[0] // 2 - 30) // 2) / 4 - 1
             y = 30
-            pygame.draw.line(self.window, 'gray', (x, y), (x, y - 5), width=1)
+            pygame.draw.line(self.window, '#b6b6d1', (x, y), (x, y - 5), width=1)
             if i > 0:
                 txtsurf = self.small_font.render(f"{labels[i]}", True, "#b6b6d1")
                 self.window.blit(txtsurf, (x - txtsurf.get_width() // 2,
@@ -1806,6 +2229,8 @@ class App:
                 rel_y = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][1] - self.LOCAL_POSITION[1]
                 contact_distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                 contact_heading = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][2]
+                if contact_heading < 0:
+                    contact_heading += 360
                 contact_bearing = calculate_bearing(rel_x, rel_y, contact_distance)
                 if contact_bearing < 0:
                     contact_bearing += 360
@@ -1921,7 +2346,470 @@ class App:
 
         pygame.display.update()
 
+    def mid_rect(self, rect, txtsurf):
+        return ((rect[0] + (rect[2] / 2 - txtsurf.get_width() / 2)),
+                (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))
 
-pygame.init()
-start = App()
-start.on_execute()
+    def start_hosting(self):
+        server_api.remove_old_games()
+        LISTENING_CHANNEL = None
+        SENDING_CHANNEL = None
+        rand_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        create_time = int(time.mktime(datetime.datetime.utcnow().timetuple()))
+        if self.PLAYER_ID:
+            enemy = 0
+        else:
+            enemy = 1
+        LISTENING_CHANNEL = server_api.fetch_channel_object(
+            server_api.create_channel(f"game{enemy}.{rand_id}-{create_time}"))
+        SENDING_CHANNEL = server_api.fetch_channel_object(
+            server_api.create_channel(f"game{self.PLAYER_ID}.{rand_id}-{create_time}"))
+
+        server_api.LISTENING_CHANNEL = LISTENING_CHANNEL
+        server_api.CHANNEL = SENDING_CHANNEL
+
+        self.GAME_CODE = f"{rand_id}{enemy}"
+        print("Waiting for enemy..")
+        self.HOST_STATUS = 2
+        self.must_update = True
+
+        # Waiting until someone has joined the game
+        msg = server_api.wait_for_message()
+        if msg is None:  # Used to check if the player decided to abort the game
+            server_api.ALLOW_WAIT = True
+            return
+        while msg.content != f"[{enemy}] Joined the game.":
+            time.sleep(0.5)
+            msg = server_api.wait_for_message()
+            if msg is None:
+                server_api.ALLOW_WAIT = True
+                return
+        print("SOMEONE JOINED THE GAME!")
+        # Sending mission information
+        server_api.SEND_INFO = f"MISSION-INFORMATION%!%{self.mission_name}"
+        # Waiting for the other player to download mission info
+        msg = server_api.wait_for_message()
+        if msg is None:  # Used to check if the player decided to abort the game
+            server_api.ALLOW_WAIT = True
+            return
+        while msg.content != f"[{enemy}] Mission loaded.":
+            time.sleep(0.5)
+            msg = server_api.wait_for_message()
+            if msg is None:
+                server_api.ALLOW_WAIT = True
+                return
+        print("Finished loading, ready to start.")
+        self.HOST_STATUS = 3
+        self.must_update = True
+
+    def host_game_screen_events(self, event):
+        if not self.random_game_rect:  # Make sure the screen has been loaded first
+            return
+        pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
+        if event.type == pygame.QUIT:
+            self.running = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and pygame.Rect(self.ru_team_box).collidepoint(pygame.mouse.get_pos()):
+                self.team_selected = 0
+            elif event.button == 1 and pygame.Rect(self.usa_team_box).collidepoint(pygame.mouse.get_pos()):
+                self.team_selected = 1
+            elif event.button == 1 and pygame.Rect(self.random_team_box).collidepoint(pygame.mouse.get_pos()):
+                self.team_selected = 2
+            elif event.button == 1 and pygame.Rect(self.back_box).collidepoint(pygame.mouse.get_pos()):
+                self.clear_scene()
+                self.MAIN_MENU_OPEN = True
+            elif event.button == 1 and pygame.Rect(self.browse_game_rect).collidepoint(pygame.mouse.get_pos()):
+                self.mission_name = prompt_file()
+            elif event.button == 1 and pygame.Rect(self.random_game_rect).collidepoint(pygame.mouse.get_pos()):
+                files = [f for f in os.listdir('.') if os.path.isfile(f)]
+                choice = []
+                for f in files:
+                    if f.count('mission'):
+                        choice.append(f)
+                self.mission_name = random.choice(choice)
+            elif event.button == 1 and pygame.Rect(self.host_game_box).collidepoint(pygame.mouse.get_pos()):
+                print("Clicked on host game.")
+                if self.mission_name and self.HOST_STATUS == 0:
+                    if self.team_selected == 2:
+                        self.PLAYER_ID = random_int(0, 1)
+                        server_api.PLAYER = self.PLAYER_ID
+                        print("Hosting...")
+                        self.HOST_STATUS = 1
+                        hosting_thread = threading.Thread(target=self.start_hosting)
+                        hosting_thread.start()
+                    else:
+                        self.PLAYER_ID = self.team_selected
+                        server_api.PLAYER = self.PLAYER_ID
+                        print("Hosting...")
+                        self.HOST_STATUS = 1
+                        hosting_thread = threading.Thread(target=self.start_hosting)
+                        hosting_thread.start()
+                elif self.HOST_STATUS == 3:
+                    server_api.SEND_INFO = f"[{self.PLAYER_ID}] Start the game."
+                    while server_api.SEND_INFO:
+                        pass
+                    print("Starting the game!")
+                    current_time = datetime.datetime.now()
+                    seconds = current_time.strftime('%S')
+                    wait_until = int(seconds[0]) + 1
+                    if wait_until > 5:
+                        wait_until = 0
+                    if int(seconds[1]) > 8:
+                        wait_until += 1
+                        if wait_until > 5:
+                            wait_until = 0
+                    while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
+                        pass
+                    print((datetime.datetime.now()).strftime('%S'))
+                    self.clear_scene()
+                    self.GAME_OPEN = True
+                    self.GAME_INIT = True
+                    self.game_init()
+            elif self.copy_box:
+                if event.button == 1 and pygame.Rect(self.copy_box).collidepoint(pygame.mouse.get_pos()):
+                    pyperclip.copy(self.GAME_CODE)
+                    print("Copied!")
+
+        if pygame.Rect(self.browse_game_rect).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, 'white', self.browse_game_rect, width=2, border_radius=2)
+            txtsurf = self.middle_font.render('Browse', True, 'white')
+            self.window.blit(txtsurf, self.mid_rect(self.browse_game_rect, txtsurf))
+        elif pygame.Rect(self.random_game_rect).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, 'white', self.random_game_rect, width=2, border_radius=2)
+            txtsurf = self.middle_font.render('Random', True, 'white')
+            self.window.blit(txtsurf, self.mid_rect(self.random_game_rect, txtsurf))
+        elif pygame.Rect(self.ru_team_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+        elif pygame.Rect(self.usa_team_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+        elif pygame.Rect(self.random_team_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+        elif pygame.Rect(self.host_game_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, '#DBFFD6', self.host_game_box, width=2, border_radius=2,
+                             border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            if self.HOST_STATUS == 1:
+                txtsurf = self.middle_font.render('Loading...', True, '#DBFFD6')
+            elif self.HOST_STATUS == 2:
+                txtsurf = self.middle_font.render('Waiting...', True, '#DBFFD6')
+            elif self.HOST_STATUS == 3:
+                txtsurf = self.middle_font.render('Start', True, '#DBFFD6')
+            else:
+                txtsurf = self.middle_font.render('Host', True, '#DBFFD6')
+            self.window.blit(txtsurf, self.mid_rect(self.host_game_box, txtsurf))
+        elif pygame.Rect(self.back_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, '#FFDBDB', self.back_box, width=2, border_radius=2, border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            txtsurf = self.middle_font.render('Back', True, '#FFDBDB')
+            self.window.blit(txtsurf, self.mid_rect(self.back_box, txtsurf))
+        elif self.copy_box:
+            if pygame.Rect(self.copy_box).collidepoint(pygame.mouse.get_pos()):
+                pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+                pygame.draw.rect(self.window, 'white', self.copy_box, width=2, border_radius=2,
+                                 border_top_left_radius=0,
+                                 border_bottom_left_radius=0)
+                txtsurf = self.middle_font.render('Copy', True, 'white')
+                self.window.blit(txtsurf, self.mid_rect(self.copy_box, txtsurf))
+
+        pygame.display.update()
+
+    def host_game_render(self):
+        self.window.fill("#021019")
+        chunk = 33
+        self.pos = self.size[1] / chunk
+        txtsurf = self.big_font.render('Host a game', True, '#b6b6d1')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 4 * self.pos))
+
+        self.browse_game_rect = (self.size[0] / 2 - 65 - 90 - 10, 8 * self.pos - 20, 90, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.browse_game_rect, width=2, border_radius=2)
+        txtsurf = self.middle_font.render('Browse', True, '#b6b6d1')
+        self.window.blit(txtsurf, self.mid_rect(self.browse_game_rect, txtsurf))
+        self.mission_name_box = (self.size[0] / 2 - 65, 8 * self.pos - 20, 130, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.mission_name_box, width=2, border_radius=2)
+
+        if self.mission_name:
+            name = self.mission_name.split("/")
+            if len(name) == 1:
+                txtsurf = self.middle_font.render(f'Random', True, '#b6b6d1')
+            else:
+                txtsurf = self.middle_font.render(f'{name[-1]}', True, '#b6b6d1')
+        else:
+            txtsurf = self.middle_font.render(f'None', True, '#b6b6d1')
+        self.window.blit(txtsurf, self.mid_rect(self.mission_name_box, txtsurf))
+        self.random_game_rect = (self.size[0] / 2 + 65 + 10, 8 * self.pos - 20, 90, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.random_game_rect, width=2, border_radius=2)
+        txtsurf = self.middle_font.render('Random', True, '#b6b6d1')
+        self.window.blit(txtsurf, self.mid_rect(self.random_game_rect, txtsurf))
+
+        if self.team_selected == 0:
+            self.ru_team_box = (self.size[0] / 2 - 53 - 90, 12 * self.pos - 20, 90, 40)
+            pygame.draw.rect(self.window, '#b6b6d1', self.ru_team_box, border_radius=2, border_top_right_radius=0,
+                             border_bottom_right_radius=0)
+            txtsurf = self.middle_font.render('RU', True, '#021019')
+            self.window.blit(txtsurf, self.mid_rect(self.ru_team_box, txtsurf))
+        else:
+            self.ru_team_box = (self.size[0] / 2 - 53 - 90, 12 * self.pos - 20, 90, 40)
+            pygame.draw.rect(self.window, '#b6b6d1', self.ru_team_box, width=2, border_radius=2,
+                             border_top_right_radius=0,
+                             border_bottom_right_radius=0)
+            txtsurf = self.middle_font.render('RU', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect(self.ru_team_box, txtsurf))
+        if self.team_selected == 2:
+            self.random_team_box = (self.size[0] / 2 - 55, 12 * self.pos - 20, 110, 40)
+            pygame.draw.rect(self.window, '#b6b6d1', self.random_team_box, border_radius=0)
+            txtsurf = self.middle_font.render('Random', True, '#021019')
+            self.window.blit(txtsurf, self.mid_rect(self.random_team_box, txtsurf))
+        else:
+            self.random_team_box = (self.size[0] / 2 - 55, 12 * self.pos - 20, 110, 40)
+            pygame.draw.rect(self.window, '#b6b6d1', self.random_team_box, width=2, border_radius=0)
+            txtsurf = self.middle_font.render('Random', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect(self.random_team_box, txtsurf))
+        if self.team_selected == 1:
+            self.usa_team_box = (self.size[0] / 2 + 53, 12 * self.pos - 20, 90, 40)
+            pygame.draw.rect(self.window, '#b6b6d1', self.usa_team_box, border_radius=2, border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            txtsurf = self.middle_font.render('USA', True, '#021019')
+            self.window.blit(txtsurf, self.mid_rect(self.usa_team_box, txtsurf))
+        else:
+            self.usa_team_box = (self.size[0] / 2 + 53, 12 * self.pos - 20, 90, 40)
+            pygame.draw.rect(self.window, '#b6b6d1', self.usa_team_box, width=2, border_radius=2,
+                             border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            txtsurf = self.middle_font.render('USA', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect(self.usa_team_box, txtsurf))
+
+        self.host_game_box = (self.size[0] / 2 - 60, 16 * self.pos - 20, 120, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.host_game_box, width=2, border_radius=2, border_top_left_radius=0,
+                         border_bottom_left_radius=0)
+        if self.HOST_STATUS == 1:
+            txtsurf = self.middle_font.render('Loading...', True, '#b6b6d1')
+        elif self.HOST_STATUS == 2:
+            txtsurf = self.middle_font.render('Waiting...', True, '#b6b6d1')
+        elif self.HOST_STATUS == 3:
+            txtsurf = self.middle_font.render('Start', True, '#b6b6d1')
+        else:
+            txtsurf = self.middle_font.render('Host', True, '#b6b6d1')
+        self.window.blit(txtsurf, self.mid_rect(self.host_game_box, txtsurf))
+
+        self.back_box = (self.size[0] / 2 - 60, 29 * self.pos - 20, 120, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.back_box, width=2, border_radius=2, border_top_left_radius=0,
+                         border_bottom_left_radius=0)
+        txtsurf = self.middle_font.render('Back', True, '#b6b6d1')
+        self.window.blit(txtsurf, self.mid_rect(self.back_box, txtsurf))
+
+        if self.GAME_CODE:
+            txtsurf = self.middle_font.render(f'Join code: {self.GAME_CODE}', True, '#DBFFD6')
+            self.window.blit(txtsurf,
+                             (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos - txtsurf.get_height() / 2))
+            self.copy_box = (self.size[0] / 2 - 30, 24 * self.pos - 15, 60, 30)
+            pygame.draw.rect(self.window, '#b6b6d1', self.copy_box, width=2, border_radius=2, border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            txtsurf = self.middle_font.render('Copy', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect(self.copy_box, txtsurf))
+        if self.must_update:
+            self.must_update = False
+            pygame.display.update()
+
+    def start_joining(self):
+        flag = 0
+        if self.PLAYER_ID:
+            enemy = 0
+        else:
+            enemy = 1
+        for channel in server_api.get_all_channel_names():
+            if channel.name.count(f"{self.PLAYER_ID}{self.GAME_CODE_VAR[1][:-1].lower()}"):
+                print("Sending channel found!")
+                server_api.CHANNEL = channel
+                flag += 1
+            elif channel.name.count(f"{enemy}{self.GAME_CODE_VAR[1][:-1].lower()}"):
+                print("Listening channel found!")
+                server_api.LISTENING_CHANNEL = channel
+                flag += 1
+        if flag >= 2:
+            print("Connected!")
+            server_api.SEND_INFO = f"[{self.PLAYER_ID}] Joined the game."
+            # Waiting for mission information
+            msg = server_api.wait_for_message()
+            if msg is None:  # Used to check if the player decided to abort the game
+                server_api.ALLOW_WAIT = True
+                return
+            while not msg.content.count("MISSION-INFORMATION"):
+                time.sleep(0.5)
+                msg = server_api.wait_for_message()
+                if msg is None:
+                    server_api.ALLOW_WAIT = True
+                    return
+            print("Received mission information!", msg.content)
+            info = json.loads(eval(msg.content.replace("MISSION-INFORMATION", "")))  # TODO: Slap yourself for this.
+            json_object = json.dumps(info, indent=4)
+            with open("TEMP.json", "w", encoding="utf-8") as temp_file:
+                temp_file.write(json_object)
+            self.mission_name = 'TEMP.json'
+            server_api.SEND_INFO = f"[{self.PLAYER_ID}] Mission loaded."
+            self.JOIN_STATUS = 2
+            self.must_update = True
+            # Waiting for start
+            msg = server_api.wait_for_message()
+            if msg is None:  # Used to check if the player decided to abort the game
+                server_api.ALLOW_WAIT = True
+                return
+            while msg.content != f"[{enemy}] Start the game.":
+                time.sleep(0.5)
+                msg = server_api.wait_for_message()
+                if msg is None:
+                    server_api.ALLOW_WAIT = True
+                    return
+            print("Starting the game!")
+            current_time = datetime.datetime.now()
+            seconds = current_time.strftime('%S')
+            wait_until = int(seconds[0]) + 1
+            if wait_until > 5:
+                wait_until = 0
+            if int(seconds[1]) > 8:
+                wait_until += 1
+                if wait_until > 5:
+                    wait_until = 0
+            while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
+                pass
+            print((datetime.datetime.now()).strftime('%S'))
+            self.clear_scene()
+            self.GAME_OPEN = True
+            self.GAME_INIT = True
+            self.game_init()
+        else:
+            print("Join failed.")
+            self.JOIN_STATUS = 3
+            self.must_update = True
+
+    def join_game_screen_events(self, event):
+        if not self.game_code_box:  # Make sure the screen has been loaded first
+            return
+        pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
+        if event.type == pygame.QUIT:
+            self.running = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and pygame.Rect(self.game_code_box).collidepoint(pygame.mouse.get_pos()):
+                self.GAME_CODE_VAR[0] = True
+                self.GAME_CODE_VAR[1] = ""
+            elif event.button == 1 and pygame.Rect(self.join_game_box).collidepoint(pygame.mouse.get_pos()):
+                print("Clicked on join game.")
+                if self.JOIN_STATUS == 0:
+                    if self.GAME_CODE_VAR[1] != "" and self.GAME_CODE_VAR[1] != "Game code" and \
+                            self.GAME_CODE_VAR[1][-1].isnumeric():
+                        self.PLAYER_ID = int(self.GAME_CODE_VAR[1][-1])
+                        server_api.PLAYER = self.PLAYER_ID
+                        print("Joining...")
+                        self.JOIN_STATUS = 1
+                        self.must_update = True
+                        joining_thread = threading.Thread(target=self.start_joining)
+                        joining_thread.start()
+                    else:
+                        print("Wrong code!")
+                        self.JOIN_STATUS = 3
+                        self.must_update = True
+            else:
+                self.GAME_CODE_VAR[0] = False
+                if self.GAME_CODE_VAR[1] == "":
+                    self.GAME_CODE_VAR[1] = "Game code"
+        elif event.type == pygame.KEYDOWN:
+            if self.GAME_CODE_VAR[0]:
+                if event.key == pygame.K_BACKSPACE:
+                    self.GAME_CODE_VAR[1] = self.GAME_CODE_VAR[1][:-1]
+                elif len(self.GAME_CODE_VAR[1]) < 20:
+                    k = str(pygame.key.name(event.key))
+                    if len(k) == 1 and k.isascii():
+                        self.GAME_CODE_VAR[1] += k.upper()
+
+        if pygame.Rect(self.game_code_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.draw.rect(self.window, 'white', self.game_code_box, width=2, border_radius=2)
+            txtsurf = self.middle_font.render(f'{self.GAME_CODE_VAR[1]}', True, 'white')
+            self.window.blit(txtsurf, self.mid_rect(self.game_code_box, txtsurf))
+        elif pygame.Rect(self.join_game_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.draw.rect(self.window, '#DBFFD6', self.join_game_box, width=2, border_radius=2,
+                             border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            if self.JOIN_STATUS == 1:
+                txtsurf = self.middle_font.render('Joining...', True, '#DBFFD6')
+            elif self.JOIN_STATUS == 2:
+                txtsurf = self.middle_font.render('Ready...', True, '#DBFFD6')
+            elif self.JOIN_STATUS == 3:
+                txtsurf = self.middle_font.render('Wrong code!', True, '#DBFFD6')
+            else:
+                txtsurf = self.middle_font.render('Join', True, '#DBFFD6')
+            self.window.blit(txtsurf, self.mid_rect(self.join_game_box, txtsurf))
+
+        pygame.display.update()
+
+    def join_game_render(self):
+        if self.JOIN_STATUS == 3 and self.ERROR_DELAY == 0:
+            self.ERROR_DELAY = 3
+        if self.ERROR_DELAY:
+            self.ERROR_DELAY -= 0.0167 * (self.fps / self.current_fps)
+            if self.ERROR_DELAY < 0 or self.ERROR_DELAY == 0:
+                self.ERROR_DELAY = 0
+                self.JOIN_STATUS = 0
+                self.must_update = True
+        self.window.fill("#021019")
+        chunk = 33
+        self.pos = self.size[1] / chunk
+        txtsurf = self.big_font.render('Join a game', True, '#b6b6d1')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 4 * self.pos))
+
+        self.game_code_box = (self.size[0] / 2 - 105, 12 * self.pos - 15, 210, 30)
+        if self.GAME_CODE_VAR[0]:
+            pygame.draw.rect(self.window, 'white', self.game_code_box, width=2, border_radius=2)
+            txtsurf = self.middle_font.render(f'{self.GAME_CODE_VAR[1]}', True, 'white')
+        else:
+            pygame.draw.rect(self.window, '#b6b6d1', self.game_code_box, width=2, border_radius=2)
+            txtsurf = self.middle_font.render(f'{self.GAME_CODE_VAR[1]}', True, '#b6b6d1')
+        self.window.blit(txtsurf, self.mid_rect(self.game_code_box, txtsurf))
+
+        self.join_game_box = (self.size[0] / 2 - 60, 16 * self.pos - 20, 120, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.join_game_box, width=2, border_radius=2, border_top_left_radius=0,
+                         border_bottom_left_radius=0)
+        if self.JOIN_STATUS == 1:
+            txtsurf = self.middle_font.render('Joining...', True, '#b6b6d1')
+        elif self.JOIN_STATUS == 2:
+            txtsurf = self.middle_font.render('Ready...', True, '#b6b6d1')
+        elif self.JOIN_STATUS == 3:
+            txtsurf = self.middle_font.render('Wrong code!', True, '#b6b6d1')
+        else:
+            txtsurf = self.middle_font.render('Join', True, '#b6b6d1')
+        self.window.blit(txtsurf, self.mid_rect(self.join_game_box, txtsurf))
+
+        if self.must_update:
+            self.must_update = False
+            pygame.display.update()
+
+    def win_screen_render(self):
+        chunk = 33
+        self.pos = self.size[1] / chunk
+        txtsurf = self.big_font.render('You won!', True, 'green')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 16 * self.pos))
+
+        pygame.display.update()
+
+    def loss_screen_render(self):
+        chunk = 33
+        self.pos = self.size[1] / chunk
+        txtsurf = self.big_font.render('You lost!', True, 'red')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 16 * self.pos))
+
+        pygame.display.update()
+
+
+def start_the_game():
+    pygame.init()
+    app = App()
+    app.on_execute()
+
+
+if __name__ == "__main__":
+    threading.Thread(target=start_the_game).start()
+    asyncio.run(server_api.start_bot())
