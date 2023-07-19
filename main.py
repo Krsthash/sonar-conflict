@@ -82,6 +82,7 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.starts_in = None
         self.NOTICE_QUEUE = []
         self.TARGETS_DESTROYED_ENEMY = 0
         self.SHIPS_DESTROYED_ENEMY = 0
@@ -2526,7 +2527,30 @@ class App:
         self.HOST_STATUS = 3
         self.must_update = True
 
+    def sync_time_start(self):
+        current_time = datetime.datetime.now()
+        seconds = current_time.strftime('%S')
+        wait_until = int(seconds[0]) + 1
+        if wait_until > 5:
+            wait_until = 0
+        if int(seconds[1]) > 8:
+            wait_until += 1
+            if wait_until > 5:
+                wait_until = 0
+        while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
+            self.starts_in = 10 - int((datetime.datetime.now()).strftime('%S')[1])
+        print((datetime.datetime.now()).strftime('%S'))
+        self.clear_scene()
+        self.game_init()
+        self.GAME_OPEN = True
+        self.GAME_INIT = True
+
+
     def host_game_screen_events(self, event):
+        if self.starts_in is not None:
+            self.must_update = True
+            txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 31 * self.pos - 20, 120, 40), txtsurf))
         if not self.random_game_rect:  # Make sure the screen has been loaded first
             return
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
@@ -2574,22 +2598,8 @@ class App:
                     while server_api.SEND_INFO:
                         pass
                     print("Starting the game!")
-                    current_time = datetime.datetime.now()
-                    seconds = current_time.strftime('%S')
-                    wait_until = int(seconds[0]) + 1
-                    if wait_until > 5:
-                        wait_until = 0
-                    if int(seconds[1]) > 8:
-                        wait_until += 1
-                        if wait_until > 5:
-                            wait_until = 0
-                    while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
-                        pass
-                    print((datetime.datetime.now()).strftime('%S'))
-                    self.clear_scene()
-                    self.GAME_OPEN = True
-                    self.GAME_INIT = True
-                    self.game_init()
+                    threading.Thread(target=self.sync_time_start).start()
+
             elif self.copy_box:
                 if event.button == 1 and pygame.Rect(self.copy_box).collidepoint(pygame.mouse.get_pos()):
                     pyperclip.copy(self.GAME_CODE)
@@ -2644,6 +2654,10 @@ class App:
 
     def host_game_render(self):
         self.window.fill("#021019")
+        if self.starts_in is not None:
+            self.must_update = True
+            txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 31 * self.pos - 20, 120, 40), txtsurf))
         chunk = 33
         self.pos = self.size[1] / chunk
         txtsurf = self.big_font.render('Host a game', True, '#b6b6d1')
@@ -2789,28 +2803,16 @@ class App:
                     server_api.ALLOW_WAIT = True
                     return
             print("Starting the game!")
-            current_time = datetime.datetime.now()
-            seconds = current_time.strftime('%S')
-            wait_until = int(seconds[0]) + 1
-            if wait_until > 5:
-                wait_until = 0
-            if int(seconds[1]) > 8:
-                wait_until += 1
-                if wait_until > 5:
-                    wait_until = 0
-            while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
-                pass
-            print((datetime.datetime.now()).strftime('%S'))
-            self.clear_scene()
-            self.GAME_OPEN = True
-            self.GAME_INIT = True
-            self.game_init()
+            threading.Thread(target=self.sync_time_start).start()
         else:
             print("Join failed.")
             self.JOIN_STATUS = 3
             self.must_update = True
 
     def join_game_screen_events(self, event):
+        if self.starts_in is not None:
+            txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 25 * self.pos - 20, 120, 40), txtsurf))
         if not self.game_code_box:  # Make sure the screen has been loaded first
             return
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
@@ -2895,6 +2897,10 @@ class App:
                 self.JOIN_STATUS = 0
                 self.must_update = True
         self.window.fill("#021019")
+        if self.starts_in is not None:
+            self.must_update = True
+            txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 25 * self.pos - 20, 120, 40), txtsurf))
         chunk = 33
         self.pos = self.size[1] / chunk
         txtsurf = self.big_font.render('Join a game', True, '#b6b6d1')
