@@ -2868,6 +2868,10 @@ class App:
         self.pos = self.size[1] / chunk
         txtsurf = self.big_font.render('You won!', True, 'green')
         self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 16 * self.pos))
+        txtsurf = self.middle_font.render(f'Your score: {self.LOCAL_SCORE}', True, 'green')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos))
+        txtsurf = self.middle_font.render(f'Enemy score: {self.ENEMY_SCORE}', True, 'green')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos))
 
         pygame.display.update()
 
@@ -2877,6 +2881,10 @@ class App:
         self.pos = self.size[1] / chunk
         txtsurf = self.big_font.render('You lost!', True, 'red')
         self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 16 * self.pos))
+        txtsurf = self.middle_font.render(f'Your score: {self.LOCAL_SCORE}', True, 'red')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos))
+        txtsurf = self.middle_font.render(f'Enemy score: {self.ENEMY_SCORE}', True, 'red')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos))
 
         pygame.display.update()
 
