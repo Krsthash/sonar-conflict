@@ -1436,6 +1436,7 @@ class App:
                 # Land attack missile simulation:
                 for missile in self.LAM_FIRED:
                     missile[0] -= 0.01667 * fps_d
+                    target = self.ENEMY_TARGET_LOCATIONS[self.ENEMY_TARGET_LOCATIONS.index(missile[2])]
                     if missile[0] <= 0:
                         if missile[1] and missile[2]:  # Will hit and has a target
                             print("TARGET HIT!")
@@ -1448,7 +1449,7 @@ class App:
                                 self.NOTICE_QUEUE.append(["Target damaged!", 0, 0])
                             if missile[2][2] < 0:
                                 missile[2][2] = 0
-                                self.ENEMY_TARGET_LOCATIONS.remove(missile[2])
+                                self.ENEMY_TARGET_LOCATIONS.remove(target)
                                 self.LOCAL_SCORE += 50  # Base destruction score
                                 self.TARGETS_DESTROYED += 1
                                 self.NOTICE_QUEUE.append(["Target destroyed!", 0, 0])
@@ -1499,7 +1500,7 @@ class App:
                             flag = 1
                 if flag:
                     self.ENEMY_VISIBLE = True
-                    self.NOTICE_QUEUE.append(["Enemy submarine located!", 0])
+                    self.NOTICE_QUEUE.append(["Enemy submarine located!", 0, 0])
                 else:
                     self.ENEMY_VISIBLE = False
 
