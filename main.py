@@ -82,6 +82,8 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.starts_in = None
+        self.NOTICE_QUEUE = []
         self.TARGETS_DESTROYED_ENEMY = 0
         self.SHIPS_DESTROYED_ENEMY = 0
         self.TARGETS_DESTROYED = 0
@@ -215,6 +217,21 @@ class App:
         self.blitmap()
 
     def blitmap(self):
+        i = 0
+        for message in self.NOTICE_QUEUE:
+            color = 'orange'
+            if message[2] == 0:
+                color = "green"
+            elif message[2] == 1:
+                color = "red"
+            txtsurf = self.middle_font.render(f'{message[0]}', True, color)
+            self.window.blit(txtsurf, (self.size[0] - 150 - txtsurf.get_width() / 2, (28 - i * 4) * self.pos))
+            message[1] += 0.0167
+            if message[1] > 5:
+                self.NOTICE_QUEUE.remove(message)
+            i += 1
+            if i > 6:
+                break
         current_dir = os.path.dirname(os.path.realpath(__name__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
         self.map_render()
@@ -576,15 +593,19 @@ class App:
                     self.ACTIVE_SONAR = False
                     self.ACTIVE_SONAR_PING_DELAY = 0
                     self.ACTIVE_SONAR_PING_RADIUS = 0
+                    self.NOTICE_QUEUE.append(["Active sonar off!", 0, 0])
                 else:
                     self.ACTIVE_SONAR = True
                     self.ACTIVE_SONAR_PING_DELAY = 0
                     self.ACTIVE_SONAR_PING_RADIUS = 0
+                    self.NOTICE_QUEUE.append(["Active sonar on!", 0, 0])
             elif event.key == pygame.K_f:
                 if self.PASSIVE_SONAR_FREEZE:
                     self.PASSIVE_SONAR_FREEZE = False
+                    self.NOTICE_QUEUE.append(["Passive sonar unfrozen!", 0, 0])
                 else:
                     self.PASSIVE_SONAR_FREEZE = True
+                    self.NOTICE_QUEUE.append(["Passive sonar frozen!", 0, 0])
             elif event.key == pygame.K_e:
                 self.WEAPON_SCREEN = True
                 self.SONAR_SCREEN = False
@@ -996,6 +1017,21 @@ class App:
                 self.SCOREBOARD_OPEN = True
 
     def weapon_screen_render(self):
+        i = 0
+        for message in self.NOTICE_QUEUE:
+            color = 'orange'
+            if message[2] == 0:
+                color = "green"
+            elif message[2] == 1:
+                color = "red"
+            txtsurf = self.middle_font.render(f'{message[0]}', True, color)
+            self.window.blit(txtsurf, (self.size[0] - 150 - txtsurf.get_width() / 2, (28 - i * 4) * self.pos))
+            message[1] += 0.0167
+            if message[1] > 5:
+                self.NOTICE_QUEUE.remove(message)
+            i += 1
+            if i > 6:
+                break
         self.window.fill(0)
 
         # Splitter lines
@@ -1406,13 +1442,16 @@ class App:
                             missile[2][2] -= missile[5]
                             if missile[2][2] - missile[5] < 0:
                                 self.LOCAL_SCORE += missile[2][2] * 0.5  # Base damage score
+                                self.NOTICE_QUEUE.append(["Target damaged!", 0, 0])
                             else:
                                 self.LOCAL_SCORE += missile[5] * 0.5  # Base damage score
+                                self.NOTICE_QUEUE.append(["Target damaged!", 0, 0])
                             if missile[2][2] < 0:
                                 missile[2][2] = 0
                                 self.ENEMY_TARGET_LOCATIONS.remove(missile[2])
                                 self.LOCAL_SCORE += 50  # Base destruction score
-                                self.SHIPS_DESTROYED += 1
+                                self.TARGETS_DESTROYED += 1
+                                self.NOTICE_QUEUE.append(["Target destroyed!", 0, 0])
                                 # Max score from destroying a base = 100 (50 destruction, 50 max damage)
                             self.TARGET_DAMAGE_QUEUE.append([missile[2][0], missile[2][1], missile[5]])
                         missile[1] = False
@@ -1437,6 +1476,9 @@ class App:
                                         self.OBJECTS.pop(ship)
                                         # Max ship destruction score = 200
                                         self.SINK_QUEUE.append(ship)
+                                        self.NOTICE_QUEUE.append(["Ship destroyed!", 0, 0])
+                                    else:
+                                        self.NOTICE_QUEUE.append(["Ship hit!", 0, 0])
 
                     if missile[0] < -5:
                         self.ASM_FIRED.remove(missile)
@@ -1457,6 +1499,7 @@ class App:
                             flag = 1
                 if flag:
                     self.ENEMY_VISIBLE = True
+                    self.NOTICE_QUEUE.append(["Enemy submarine located!", 0])
                 else:
                     self.ENEMY_VISIBLE = False
 
@@ -1504,6 +1547,7 @@ class App:
                                      self.OBJECTS[ship][0][2], 0.0367, self.OBJECTS[ship][0][3]],
                                     [dest_x, dest_y, self.LOCAL_POSITION[4]], False, 20, ship, 0,
                                     True]
+                                self.NOTICE_QUEUE.append(["Torpedo in the water!", 0, 1])
 
                 # Enemy torpedo simulation
                 for key in list(self.TORPEDOES):
@@ -1605,6 +1649,7 @@ class App:
                                     print("TORPEDO HIT!")
                                     self.TORPEDOES.pop(key)
                                     self.HEALTH -= random_int(30, 50)
+                                    self.NOTICE_QUEUE.append(["We got hit!", 0, 1])
                             else:
                                 # Updating torpedo's position
                                 torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
@@ -1653,6 +1698,9 @@ class App:
                                         print("TORPEDO SUNK THE SHIP!")
                                         self.ENEMY_SCORE += 200
                                         self.SHIPS_DESTROYED_ENEMY += 1
+                                        self.NOTICE_QUEUE.append(["Friendly ship got destroyed.", 0, 1])
+                                    else:
+                                        self.NOTICE_QUEUE.append(["Friendly ship got damaged.", 0, 1])
                             else:
                                 # Updating torpedo's position
                                 torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
@@ -1813,6 +1861,7 @@ class App:
                                     print(f"Ship {ship} has been sunk by you!")
                                     self.LOCAL_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED += 1
+                                    self.NOTICE_QUEUE.append(["Ship destroyed!", 0, 0])
                             elif ship.count("Enemy"):  # They destroyed your friendly ship
                                 ship = ship.replace("Enemy", "Friendly")
                                 print(ship)
@@ -1821,6 +1870,7 @@ class App:
                                     print(f"Ship {ship} has been sunk by the enemy!")
                                     self.ENEMY_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED_ENEMY += 1
+                                    self.NOTICE_QUEUE.append(["Friendly ship got destroyed!", 0, 1])
                     if server_api.UPDATE_INFO[7] != 'None':
                         for target in server_api.UPDATE_INFO[7].split("?"):
                             target = target.split("!")
@@ -1829,13 +1879,16 @@ class App:
                                     enemy_target[2] -= int(target[2])
                                     if enemy_target[2] - int(target[2]) < 0:
                                         self.ENEMY_SCORE += enemy_target[2] * 0.5  # Base damage score
+                                        self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
                                     else:
                                         self.ENEMY_SCORE += int(target[2]) * 0.5  # Base damage score
+                                        self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
                                     if enemy_target[2] < 0:
                                         enemy_target[2] = 0
                                         self.ENEMY_SCORE += 50
                                         self.TARGETS_DESTROYED_ENEMY += 1
                                         self.FRIENDLY_TARGET_LOCATIONS.remove(enemy_target)
+                                        self.NOTICE_QUEUE.append(["Friendly base got destroyed!", 0, 1])
                                     break
                     torpedo_update_info = server_api.UPDATE_INFO[8:]
                     print(torpedo_update_info)
@@ -1912,6 +1965,24 @@ class App:
         self.on_cleanup()
 
     def sonar_screen_render(self):
+        self.window.fill('black')
+        i = 0
+        for message in self.NOTICE_QUEUE:
+            color = 'orange'
+            if message[2] == 0:
+                color = "green"
+            elif message[2] == 1:
+                color = "red"
+            txtsurf = self.middle_font.render(f'{message[0]}', True, color)
+            self.window.blit(txtsurf, (self.size[0]-150 - txtsurf.get_width() / 2, (28-i*4) * self.pos))
+            message[1] += 0.0167
+            if message[1] > 5:
+                self.NOTICE_QUEUE.remove(message)
+            i += 1
+            if i > 6:
+                break
+            
+            
         def calculate_bearing(rel_x, rel_y, distance):
             if rel_x == 0:
                 if rel_y < 0:
@@ -1959,7 +2030,7 @@ class App:
         ACTIVE_SONAR_RANGE = 80
         PASSIVE_SONAR_RANGE = 80
         # Active sonar
-        self.window.fill('black')
+
 
         pygame.draw.circle(self.window, 'green', (200, 200), 180, width=2)
 
@@ -2456,7 +2527,30 @@ class App:
         self.HOST_STATUS = 3
         self.must_update = True
 
+    def sync_time_start(self):
+        current_time = datetime.datetime.now()
+        seconds = current_time.strftime('%S')
+        wait_until = int(seconds[0]) + 1
+        if wait_until > 5:
+            wait_until = 0
+        if int(seconds[1]) > 8:
+            wait_until += 1
+            if wait_until > 5:
+                wait_until = 0
+        while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
+            self.starts_in = 10 - int((datetime.datetime.now()).strftime('%S')[1])
+        print((datetime.datetime.now()).strftime('%S'))
+        self.clear_scene()
+        self.game_init()
+        self.GAME_OPEN = True
+        self.GAME_INIT = True
+
+
     def host_game_screen_events(self, event):
+        if self.starts_in is not None:
+            self.must_update = True
+            txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 31 * self.pos - 20, 120, 40), txtsurf))
         if not self.random_game_rect:  # Make sure the screen has been loaded first
             return
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
@@ -2504,22 +2598,8 @@ class App:
                     while server_api.SEND_INFO:
                         pass
                     print("Starting the game!")
-                    current_time = datetime.datetime.now()
-                    seconds = current_time.strftime('%S')
-                    wait_until = int(seconds[0]) + 1
-                    if wait_until > 5:
-                        wait_until = 0
-                    if int(seconds[1]) > 8:
-                        wait_until += 1
-                        if wait_until > 5:
-                            wait_until = 0
-                    while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
-                        pass
-                    print((datetime.datetime.now()).strftime('%S'))
-                    self.clear_scene()
-                    self.GAME_OPEN = True
-                    self.GAME_INIT = True
-                    self.game_init()
+                    threading.Thread(target=self.sync_time_start).start()
+
             elif self.copy_box:
                 if event.button == 1 and pygame.Rect(self.copy_box).collidepoint(pygame.mouse.get_pos()):
                     pyperclip.copy(self.GAME_CODE)
@@ -2574,6 +2654,10 @@ class App:
 
     def host_game_render(self):
         self.window.fill("#021019")
+        if self.starts_in is not None:
+            self.must_update = True
+            txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 31 * self.pos - 20, 120, 40), txtsurf))
         chunk = 33
         self.pos = self.size[1] / chunk
         txtsurf = self.big_font.render('Host a game', True, '#b6b6d1')
@@ -2719,28 +2803,16 @@ class App:
                     server_api.ALLOW_WAIT = True
                     return
             print("Starting the game!")
-            current_time = datetime.datetime.now()
-            seconds = current_time.strftime('%S')
-            wait_until = int(seconds[0]) + 1
-            if wait_until > 5:
-                wait_until = 0
-            if int(seconds[1]) > 8:
-                wait_until += 1
-                if wait_until > 5:
-                    wait_until = 0
-            while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
-                pass
-            print((datetime.datetime.now()).strftime('%S'))
-            self.clear_scene()
-            self.GAME_OPEN = True
-            self.GAME_INIT = True
-            self.game_init()
+            threading.Thread(target=self.sync_time_start).start()
         else:
             print("Join failed.")
             self.JOIN_STATUS = 3
             self.must_update = True
 
     def join_game_screen_events(self, event):
+        if self.starts_in is not None:
+            txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 25 * self.pos - 20, 120, 40), txtsurf))
         if not self.game_code_box:  # Make sure the screen has been loaded first
             return
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
@@ -2825,6 +2897,10 @@ class App:
                 self.JOIN_STATUS = 0
                 self.must_update = True
         self.window.fill("#021019")
+        if self.starts_in is not None:
+            self.must_update = True
+            txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
+            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 25 * self.pos - 20, 120, 40), txtsurf))
         chunk = 33
         self.pos = self.size[1] / chunk
         txtsurf = self.big_font.render('Join a game', True, '#b6b6d1')
@@ -2871,7 +2947,7 @@ class App:
         txtsurf = self.middle_font.render(f'Your score: {self.LOCAL_SCORE}', True, 'green')
         self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos))
         txtsurf = self.middle_font.render(f'Enemy score: {self.ENEMY_SCORE}', True, 'green')
-        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos))
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 24 * self.pos))
 
         pygame.display.update()
 
@@ -2884,7 +2960,7 @@ class App:
         txtsurf = self.middle_font.render(f'Your score: {self.LOCAL_SCORE}', True, 'red')
         self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos))
         txtsurf = self.middle_font.render(f'Enemy score: {self.ENEMY_SCORE}', True, 'red')
-        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos))
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 24 * self.pos))
 
         pygame.display.update()
 
