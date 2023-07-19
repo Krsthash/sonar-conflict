@@ -2721,7 +2721,11 @@ class App:
             if self.GAME_CODE_VAR[0]:
                 if event.key == pygame.K_BACKSPACE:
                     self.GAME_CODE_VAR[1] = self.GAME_CODE_VAR[1][:-1]
-                elif len(self.GAME_CODE_VAR[1]) < 20:
+                elif (event.key == pygame.K_v) and (event.mod & pygame.KMOD_CTRL):
+                    self.GAME_CODE_VAR[1] = pyperclip.paste()
+                    if len(self.GAME_CODE_VAR[1]) > 15:
+                        self.GAME_CODE_VAR[1] = self.GAME_CODE_VAR[1][:15]
+                elif len(self.GAME_CODE_VAR[1]) < 15:
                     k = str(pygame.key.name(event.key))
                     if len(k) == 1 and k.isascii():
                         self.GAME_CODE_VAR[1] += k.upper()
