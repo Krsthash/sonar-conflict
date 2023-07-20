@@ -914,6 +914,28 @@ class App:
                             # server_api.send_message(, 1084976743565234289)
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
                             self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
+                        elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Mk-48':
+                            print("FIRED!")
+                            speed = 0.0367
+                            range = 35  # 70 km
+                            distance = float(self.distance_var[1]) / 2  # converting to px
+                            angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                            if angle > 360:
+                                angle -= 360
+                            time = range / (speed * 60)
+                            impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
+                            impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
+                            mode = True
+                            if self.mode_var == 0:
+                                mode = False
+                            torpedo_info = [
+                                [self.LOCAL_POSITION[0], self.LOCAL_POSITION[1],
+                                 self.LOCAL_POSITION[2], speed, self.LOCAL_POSITION[3]],
+                                [impact_x, impact_y, float(self.depth_var[1])], False, time, 'Enemy', 0,
+                                mode, self.SELECTED_WEAPON]
+                            self.UPDATE_TORP_QUEUE.append(f"{torpedo_info}")
+                            self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
+                            self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Fired':
                             print("TORPEDO UPDATE!!")
                             distance = float(self.distance_var[1]) / 2  # converting to px
@@ -1731,7 +1753,6 @@ class App:
                 self.win_screen_render()
             elif self.LOSS_SCREEN:
                 self.loss_screen_render()
-
             # Scene event checks
             for event in pygame.event.get():
                 if self.SCOREBOARD_OPEN:
