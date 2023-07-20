@@ -82,6 +82,9 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.ship_sync = 0
+        self.designationP = None
+        self.designationE = None
         self.starts_in = None
         self.NOTICE_QUEUE = []
         self.TARGETS_DESTROYED_ENEMY = 0
@@ -261,16 +264,16 @@ class App:
                           self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
                 pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), point1)
                 pygame.draw.circle(self.map, 'green', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
-        # # Enemy ship locations
-        # for ship in self.OBJECTS:
-        #     if ship.count("Enemy_ship"):
-        #         length = 5
-        #         point1 = (
-        #         self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
-        #         self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
-        #         pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]),
-        #                            point1)
-        #         pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
+        # Enemy ship locations
+        for ship in self.OBJECTS:
+            if ship.count("Enemy_ship"):
+                length = 5
+                point1 = (
+                self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
+                self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
+                pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]),
+                                   point1)
+                pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
 
         # Port locations
         for port in self.FRIENDLY_PORT_LOCATIONS:
@@ -288,8 +291,14 @@ class App:
             txtsurf = self.small_font.render(f"{target[2]}%", True, '#b6b6d1')
             self.map.blit(txtsurf, (target[0], target[1]))
 
+        # Enemy torpedoes
         for torpedo in self.TORPEDOES:
+            length = 5
+            point1 = (self.TORPEDOES[torpedo][0][0] + length * math.cos(math.radians(self.TORPEDOES[torpedo][0][2] - 90)),
+                      self.TORPEDOES[torpedo][0][1] + length * math.sin(math.radians(self.TORPEDOES[torpedo][0][2] - 90)))
+            pygame.draw.aaline(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), point1)
             pygame.draw.circle(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), 2)
+        # Enemy relayed position
         if self.ENEMY_VISIBLE:
             length = 5
             point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
@@ -527,15 +536,21 @@ class App:
                                   mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]], 'Submarine', 0, 1,
                                  100, -25]
         # [x, y, azimuth, depth], type, velocity, detection_chance, HEALTH* ACTIVE_SONAR**
+        if not self.PLAYER_ID:
+            self.designationP = "Russian"
+            self.designationE = "American"
+        else:
+            self.designationP = "Russian"
+            self.designationE = "American"
         i = 1
         for vessel in mission[code]['ships']:
-            self.OBJECTS[f'Friendly_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], vessel[3]],
-                                                  vessel[4], vessel[5], vessel[6], vessel[7], -25]
+            self.OBJECTS[f'Friendly_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], 0],
+                                                  self.designationP, 0.008, 0.8, 100, -25]
             i += 1
         i = 1
         for vessel in mission[enemy_code]['ships']:
-            self.OBJECTS[f'Enemy_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], vessel[3]],
-                                               vessel[4], vessel[5], vessel[6], vessel[7], -25]
+            self.OBJECTS[f'Enemy_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], 0],
+                                               self.designationE, 0.008, 0.8, 100, -25]
             i += 1
         self.SONAR_SCREEN = True
         self.sonar_screen_render()
@@ -1258,6 +1273,8 @@ class App:
                         pygame.draw.rect(self.window, '#263ded', rect, border_radius=5)
                     elif self.WEAPON_LAYOUT[rect][1] == 'UGM-84':
                         pygame.draw.rect(self.window, '#16c7c7', rect, border_radius=5)
+                    elif self.WEAPON_LAYOUT[rect][1] == 'Fired':
+                        pygame.draw.rect(self.window, '#5e0801', rect, border_radius=5)
                     else:
                         pygame.draw.rect(self.window, '#ffff82', rect, border_radius=5)
                     txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
@@ -1364,6 +1381,7 @@ class App:
             # print(self.clock.get_fps())
             # Scene checks
             if self.GAME_INIT:
+                self.ship_sync += 0.0167 * fps_d
                 # Collision detection
                 if self.coll_detection.get_at((int(self.LOCAL_POSITION[0]), int(self.LOCAL_POSITION[1])))[:3] != (
                         2, 16, 25):
@@ -1522,7 +1540,8 @@ class App:
                             flag = 1
                 if flag:
                     self.ENEMY_VISIBLE = True
-                    self.NOTICE_QUEUE.append(["Enemy submarine located!", 0, 0])
+                    if ["Enemy submarine detected!", 0, 0] not in self.NOTICE_QUEUE:
+                        self.NOTICE_QUEUE.append(["Enemy submarine detected!", 0, 0])
                 else:
                     self.ENEMY_VISIBLE = False
 
@@ -1850,13 +1869,26 @@ class App:
                     else:
                         target_info = target_info[:-1]
 
+                    ship_sync_info = "None"
+                    if self.ship_sync > 5:
+                        self.ship_sync = 0
+                        ship_sync_info = ""
+                        for ship in self.OBJECTS:
+                            if ship.count("Friendly"):
+                                ship_sync_info += f'{self.OBJECTS[ship][0][0]}!{self.OBJECTS[ship][0][1]}!' \
+                                                  f'{self.OBJECTS[ship][0][2]}!{ship}?'
+                        else:
+                            ship_sync_info = ship_sync_info[:-1]
+                        if ship_sync_info == "":
+                            ship_sync_info = "None"
+
                     print(torpedo_send_info2)
 
                     server_api.SEND_INFO = f"[{self.PLAYER_ID}] [{self.LOCAL_POSITION[0]:.2f}, " \
                                            f"{self.LOCAL_POSITION[1]:.2f}, {self.LOCAL_POSITION[2]:.2f}, " \
                                            f"{self.LOCAL_POSITION[4]:.2f}, {self.LOCAL_VELOCITY:.5f}, " \
                                            f"{self.DETECTION_CHANCE}, {sink_info}, {target_info},{torpedo_send_info}]" \
-                                           f" {torpedo_send_info2}"
+                                           f" {torpedo_send_info2}ANDSYUI{ship_sync_info}"
                     self.UPDATE_TORP_QUEUE = []
                     self.SINK_QUEUE = []
                     self.TARGET_DAMAGE_QUEUE = []
@@ -1912,6 +1944,27 @@ class App:
                                         self.FRIENDLY_TARGET_LOCATIONS.remove(enemy_target)
                                         self.NOTICE_QUEUE.append(["Friendly base got destroyed!", 0, 1])
                                     break
+                    if server_api.SHIP_SYNC_INFO != 'None':
+                        print("SHIP INFO RECIEVED!")
+                        temp_s = []
+                        for ship in self.OBJECTS:
+                            if ship.count("Enemy_ship"):
+                                temp_s.append(ship)
+                        temp_s_update = []
+                        for ship in server_api.SHIP_SYNC_INFO.split("?"):
+                            temp = ship.split('!')
+                            temp[-1] = temp[-1].replace("Friendly", "Enemy")
+                            temp_s_update.append(temp)
+                        print(f"Temp_s: {temp_s}")
+                        print(f"Temp_s_update: {temp_s_update}")
+                        for ship in temp_s:
+                            for ship_update in temp_s_update:
+                                if ship == ship_update[-1]:
+                                    print(f"Updated ship info for: {ship}")
+                                    self.OBJECTS[ship][0][0] = float(ship_update[0])
+                                    self.OBJECTS[ship][0][1] = float(ship_update[1])
+                                    self.OBJECTS[ship][0][2] = float(ship_update[2])
+                        server_api.SHIP_SYNC_INFO = "None"
                     torpedo_update_info = server_api.UPDATE_INFO[8:]
                     print(torpedo_update_info)
                     # print(list(self.WEAPON_LAYOUT), list(self.FIRED_TORPEDOES))
@@ -1996,15 +2049,14 @@ class App:
             elif message[2] == 1:
                 color = "red"
             txtsurf = self.middle_font.render(f'{message[0]}', True, color)
-            self.window.blit(txtsurf, (self.size[0]-150 - txtsurf.get_width() / 2, (28-i*4) * self.pos))
+            self.window.blit(txtsurf, (self.size[0] - 150 - txtsurf.get_width() / 2, (28 - i * 4) * self.pos))
             message[1] += 0.0167
             if message[1] > 5:
                 self.NOTICE_QUEUE.remove(message)
             i += 1
             if i > 6:
                 break
-            
-            
+
         def calculate_bearing(rel_x, rel_y, distance):
             if rel_x == 0:
                 if rel_y < 0:
@@ -2052,7 +2104,6 @@ class App:
         ACTIVE_SONAR_RANGE = 80
         PASSIVE_SONAR_RANGE = 80
         # Active sonar
-
 
         pygame.draw.circle(self.window, 'green', (200, 200), 180, width=2)
 
@@ -2567,7 +2618,6 @@ class App:
         self.GAME_OPEN = True
         self.GAME_INIT = True
 
-
     def host_game_screen_events(self, event):
         if self.starts_in is not None:
             self.must_update = True
@@ -2902,7 +2952,8 @@ class App:
             self.window.blit(txtsurf, self.mid_rect(self.join_game_box, txtsurf))
         elif pygame.Rect(self.back_box_join).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
-            pygame.draw.rect(self.window, '#FFDBDB', self.back_box_join, width=2, border_radius=2, border_top_left_radius=0,
+            pygame.draw.rect(self.window, '#FFDBDB', self.back_box_join, width=2, border_radius=2,
+                             border_top_left_radius=0,
                              border_bottom_left_radius=0)
             txtsurf = self.middle_font.render('Back', True, '#FFDBDB')
             self.window.blit(txtsurf, self.mid_rect(self.back_box_join, txtsurf))
@@ -2983,6 +3034,9 @@ class App:
         self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 20 * self.pos))
         txtsurf = self.middle_font.render(f'Enemy score: {self.ENEMY_SCORE}', True, 'red')
         self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 24 * self.pos))
+        if self.HEALTH <= 0:
+            txtsurf = self.middle_font.render(f'You died!', True, 'red')
+            self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 28 * self.pos))
 
         pygame.display.update()
 
@@ -3014,16 +3068,20 @@ class App:
             e = 0
         txtsurf = self.middle_font.render('You', True, "#b6b6d1")
         self.window.blit(txtsurf,
-                         (100 + (sb_grid * 0 + sb_grid / 2 - txtsurf.get_width() / 2), 175 + p*50 - txtsurf.get_height() / 2))
+                         (100 + (sb_grid * 0 + sb_grid / 2 - txtsurf.get_width() / 2),
+                          175 + p * 50 - txtsurf.get_height() / 2))
         txtsurf = self.middle_font.render(f'{self.SHIPS_DESTROYED}', True, "#b6b6d1")
         self.window.blit(txtsurf,
-                         (100 + (sb_grid * 1 + sb_grid / 2 - txtsurf.get_width() / 2), 175 + p*50 - txtsurf.get_height() / 2))
+                         (100 + (sb_grid * 1 + sb_grid / 2 - txtsurf.get_width() / 2),
+                          175 + p * 50 - txtsurf.get_height() / 2))
         txtsurf = self.middle_font.render(f'{self.TARGETS_DESTROYED}', True, "#b6b6d1")
         self.window.blit(txtsurf,
-                         (100 + (sb_grid * 2 + sb_grid / 2 - txtsurf.get_width() / 2), 175 + p*50 - txtsurf.get_height() / 2))
+                         (100 + (sb_grid * 2 + sb_grid / 2 - txtsurf.get_width() / 2),
+                          175 + p * 50 - txtsurf.get_height() / 2))
         txtsurf = self.middle_font.render(f'{self.LOCAL_SCORE}', True, "#b6b6d1")
         self.window.blit(txtsurf,
-                         (100 + (sb_grid * 3 + sb_grid / 2 - txtsurf.get_width() / 2), 175 + p*50 - txtsurf.get_height() / 2))
+                         (100 + (sb_grid * 3 + sb_grid / 2 - txtsurf.get_width() / 2),
+                          175 + p * 50 - txtsurf.get_height() / 2))
         # Enemy
         txtsurf = self.middle_font.render('Enemy', True, "#b6b6d1")
         self.window.blit(txtsurf,

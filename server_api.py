@@ -24,6 +24,7 @@ SEND_INFO = None
 TORPEDO_INFO = []
 CHANNEL = None
 LISTENING_CHANNEL = None
+SHIP_SYNC_INFO = []
 # ---------------------------------- #
 
 
@@ -107,6 +108,7 @@ def do_something(something):
 async def on_message(msg):
     global UPDATE_INFO
     global TORPEDO_INFO
+    global SHIP_SYNC_INFO
     log.info(f"Message! {msg}")
     print(f"MESSAGE FOUND...{PLAYER}, {msg.content},{msg}")
     if str(msg.content) == "":
@@ -125,11 +127,12 @@ async def on_message(msg):
                 print("DOGGER2")
                 print("UPDATE MSG!", msg.content[1], PLAYER)
                 UPDATE_INFO = msg.content[3:].replace('[', '').replace(']', '').replace(' ', '').split('AND')[0].split(',')
-                TORPEDO_INFO = msg.content[3:].split('AND')[1:]
+                TORPEDO_INFO = msg.content[3:].split('AND')[1:-1]
                 temp = []
                 for info in TORPEDO_INFO:
                     temp.append(info.replace('[', '').replace(']', '').replace(' ', '').split(','))
                 TORPEDO_INFO = temp
+                SHIP_SYNC_INFO = msg.content[3:].split('SYUI')[-1]
             elif msg.content.count("Player has died."):
                 UPDATE_INFO = "PLAYER HAS DIED"
 
