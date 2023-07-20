@@ -82,6 +82,8 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.max_sen = 0
+        self.max_rec = 0
         self.ship_sync = 0
         self.designationP = None
         self.designationE = None
@@ -206,20 +208,22 @@ class App:
         # create window
         pygame.display.flip()
 
-    def clear_scene(self):
-        self.MAP_OPEN = False
-        self.SCOREBOARD_OPEN = False
-        self.MAIN_MENU_OPEN = False
-        self.GAME_OPEN = False
-        self.JOIN_GAME_SCREEN = False
-        self.HOST_GAME_SCREEN = False
+    def render_notifications(self):
 
-    def open_map(self):
-        # Uncomment to reset map's position
-        # self.map_rect = self.map.get_rect(topleft=self.window.get_rect().topleft)
-        self.blitmap()
+        # debug info
+        if server_api.LAST_UPDATE_AT and server_api.LAST_SEND_AT:
+            rec_ = float(time.time() - server_api.LAST_UPDATE_AT)
+            sen = float(time.time() - server_api.LAST_SEND_AT)
+            if self.max_rec < rec_:
+                self.max_rec = rec_
+            if self.max_sen < sen:
+                self.max_sen = sen
+            txtsurf = self.middle_font.render(f"Received: {rec_:.2f} "
+                                              f"Sent: {sen:.2f} "
+                                              f"MaxRecieved: {self.max_rec:.2f} "
+                                              f"MaxSent: {self.max_sen:.2f}", True, 'red')
+            self.window.blit(txtsurf, (10, 10))
 
-    def blitmap(self):
         i = 0
         for message in self.NOTICE_QUEUE:
             color = 'orange'
@@ -235,12 +239,28 @@ class App:
             i += 1
             if i > 6:
                 break
+
+    def clear_scene(self):
+        self.MAP_OPEN = False
+        self.SCOREBOARD_OPEN = False
+        self.MAIN_MENU_OPEN = False
+        self.GAME_OPEN = False
+        self.JOIN_GAME_SCREEN = False
+        self.HOST_GAME_SCREEN = False
+
+    def open_map(self):
+        # Uncomment to reset map's position
+        # self.map_rect = self.map.get_rect(topleft=self.window.get_rect().topleft)
+        self.blitmap()
+
+    def blitmap(self):
         current_dir = os.path.dirname(os.path.realpath(__name__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
         self.map_render()
         self.mapsurface = pygame.transform.smoothscale(self.map, self.map_rect.size)
         self.window.fill(0)
         self.window.blit(self.mapsurface, self.map_rect)
+        self.render_notifications()
         pygame.draw.line(self.window, 'green', (100, self.size[1] - 100),
                          (100 + self.range_indicator, self.size[1] - 100))
         pygame.draw.line(self.window, 'green', (100, self.size[1] - 100), (100, self.size[1] - 105))
@@ -269,8 +289,8 @@ class App:
             if ship.count("Enemy_ship"):
                 length = 5
                 point1 = (
-                self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
-                self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
+                    self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
+                    self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
                 pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]),
                                    point1)
                 pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
@@ -294,8 +314,9 @@ class App:
         # Enemy torpedoes
         for torpedo in self.TORPEDOES:
             length = 5
-            point1 = (self.TORPEDOES[torpedo][0][0] + length * math.cos(math.radians(self.TORPEDOES[torpedo][0][2] - 90)),
-                      self.TORPEDOES[torpedo][0][1] + length * math.sin(math.radians(self.TORPEDOES[torpedo][0][2] - 90)))
+            point1 = (
+                self.TORPEDOES[torpedo][0][0] + length * math.cos(math.radians(self.TORPEDOES[torpedo][0][2] - 90)),
+                self.TORPEDOES[torpedo][0][1] + length * math.sin(math.radians(self.TORPEDOES[torpedo][0][2] - 90)))
             pygame.draw.aaline(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), point1)
             pygame.draw.circle(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), 2)
         # Enemy relayed position
@@ -305,6 +326,12 @@ class App:
                       self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
             pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
             pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
+        # Enemy position
+        length = 5
+        point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
+                  self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
+        pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
+        pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
 
         pygame.display.update()
 
@@ -1054,22 +1081,8 @@ class App:
                 self.SCOREBOARD_OPEN = True
 
     def weapon_screen_render(self):
-        i = 0
-        for message in self.NOTICE_QUEUE:
-            color = 'orange'
-            if message[2] == 0:
-                color = "green"
-            elif message[2] == 1:
-                color = "red"
-            txtsurf = self.middle_font.render(f'{message[0]}', True, color)
-            self.window.blit(txtsurf, (self.size[0] - 150 - txtsurf.get_width() / 2, (28 - i * 4) * self.pos))
-            message[1] += 0.0167
-            if message[1] > 5:
-                self.NOTICE_QUEUE.remove(message)
-            i += 1
-            if i > 6:
-                break
         self.window.fill(0)
+        self.render_notifications()
 
         # Splitter lines
         pygame.draw.line(self.window, '#b6b6d1', (300, 0), (300, self.size[1]))
@@ -1894,6 +1907,8 @@ class App:
                     self.TARGET_DAMAGE_QUEUE = []
                 # print(f'appending info {self.PLAYER_ID}')
                 if server_api.UPDATE_INFO:
+                    print(server_api.UPDATE_INFO)
+                    print(server_api.TORPEDO_INFO)
                     if server_api.UPDATE_INFO.count("PLAYER HAS DIED"):
                         print("Recieved information about player's death, R.I.P.")
                         self.clear_scene()
@@ -1983,7 +1998,7 @@ class App:
                                     break
                             if not flag:
                                 self.FIRED_TORPEDOES[weapon][2] += 1
-                                if self.FIRED_TORPEDOES[weapon][2] > 2:
+                                if self.FIRED_TORPEDOES[weapon][2] > 4:
                                     self.WEAPON_LAYOUT[weapon][1] = ''
                                     self.FIRED_TORPEDOES.pop(weapon)
                                 else:
@@ -2001,7 +2016,7 @@ class App:
 
                     server_api.UPDATE_INFO = None
                 if server_api.TORPEDO_INFO:
-                    print(server_api.TORPEDO_INFO)
+                    print(server_api.TORPEDO_INFO, "TORPEDO INFORMATION!!")
                     for info in server_api.TORPEDO_INFO:
                         if info[8] == 'True':
                             t1 = True
@@ -2041,21 +2056,7 @@ class App:
 
     def sonar_screen_render(self):
         self.window.fill('black')
-        i = 0
-        for message in self.NOTICE_QUEUE:
-            color = 'orange'
-            if message[2] == 0:
-                color = "green"
-            elif message[2] == 1:
-                color = "red"
-            txtsurf = self.middle_font.render(f'{message[0]}', True, color)
-            self.window.blit(txtsurf, (self.size[0] - 150 - txtsurf.get_width() / 2, (28 - i * 4) * self.pos))
-            message[1] += 0.0167
-            if message[1] > 5:
-                self.NOTICE_QUEUE.remove(message)
-            i += 1
-            if i > 6:
-                break
+        self.render_notifications()
 
         def calculate_bearing(rel_x, rel_y, distance):
             if rel_x == 0:
@@ -2549,7 +2550,7 @@ class App:
                 (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))
 
     def start_hosting(self):
-        server_api.remove_old_games()
+        # server_api.remove_old_games()
         LISTENING_CHANNEL = None
         SENDING_CHANNEL = None
         rand_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -3042,6 +3043,7 @@ class App:
 
     def scoreboard_render(self):
         self.window.fill("#021019")
+        self.render_notifications()
         sb_grid = (self.size[0] - 200) / 4
 
         self.score_board_rect = (100, 100, self.size[0] - 200, self.size[1] - 200)
