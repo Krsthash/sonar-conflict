@@ -1,14 +1,16 @@
 import asyncio
 import datetime
+import json
 import threading
 import time
 import logging
 from functools import partial, wraps
 
 import discord
+import requests
 from discord.ext import commands, tasks
 
-BOT = commands.Bot(command_prefix="!", intents=discord.Intents().all())
+BOT = discord.Client(intents=discord.Intents().all())
 
 # -------- GLOBAL VARIABLES -------- #
 bot_started = False
@@ -73,13 +75,17 @@ async def on_ready():
     global bot_started
     global SERVER
     global CHANNEL
+    global LAST_UPDATE_AT
+    global LAST_SEND_AT
     try:
         SERVER = BOT.guilds[1]
     except IndexError:
         print("Server not found.")
-
+    print("ON_READY!")
     on_msg.start()
     api_listener.start()  # Starts the loop.
+    LAST_UPDATE_AT = time.time()
+    LAST_SEND_AT = time.time()
     update_game.start()
     bot_started = True
 
@@ -111,83 +117,61 @@ def do_something(something):
     return "Test!"
 
 
-@tasks.loop(seconds=1)
+@tasks.loop(seconds=2)
 async def on_msg():
     global UPDATE_INFO
     global TORPEDO_INFO
     global SHIP_SYNC_INFO
     global LAST_UPDATE_AT
+    global MSGS_PROCESSED
     if not LISTENING_CHANNEL:
         return
-    if not LISTENING_CHANNEL.last_message_id:
-        return
-    msg = await LISTENING_CHANNEL.fetch_message(LISTENING_CHANNEL.last_message_id)
-    if msg in MSGS_PROCESSED:
-        print("Already seen this message.", msg.content)
-        return
-    log.info(f"Message! {msg}")
-    print(f"MESSAGE FOUND...{PLAYER}, {msg.content},{msg}")
-    if str(msg.content) == "":
-        if msg.channel.id == LISTENING_CHANNEL.id:
+    headers = {"authorization": f"Bot {TOKEN}"}
+    r = requests.get(f'https://discord.com/api/v9/channels/{LISTENING_CHANNEL.id}/messages?limit=2',
+                     headers=headers)
+    json_ = json.loads(r.text)
+    messages = []
+    for item in json_:
+        messages.append(item)
+    for msg in messages:
+        if msg is None:
+            print("No msgs!")
+            return
+        if msg in MSGS_PROCESSED:
+            print("Already seen this message.", msg['content'])
+            return
+        log.info(f"Message! {msg}")
+        print(f"MESSAGE FOUND...{PLAYER}, {msg['content']},{msg}")
+        if str(msg['content']) == "":
             print("Possible attachments message found!")
-            if len(msg.attachments):
+            if len(msg['attachments']):
                 print("Has attachments!")
-                msg.content = f"MISSION-INFORMATION{await msg.attachments[0].read()}"
+                print(msg['attachments'])
+                r = requests.get(url=msg['attachments'][0]['url'])
+                print(r)
+                print(r.text)
+                print(r.content)
+                msg['content'] = f"MISSION-INFORMATION{r.content}"  # .read()
                 ON_MESSAGE_BUFFER.append(msg)
-    elif str(msg.content[1]) != str(PLAYER) and msg.channel.id == LISTENING_CHANNEL.id:
-        # print("DOG")
-        if msg.content[2] == ']':
-            # print("DOGGER1")
-            ON_MESSAGE_BUFFER.append(msg)
-            if msg.content[4] == '[':
-                # print("DOGGER2")
-                print("UPDATE MSG!", msg.content[1], PLAYER)
-                LAST_UPDATE_AT = time.time()
-                UPDATE_INFO = msg.content[3:].replace('[', '').replace(']', '').replace(' ', '').split('AND')[
-                    0].split(',')
-                TORPEDO_INFO = msg.content[3:].split('AND')[1:-1]
-                temp = []
-                for info in TORPEDO_INFO:
-                    temp.append(info.replace('[', '').replace(']', '').replace(' ', '').split(','))
-                TORPEDO_INFO = temp
-                SHIP_SYNC_INFO = msg.content[3:].split('SYUI')[-1]
-            elif msg.content.count("Player has died."):
-                UPDATE_INFO = "PLAYER HAS DIED"
-    MSGS_PROCESSED.append(msg)
-
-# @BOT.event
-# async def on_message(msg):
-#     global UPDATE_INFO
-#     global TORPEDO_INFO
-#     global SHIP_SYNC_INFO
-#     global LAST_UPDATE_AT
-#     log.info(f"Message! {msg}")
-#     print(f"MESSAGE FOUND...{PLAYER}, {msg.content},{msg}")
-#     if str(msg.content) == "":
-#         if msg.channel.id == LISTENING_CHANNEL.id:
-#             print("Possible attachments message found!")
-#             if len(msg.attachments):
-#                 print("Has attachments!")
-#                 msg.content = f"MISSION-INFORMATION{await msg.attachments[0].read()}"
-#                 ON_MESSAGE_BUFFER.append(msg)
-#     elif str(msg.content[1]) != str(PLAYER) and msg.channel.id == LISTENING_CHANNEL.id:
-#         print("DOG")
-#         if msg.content[2] == ']':
-#             print("DOGGER1")
-#             ON_MESSAGE_BUFFER.append(msg)
-#             if msg.content[4] == '[':
-#                 print("DOGGER2")
-#                 print("UPDATE MSG!", msg.content[1], PLAYER)
-#                 LAST_UPDATE_AT = time.time()
-#                 UPDATE_INFO = msg.content[3:].replace('[', '').replace(']', '').replace(' ', '').split('AND')[0].split(',')
-#                 TORPEDO_INFO = msg.content[3:].split('AND')[1:-1]
-#                 temp = []
-#                 for info in TORPEDO_INFO:
-#                     temp.append(info.replace('[', '').replace(']', '').replace(' ', '').split(','))
-#                 TORPEDO_INFO = temp
-#                 SHIP_SYNC_INFO = msg.content[3:].split('SYUI')[-1]
-#             elif msg.content.count("Player has died."):
-#                 UPDATE_INFO = "PLAYER HAS DIED"
+        elif str(msg['content'][1]) != str(PLAYER):
+            if msg['content'][2] == ']':
+                ON_MESSAGE_BUFFER.append(msg)
+                if msg['content'][4] == '[':
+                    print("UPDATE MSG!", msg['content'][1], PLAYER)
+                    LAST_UPDATE_AT = time.time()
+                    UPDATE_INFO = msg['content'][3:].replace('[', '').replace(']', '').replace(' ', '').split('AND')[
+                        0].split(',')
+                    TORPEDO_INFO = msg['content'][3:].split('AND')[1:-1]
+                    temp = []
+                    for info in TORPEDO_INFO:
+                        temp.append(info.replace('[', '').replace(']', '').replace(' ', '').split(','))
+                    TORPEDO_INFO = temp
+                    SHIP_SYNC_INFO = msg['content'][3:].split('SYUI')[-1]
+                elif msg['content'].count("Player has died."):
+                    UPDATE_INFO = "PLAYER HAS DIED"
+        MSGS_PROCESSED.append(msg)
+        if len(MSGS_PROCESSED) > 100:
+            MSGS_PROCESSED = MSGS_PROCESSED[98:]
 
 
 @execute
@@ -224,6 +208,7 @@ async def remove_old_games():
     """
     Removes all text channels associated with games older than 2 hours.
     """
+    print("Removing old games...")
     current_time = int(time.mktime(datetime.datetime.utcnow().timetuple()))
     log.info(f"Current time: {current_time}")
     log.info("Channels:")
@@ -258,13 +243,19 @@ async def wait_for_message():
     return message
 
 
-@tasks.loop(seconds=2)
+@tasks.loop(seconds=1)
 async def update_game():
+    global bot_started
+    if not bot_started:
+        print("Bot not started!")
+        return
+    global LAST_UPDATE_AT
+    if LAST_UPDATE_AT:
+        if time.time() - LAST_UPDATE_AT > 10:
+            print("Connection problems!", time.time()-LAST_UPDATE_AT)
     """
     Every update that goes to the other player *MUST* be sent through this function to ensure efficiency.
     """
-    # print(f"RATE LIMITED: {BOT.is_ws_ratelimited()}")
-    # log.warning(f"RATE LIMITED: {BOT.is_ws_ratelimited()}")
     global SEND_INFO
     global LAST_SEND_AT
     # log.info(f'update game running.. {PLAYER}, {SEND_INFO}')

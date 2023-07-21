@@ -82,6 +82,7 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.DEBUG = False
         self.max_sen = 0
         self.max_rec = 0
         self.ship_sync = 0
@@ -211,7 +212,7 @@ class App:
     def render_notifications(self):
 
         # debug info
-        if server_api.LAST_UPDATE_AT and server_api.LAST_SEND_AT:
+        if server_api.LAST_UPDATE_AT and server_api.LAST_SEND_AT and self.DEBUG:
             rec_ = float(time.time() - server_api.LAST_UPDATE_AT)
             sen = float(time.time() - server_api.LAST_SEND_AT)
             if self.max_rec < rec_:
@@ -221,8 +222,12 @@ class App:
             txtsurf = self.middle_font.render(f"Received: {rec_:.2f} "
                                               f"Sent: {sen:.2f} "
                                               f"MaxRecieved: {self.max_rec:.2f} "
-                                              f"MaxSent: {self.max_sen:.2f}", True, 'red')
+                                              f"MaxSent: {self.max_sen:.2f} "
+                                              f"FPS: {self.current_fps:.0f}", True, '#03fca9')
             self.window.blit(txtsurf, (10, 10))
+        else:
+            self.max_sen = 0
+            self.max_rec = 0
 
         i = 0
         for message in self.NOTICE_QUEUE:
@@ -622,6 +627,13 @@ class App:
                 self.MAP_OPEN = True
                 self.open_map()
                 self.map_render()
+            elif event.key == pygame.K_F1:
+                if self.DEBUG:
+                    print("Debug mode OFF")
+                    self.DEBUG = False
+                else:
+                    print("debug mode ON")
+                    self.DEBUG = True
             elif event.key == pygame.K_LCTRL:
                 if self.GEAR > -3:
                     self.GEAR -= 1
@@ -2550,7 +2562,7 @@ class App:
                 (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))
 
     def start_hosting(self):
-        # server_api.remove_old_games()
+        server_api.remove_old_games()
         LISTENING_CHANNEL = None
         SENDING_CHANNEL = None
         rand_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -2577,7 +2589,7 @@ class App:
         if msg is None:  # Used to check if the player decided to abort the game
             server_api.ALLOW_WAIT = True
             return
-        while msg.content != f"[{enemy}] Joined the game.":
+        while msg['content'] != f"[{enemy}] Joined the game.":
             time.sleep(0.5)
             msg = server_api.wait_for_message()
             if msg is None:
@@ -2591,7 +2603,7 @@ class App:
         if msg is None:  # Used to check if the player decided to abort the game
             server_api.ALLOW_WAIT = True
             return
-        while msg.content != f"[{enemy}] Mission loaded.":
+        while msg['content'] != f"[{enemy}] Mission loaded.":
             time.sleep(0.5)
             msg = server_api.wait_for_message()
             if msg is None:
@@ -2849,14 +2861,14 @@ class App:
             if msg is None:  # Used to check if the player decided to abort the game
                 server_api.ALLOW_WAIT = True
                 return
-            while not msg.content.count("MISSION-INFORMATION"):
+            while not msg['content'].count("MISSION-INFORMATION"):
                 time.sleep(0.5)
                 msg = server_api.wait_for_message()
                 if msg is None:
                     server_api.ALLOW_WAIT = True
                     return
-            print("Received mission information!", msg.content)
-            info = json.loads(eval(msg.content.replace("MISSION-INFORMATION", "")))  # TODO: Slap yourself for this.
+            print("Received mission information!", msg['content'])
+            info = json.loads(eval(msg['content'].replace("MISSION-INFORMATION", "")))  # TODO: Slap yourself for this.
             json_object = json.dumps(info, indent=4)
             with open("TEMP.json", "w", encoding="utf-8") as temp_file:
                 temp_file.write(json_object)
@@ -2869,7 +2881,7 @@ class App:
             if msg is None:  # Used to check if the player decided to abort the game
                 server_api.ALLOW_WAIT = True
                 return
-            while msg.content != f"[{enemy}] Start the game.":
+            while msg['content'] != f"[{enemy}] Start the game.":
                 time.sleep(0.5)
                 msg = server_api.wait_for_message()
                 if msg is None:
