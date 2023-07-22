@@ -82,6 +82,7 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.CHEATS = False
         self.ENEMY_VISIBLE_AS = None
         self.ENEMY_SONAR = 0
         self.DEBUG = False
@@ -292,15 +293,16 @@ class App:
                 pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), point1)
                 pygame.draw.circle(self.map, 'green', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
         # Enemy ship locations
-        for ship in self.OBJECTS:
-            if ship.count("Enemy_ship"):
-                length = 5
-                point1 = (
-                    self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
-                    self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
-                pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]),
-                                   point1)
-                pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
+        if self.CHEATS:
+            for ship in self.OBJECTS:
+                if ship.count("Enemy_ship"):
+                    length = 5
+                    point1 = (
+                        self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
+                        self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
+                    pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]),
+                                       point1)
+                    pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
 
         # Port locations
         for port in self.FRIENDLY_PORT_LOCATIONS:
@@ -319,13 +321,14 @@ class App:
             self.map.blit(txtsurf, (target[0], target[1]))
 
         # Enemy torpedoes
-        for torpedo in self.TORPEDOES:
-            length = 5
-            point1 = (
-                self.TORPEDOES[torpedo][0][0] + length * math.cos(math.radians(self.TORPEDOES[torpedo][0][2] - 90)),
-                self.TORPEDOES[torpedo][0][1] + length * math.sin(math.radians(self.TORPEDOES[torpedo][0][2] - 90)))
-            pygame.draw.aaline(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), point1)
-            pygame.draw.circle(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), 2)
+        if self.CHEATS:
+            for torpedo in self.TORPEDOES:
+                length = 5
+                point1 = (
+                    self.TORPEDOES[torpedo][0][0] + length * math.cos(math.radians(self.TORPEDOES[torpedo][0][2] - 90)),
+                    self.TORPEDOES[torpedo][0][1] + length * math.sin(math.radians(self.TORPEDOES[torpedo][0][2] - 90)))
+                pygame.draw.aaline(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), point1)
+                pygame.draw.circle(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), 2)
         # Enemy relayed position
         if self.ENEMY_VISIBLE:
             length = 5
@@ -345,11 +348,12 @@ class App:
                                                                                    + random_int(-5, 5))))
             pygame.draw.aaline(self.map, 'yellow', (self.ENEMY_VISIBLE_AS[1][0], self.ENEMY_VISIBLE_AS[1][1]), point1)
         # Enemy position
-        length = 5
-        point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
-                  self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
-        pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
-        pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
+        if self.CHEATS:
+            length = 5
+            point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
+                      self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
+            pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
+            pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
 
         pygame.display.update()
 
@@ -418,7 +422,13 @@ class App:
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 self.moving = True
-                print(pygame.mouse.get_pos())
+                if self.CHEATS:
+                    print(pygame.mouse.get_pos())
+            elif event.button == 2:
+                if self.CHEATS:
+                    self.LOCAL_POSITION[0] = pygame.mouse.get_pos()[0]
+                    self.LOCAL_POSITION[1] = pygame.mouse.get_pos()[1]
+                    print(f"Teleported to {pygame.mouse.get_pos()}")
             elif event.button == 4 or event.button == 5:
                 zoom = 1.2 if event.button == 4 else 0.8
                 mx, my = event.pos
@@ -1514,7 +1524,8 @@ class App:
                 # Land attack missile simulation:
                 for missile in self.LAM_FIRED:
                     missile[0] -= 0.01667 * fps_d
-                    target = self.ENEMY_TARGET_LOCATIONS[self.ENEMY_TARGET_LOCATIONS.index(missile[2])]
+                    if missile[2]:
+                        target = self.ENEMY_TARGET_LOCATIONS[self.ENEMY_TARGET_LOCATIONS.index(missile[2])]
                     if missile[0] <= 0:
                         if missile[1] and missile[2]:  # Will hit and has a target
                             print("TARGET HIT!")
@@ -2737,6 +2748,42 @@ class App:
                 if event.button == 1 and pygame.Rect(self.copy_box).collidepoint(pygame.mouse.get_pos()):
                     pyperclip.copy(self.GAME_CODE)
                     print("Copied!")
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_F2:
+                self.CHEATS = True
+            elif event.key == pygame.K_F3:
+                if self.mission_name and self.HOST_STATUS == 0 and self.CHEATS:
+                    print("Forcefully starting game...")
+                    if self.team_selected == 2:
+                        self.PLAYER_ID = random_int(0, 1)
+                        server_api.PLAYER = self.PLAYER_ID
+
+                    else:
+                        self.PLAYER_ID = self.team_selected
+                        server_api.PLAYER = self.PLAYER_ID
+                    print("Hosting...")
+                    self.HOST_STATUS = 1
+                    server_api.remove_old_games()
+                    LISTENING_CHANNEL = None
+                    SENDING_CHANNEL = None
+                    rand_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                    create_time = int(time.mktime(datetime.datetime.utcnow().timetuple()))
+                    if self.PLAYER_ID:
+                        enemy = 0
+                    else:
+                        enemy = 1
+                    LISTENING_CHANNEL = server_api.fetch_channel_object(
+                        server_api.create_channel(f"game{enemy}.{rand_id}-{create_time}"))
+                    SENDING_CHANNEL = server_api.fetch_channel_object(
+                        server_api.create_channel(f"game{self.PLAYER_ID}.{rand_id}-{create_time}"))
+                    server_api.LISTENING_CHANNEL = LISTENING_CHANNEL
+                    server_api.CHANNEL = SENDING_CHANNEL
+                    self.GAME_CODE = f"{rand_id}{enemy}"
+                    print("Finished loading, ready to start.")
+                    self.clear_scene()
+                    self.game_init()
+                    self.GAME_OPEN = True
+                    self.GAME_INIT = True
 
         if pygame.Rect(self.browse_game_rect).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
@@ -2991,6 +3038,8 @@ class App:
                     k = str(pygame.key.name(event.key))
                     if len(k) == 1 and k.isascii():
                         self.GAME_CODE_VAR[1] += k.upper()
+            elif event.key == pygame.K_F2:
+                self.CHEATS = True
 
         if pygame.Rect(self.game_code_box).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_IBEAM))
