@@ -686,6 +686,8 @@ class App:
             elif event.key == pygame.K_e:
                 self.WEAPON_SCREEN = True
                 self.SONAR_SCREEN = False
+                self.TRANSFER_CONTACT_INFO_P = False
+                self.TRANSFER_CONTACT_INFO_A = False
             elif event.key == pygame.K_TAB:
                 self.clear_scene()
                 self.SCOREBOARD_OPEN = True
@@ -773,13 +775,21 @@ class App:
                         else:
                             self.mode_var = -1
                 elif pygame.Rect(self.active_transfer_box).collidepoint(pygame.mouse.get_pos()):
-                    self.TRANSFER_CONTACT_INFO_A = True
+                    if self.TRANSFER_CONTACT_INFO_A:
+                        self.TRANSFER_CONTACT_INFO_A = False
+                    else:
+                        self.TRANSFER_CONTACT_INFO_A = True
                 elif pygame.Rect(self.passive_transfer_box).collidepoint(pygame.mouse.get_pos()):
-                    self.TRANSFER_CONTACT_INFO_P = True
+                    if self.TRANSFER_CONTACT_INFO_P:
+                        self.TRANSFER_CONTACT_INFO_P = False
+                    else:
+                        self.TRANSFER_CONTACT_INFO_P = True
                 elif pygame.Rect(self.reset_box).collidepoint(pygame.mouse.get_pos()):
                     self.bearing_var[1] = ''
                     self.depth_var[1] = ''
                     self.distance_var[1] = ''
+                    self.TRANSFER_CONTACT_INFO_P = False
+                    self.TRANSFER_CONTACT_INFO_A = False
                 elif pygame.Rect(self.fire_box).collidepoint(pygame.mouse.get_pos()):
                     flag = 0
                     if self.SELECTED_WEAPON and self.bearing_var[1].replace(".", "").isnumeric() and self.depth_var[
@@ -1186,10 +1196,12 @@ class App:
         self.window.blit(txtsurf, (20, 130))
         txtsurf = self.middle_font.render(f"Ballast: ", True, '#b6b6d1')
         self.window.blit(txtsurf, (20, 155))
-        txtsurf = self.middle_font.render(f"X: ", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"Health: ", True, '#b6b6d1')
         self.window.blit(txtsurf, (20, 180))
-        txtsurf = self.middle_font.render(f"Y: ", True, '#b6b6d1')
-        self.window.blit(txtsurf, (20, 205))
+        # txtsurf = self.middle_font.render(f"X: ", True, '#b6b6d1')
+        # self.window.blit(txtsurf, (20, 180))
+        # txtsurf = self.middle_font.render(f"Y: ", True, '#b6b6d1')
+        # self.window.blit(txtsurf, (20, 205))
 
         txtsurf = self.middle_font.render(f"{speed / 0.0193:.2f}km/h", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 30))
@@ -1206,10 +1218,12 @@ class App:
         self.window.blit(txtsurf, (100, 130))
         txtsurf = self.middle_font.render(f"{self.BALLAST:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 155))
-        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[0]:.2f}", True, '#b6b6d1')
+        txtsurf = self.middle_font.render(f"{self.HEALTH:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (100, 180))
-        txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[1]:.2f}", True, '#b6b6d1')
-        self.window.blit(txtsurf, (100, 205))
+        # txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[0]:.2f}", True, '#b6b6d1')
+        # self.window.blit(txtsurf, (100, 180))
+        # txtsurf = self.middle_font.render(f"{self.LOCAL_POSITION[1]:.2f}", True, '#b6b6d1')
+        # self.window.blit(txtsurf, (100, 205))
 
         # Russian weapon layout
         if not self.PLAYER_ID:
@@ -1355,12 +1369,18 @@ class App:
 
         # Transfer contact information buttons
         self.active_transfer_box = (320, 70, 20, 20)
-        pygame.draw.rect(self.window, 'green', self.active_transfer_box, border_radius=2)
+        if self.TRANSFER_CONTACT_INFO_A:
+            pygame.draw.rect(self.window, '#D3FFD4', self.active_transfer_box, border_radius=2)
+        else:
+            pygame.draw.rect(self.window, 'green', self.active_transfer_box, border_radius=2)
         txtsurf = self.middle_font.render("A", True, 'black')
         self.window.blit(txtsurf, (320 + (10 - txtsurf.get_width() // 2), 70 + (10 - txtsurf.get_height() // 2)))
 
         self.passive_transfer_box = (350, 70, 20, 20)
-        pygame.draw.rect(self.window, 'green', self.passive_transfer_box, border_radius=2)
+        if self.TRANSFER_CONTACT_INFO_P:
+            pygame.draw.rect(self.window, '#D3FFD4', self.passive_transfer_box, border_radius=2)
+        else:
+            pygame.draw.rect(self.window, 'green', self.passive_transfer_box, border_radius=2)
         txtsurf = self.middle_font.render("P", True, 'black')
         self.window.blit(txtsurf, (350 + (10 - txtsurf.get_width() // 2), 70 + (10 - txtsurf.get_height() // 2)))
 
@@ -2248,7 +2268,7 @@ class App:
                 self.bearing_var[1] = f"{float(a_contact_bearing):.2f}"
                 self.depth_var[1] = f"{float(a_contact_depth):.2f}"
                 self.distance_var[1] = f"{float(a_contact_distance) * 2.0923:.2f}"
-                self.TRANSFER_CONTACT_INFO_A = False
+                # self.TRANSFER_CONTACT_INFO_A = False
         txtsurf = self.middle_font.render(f"{a_contact_type}", True, '#b6b6d1')
         self.window.blit(txtsurf, (490, 40))
         txtsurf = self.middle_font.render(f"{a_contact_bearing:.2f}", True, '#b6b6d1')
@@ -2579,7 +2599,7 @@ class App:
             self.bearing_var[1] = f"{float(contact_bearing):.2f}"
             self.depth_var[1] = f"{float(contact_depth):.2f}"
             self.distance_var[1] = f"{float(contact_distance) * 2.0923:.2f}"
-            self.TRANSFER_CONTACT_INFO_P = False
+            # self.TRANSFER_CONTACT_INFO_P = False
 
         # Position details
         txtsurf = self.middle_font.render(f"Submarine position:", True, '#b6b6d1')
@@ -2597,6 +2617,8 @@ class App:
         self.window.blit(txtsurf, (400, 545))
         txtsurf = self.middle_font.render(f"Ballast: ", True, '#b6b6d1')
         self.window.blit(txtsurf, (400, 570))
+        txtsurf = self.middle_font.render(f"Health: ", True, '#b6b6d1')
+        self.window.blit(txtsurf, (400, 595))
 
         txtsurf = self.middle_font.render(f"{speed / 0.0193:.2f}km/h", True, '#b6b6d1')
         self.window.blit(txtsurf, (480, 445))
@@ -2613,6 +2635,8 @@ class App:
         self.window.blit(txtsurf, (480, 545))
         txtsurf = self.middle_font.render(f"{self.BALLAST:.2f}", True, '#b6b6d1')
         self.window.blit(txtsurf, (480, 570))
+        txtsurf = self.middle_font.render(f"{self.HEALTH:.2f}", True, '#b6b6d1')
+        self.window.blit(txtsurf, (480, 595))
 
         pygame.display.update()
 
@@ -2673,18 +2697,6 @@ class App:
         self.must_update = True
 
     def sync_time_start(self):
-        current_time = datetime.datetime.now()
-        seconds = current_time.strftime('%S')
-        wait_until = int(seconds[0]) + 1
-        if wait_until > 5:
-            wait_until = 0
-        if int(seconds[1]) > 8:
-            wait_until += 1
-            if wait_until > 5:
-                wait_until = 0
-        while int((datetime.datetime.now()).strftime('%S')[0]) != wait_until:
-            self.starts_in = 10 - int((datetime.datetime.now()).strftime('%S')[1])
-        print((datetime.datetime.now()).strftime('%S'))
         self.clear_scene()
         self.game_init()
         self.GAME_OPEN = True
@@ -2834,9 +2846,8 @@ class App:
 
     def host_game_render(self):
         self.window.fill("#021019")
-        if self.starts_in is not None:
-            self.must_update = True
-            txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
+        if self.HOST_STATUS == 3:
+            txtsurf = self.middle_font.render(f'Player joined the game!', True, '#B7FFB7')
             self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 31 * self.pos - 20, 120, 40), txtsurf))
         chunk = 33
         self.pos = self.size[1] / chunk
@@ -3104,7 +3115,7 @@ class App:
         if self.JOIN_STATUS == 1:
             txtsurf = self.middle_font.render('Joining...', True, '#b6b6d1')
         elif self.JOIN_STATUS == 2:
-            txtsurf = self.middle_font.render('Ready...', True, '#b6b6d1')
+            txtsurf = self.middle_font.render('Joined.', True, '#b6b6d1')
         elif self.JOIN_STATUS == 3:
             txtsurf = self.middle_font.render('Wrong code!', True, '#b6b6d1')
         else:
