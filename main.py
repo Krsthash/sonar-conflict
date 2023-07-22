@@ -82,6 +82,8 @@ def calculate_azimuth(rel_x, rel_y, distance):
 
 class App:
     def __init__(self):
+        self.ENEMY_VISIBLE_AS = None
+        self.ENEMY_SONAR = 0
         self.DEBUG = False
         self.max_sen = 0
         self.max_rec = 0
@@ -331,6 +333,17 @@ class App:
                       self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
             pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
             pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
+        if self.ENEMY_VISIBLE_AS:
+            length = self.ENEMY_VISIBLE_AS[0] + random_int(-10, 10)
+            if length < 0:
+                length = 10
+            elif length > 150:
+                length = 150
+            point1 = (self.ENEMY_VISIBLE_AS[1][0] + length * math.cos(math.radians(self.ENEMY_VISIBLE_AS[1][2] - 270
+                                                                                   + random_int(-5, 5))),
+                      self.ENEMY_VISIBLE_AS[1][1] + length * math.sin(math.radians(self.ENEMY_VISIBLE_AS[1][2] - 270
+                                                                                   + random_int(-5, 5))))
+            pygame.draw.aaline(self.map, 'yellow', (self.ENEMY_VISIBLE_AS[1][0], self.ENEMY_VISIBLE_AS[1][1]), point1)
         # Enemy position
         length = 5
         point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
@@ -1006,7 +1019,7 @@ class App:
                                  self.LOCAL_POSITION[2], 'update', self.LOCAL_POSITION[3]],
                                 [impact_x, impact_y, float(self.depth_var[1])], False, 'update', 'Enemy', 0,
                                 mode, self.SELECTED_WEAPON]
-                            server_api.send_message(f"[{self.PLAYER_ID}-torpedo] {torpedo_info}", 1084976743565234289)
+                            self.UPDATE_TORP_QUEUE.append(f"{torpedo_info}")
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
 
         elif event.type == pygame.KEYDOWN:
@@ -1551,6 +1564,7 @@ class App:
 
                 # Friendly ships relaying enemy positions
                 flag = 0
+                min_d = None
                 for ship in list(self.OBJECTS):
                     if ship.count("Friendly_ship"):
                         rel_x = self.OBJECTS[ship][0][0] - self.OBJECTS["Enemy"][0][0]
@@ -1560,15 +1574,34 @@ class App:
                         # if -20 < self.OBJECTS[ship][5] < 1:
                         #     self.OBJECTS[ship][5] = 2
                         if distance + ((1 - self.OBJECTS["Enemy"][3]) * 50) <= 50:
-                            # TODO: Visible warning in all screens that a submarine has been seen
                             print("Enemy visible to friendly ships!")
                             flag = 1
+                        if self.OBJECTS['Enemy'][5] >= 1 and distance <= 60:
+                            print("Enemy's active sonar heard by a friendly ship!")
+                            if not min_d:
+                                min_d = [distance, [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
+                                                    calculate_azimuth(rel_x, rel_y, distance)]]
+                            elif min_d[0] > distance:
+                                min_d = [distance, [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
+                                                    calculate_azimuth(rel_x, rel_y, distance)]]
                 if flag:
                     self.ENEMY_VISIBLE = True
-                    if ["Enemy submarine detected!", 0, 0] not in self.NOTICE_QUEUE:
+                    f = 0
+                    for notice in self.NOTICE_QUEUE:
+                        if notice[0] == "Enemy submarine detected!":
+                            f = 1
+                    if not f:
                         self.NOTICE_QUEUE.append(["Enemy submarine detected!", 0, 0])
                 else:
                     self.ENEMY_VISIBLE = False
+                self.ENEMY_VISIBLE_AS = min_d
+                if min_d:
+                    f = 0
+                    for notice in self.NOTICE_QUEUE:
+                        if notice[0] == "Active sonar heard!":
+                            f = 1
+                    if not f:
+                        self.NOTICE_QUEUE.append(["Active sonar heard!", 0, 0])
 
                 # Enemy ships trying to detect/shoot simulation
                 for ship in list(self.OBJECTS):
@@ -1579,10 +1612,10 @@ class App:
                         # Ships could only really detect you from 50km in the worst case scenario (dc = 0.5)
                         # if -20 < self.OBJECTS[ship][5] < 1:
                         #     self.OBJECTS[ship][5] = 2
-                        if distance + ((1 - self.DETECTION_CHANCE) * 50) <= 50:
+                        if distance + ((1 - self.DETECTION_CHANCE) * 50) <= 50 or \
+                                (self.ACTIVE_SONAR and distance <= 30):
                             if self.OBJECTS[ship][5] < 1:
                                 self.OBJECTS[ship][5] = 2
-                            # TODO: Ship relays your position to the enemy submarine
                         if self.OBJECTS[ship][5] > -20 and distance < 60:  # Ship's active sonar range 120km
                             # [x, y, azimuth, velocity, depth], [destination x, destination y, depth], sensor on/off,
                             # timer, sender, active_sonar_ping_duration, active sonar on/off, weapon_bay
@@ -1594,7 +1627,7 @@ class App:
                                     flag = torpedo
                                     if self.TORPEDOES[torpedo][3] > 10:
                                         flag = 1
-                            if flag != 1 and distance < 25:  # distance check redundant
+                            if flag != 1 and distance < 25:
                                 # Leading the target
                                 time = distance / 2.2
                                 if time < 1:
@@ -1692,6 +1725,9 @@ class App:
                             else:
                                 angle = -(torpedo[0][2] - angle)
                             depth = self.LOCAL_POSITION[4] - torpedo[0][4]
+                            max_distance = 10
+                            if torpedo[6]:
+                                max_distance = 20
                             if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
                                 turn = 0.34 * fps_d
                                 if turn > abs(angle):
@@ -1735,7 +1771,10 @@ class App:
                             else:
                                 angle = -(torpedo[0][2] - angle)
                             depth = self.OBJECTS[min_distance[1]][0][3] - torpedo[0][4]
-                            if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
+                            max_distance = 10
+                            if torpedo[6]:
+                                max_distance = 20
+                            if distance < max_distance and 150 > angle > -150 and -50 < depth < 50:
                                 turn = 0.34 * fps_d
                                 if turn > abs(angle):
                                     turn = abs(angle)
@@ -1908,19 +1947,22 @@ class App:
                             ship_sync_info = "None"
 
                     print(torpedo_send_info2)
-
+                    if self.ACTIVE_SONAR:
+                        sonar_info = 1
+                    else:
+                        sonar_info = 0
                     server_api.SEND_INFO = f"[{self.PLAYER_ID}] [{self.LOCAL_POSITION[0]:.2f}, " \
                                            f"{self.LOCAL_POSITION[1]:.2f}, {self.LOCAL_POSITION[2]:.2f}, " \
                                            f"{self.LOCAL_POSITION[4]:.2f}, {self.LOCAL_VELOCITY:.5f}, " \
-                                           f"{self.DETECTION_CHANCE}, {sink_info}, {target_info},{torpedo_send_info}]" \
+                                           f"{self.DETECTION_CHANCE}, {sonar_info}, {sink_info}, " \
+                                           f"{target_info}, {torpedo_send_info}]" \
                                            f" {torpedo_send_info2}ANDSYUI{ship_sync_info}"
                     self.UPDATE_TORP_QUEUE = []
                     self.SINK_QUEUE = []
                     self.TARGET_DAMAGE_QUEUE = []
-                # print(f'appending info {self.PLAYER_ID}')
                 if server_api.UPDATE_INFO:
                     print(server_api.UPDATE_INFO)
-                    print(server_api.TORPEDO_INFO)
+                    # print(server_api.TORPEDO_INFO)
                     if server_api.UPDATE_INFO.count("PLAYER HAS DIED"):
                         print("Recieved information about player's death, R.I.P.")
                         self.clear_scene()
@@ -1932,7 +1974,10 @@ class App:
                     self.OBJECTS['Enemy'][0][3] = float(server_api.UPDATE_INFO[3])
                     self.OBJECTS['Enemy'][2] = float(server_api.UPDATE_INFO[4])
                     self.OBJECTS['Enemy'][3] = float(server_api.UPDATE_INFO[5])
-                    if server_api.UPDATE_INFO[6] != 'None':
+                    self.OBJECTS['Enemy'][5] = float(server_api.UPDATE_INFO[6])
+                    if self.OBJECTS['Enemy'][5] <= 0:
+                        self.ENEMY_SONAR = 0
+                    if server_api.UPDATE_INFO[7] != 'None':
                         for ship in server_api.UPDATE_INFO[6].split("!"):
                             if ship.count("Friendly"):  # You destroyed enemy's friendly ship
                                 ship = ship.replace("Friendly", "Enemy")
@@ -1952,7 +1997,7 @@ class App:
                                     self.ENEMY_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED_ENEMY += 1
                                     self.NOTICE_QUEUE.append(["Friendly ship got destroyed!", 0, 1])
-                    if server_api.UPDATE_INFO[7] != 'None':
+                    if server_api.UPDATE_INFO[8] != 'None':
                         for target in server_api.UPDATE_INFO[7].split("?"):
                             target = target.split("!")
                             for enemy_target in self.FRIENDLY_TARGET_LOCATIONS:
@@ -1982,27 +2027,22 @@ class App:
                             temp = ship.split('!')
                             temp[-1] = temp[-1].replace("Friendly", "Enemy")
                             temp_s_update.append(temp)
-                        print(f"Temp_s: {temp_s}")
-                        print(f"Temp_s_update: {temp_s_update}")
                         for ship in temp_s:
                             for ship_update in temp_s_update:
                                 if ship == ship_update[-1]:
-                                    print(f"Updated ship info for: {ship}")
+                                    # print(f"Updated ship info for: {ship}")
                                     self.OBJECTS[ship][0][0] = float(ship_update[0])
                                     self.OBJECTS[ship][0][1] = float(ship_update[1])
                                     self.OBJECTS[ship][0][2] = float(ship_update[2])
                         server_api.SHIP_SYNC_INFO = "None"
-                    torpedo_update_info = server_api.UPDATE_INFO[8:]
-                    print(torpedo_update_info)
+                    torpedo_update_info = server_api.UPDATE_INFO[9:]
+                    # print(torpedo_update_info)
                     # print(list(self.WEAPON_LAYOUT), list(self.FIRED_TORPEDOES))
                     for weapon in list(self.WEAPON_LAYOUT):
                         if weapon in list(self.FIRED_TORPEDOES) and self.FIRED_TORPEDOES[weapon][2] >= 0:
-                            print("DOGGERRRRRRRR")
                             flag = 0
                             torp_info = None
                             for info in torpedo_update_info:
-                                print(info.replace("'", '').split('!')[0].replace('C', ','),
-                                      str(weapon).replace(' ', ''))
                                 if info.replace("'", '').split('!')[0].replace('C', ',') == str(weapon).replace(' ',
                                                                                                                 ''):
                                     flag = 1
@@ -2046,12 +2086,14 @@ class App:
                         if torp_key in list(self.TORPEDOES.keys()):
                             flag = 1
                         if flag:
+                            print("Updating existing torpedo's settings.")
                             self.TORPEDOES[torp_key][1][0] = float(info[5])
                             self.TORPEDOES[torp_key][1][1] = float(info[6])
                             self.TORPEDOES[torp_key][1][2] = float(info[7])
                             self.TORPEDOES[torp_key][6] = t2
                         else:
                             try:
+                                print("Launching a new torpedo!")
                                 torp = [[float(info[0]), float(info[1]),
                                          float(info[2]),
                                          float(info[3]), float(info[4])],
@@ -2308,7 +2350,7 @@ class App:
                             [(zero + rel_x * scale) + random_int(-4 - distance_ratio - detection_ratio,
                                                                  4 + distance_ratio + detection_ratio), 1, vessel,
                              '#386e2c'])
-            if self.OBJECTS[vessel][5] > 1.5:
+            if self.OBJECTS[vessel][5] > 1.5 or (vessel == 'Enemy' and self.ENEMY_SONAR >= 1 and distance <= 150):
                 if not self.PASSIVE_SONAR_FREEZE:
                     if self.OBJECTS[vessel][0][3] < self.LOCAL_POSITION[4]:
                         rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
@@ -2325,10 +2367,16 @@ class App:
                         self.PASSIVE_SONAR_DISPLAY_CONTACTS.append(
                             [(zero + rel_x * scale) + random_int(-distance_ratio, distance_ratio), 1, 'sonar',
                              'yellow'])
-            if self.OBJECTS[vessel][5] - 0.0167 > -25:
-                self.OBJECTS[vessel][5] -= 0.0167
+            if vessel != 'Enemy':
+                if self.OBJECTS[vessel][5] - 0.0167 > -25:
+                    self.OBJECTS[vessel][5] -= 0.0167
+                else:
+                    self.OBJECTS[vessel][5] = -25
             else:
-                self.OBJECTS[vessel][5] = -25
+                if self.OBJECTS[vessel][5] >= 1:
+                    self.ENEMY_SONAR += 0.0167
+                    if self.ENEMY_SONAR > 2:
+                        self.ENEMY_SONAR = 0
 
         for torpedo in self.TORPEDOES:
             torpedo = self.TORPEDOES[torpedo]
@@ -2868,7 +2916,7 @@ class App:
                     server_api.ALLOW_WAIT = True
                     return
             print("Received mission information!", msg['content'])
-            info = json.loads(eval(msg['content'].replace("MISSION-INFORMATION", "")))  # TODO: Slap yourself for this.
+            info = json.loads(eval(msg['content'].replace("MISSION-INFORMATION", "")))
             json_object = json.dumps(info, indent=4)
             with open("TEMP.json", "w", encoding="utf-8") as temp_file:
                 temp_file.write(json_object)

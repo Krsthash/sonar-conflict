@@ -82,11 +82,14 @@ async def on_ready():
     except IndexError:
         print("Server not found.")
     print("ON_READY!")
-    on_msg.start()
-    api_listener.start()  # Starts the loop.
+    if not on_msg.is_running():
+        on_msg.start()
+    if not api_listener.is_running():
+        api_listener.start()  # Starts the loop.
     LAST_UPDATE_AT = time.time()
     LAST_SEND_AT = time.time()
-    update_game.start()
+    if not update_game.is_running():
+        update_game.start()
     bot_started = True
 
     log.info("Connected.")
@@ -117,7 +120,7 @@ def do_something(something):
     return "Test!"
 
 
-@tasks.loop(seconds=2)
+@tasks.loop(seconds=1)
 async def on_msg():
     global UPDATE_INFO
     global TORPEDO_INFO
@@ -130,6 +133,7 @@ async def on_msg():
     r = requests.get(f'https://discord.com/api/v9/channels/{LISTENING_CHANNEL.id}/messages?limit=2',
                      headers=headers)
     json_ = json.loads(r.text)
+    print(json_)
     messages = []
     for item in json_:
         messages.append(item)
@@ -221,7 +225,7 @@ async def remove_old_games():
                 log.info("Channel will be deleted.")
                 await channel.delete()
                 log.info("Channel deleted.")
-        await asyncio.sleep(1)
+                await asyncio.sleep(1)
 
 
 @execute
@@ -271,7 +275,7 @@ async def update_game():
             d = await CHANNEL.send(SEND_INFO)
             LAST_SEND_AT = time.time()
             log.info(f"SENT SEND INFO. {PLAYER}, {d}")
-            print(f"SENT INFO, {PLAYER}, {d}")
+            # print(f"SENT INFO, {PLAYER}, {d}")
             SEND_INFO = None
 
 
