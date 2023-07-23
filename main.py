@@ -364,7 +364,7 @@ class App:
             pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
         # Detected active mode torpedoes around friendly ships
         for detection in self.DETECTED_TORPEDOES:
-            if detection in list(self.TORPEDOES.keys()):
+            if detection in list(self.TORPEDOES.keys()) and detection[1] in list(self.OBJECTS.keys()):
                 length = self.DETECTED_TORPEDOES[detection][0] + random_int(-1, 1)
                 if length < 0:
                     length = 10
@@ -615,11 +615,11 @@ class App:
                                  100, -25]
         # [x, y, azimuth, depth], type, velocity, detection_chance, HEALTH* ACTIVE_SONAR**
         if not self.PLAYER_ID:
-            self.designationP = "Russian"
-            self.designationE = "American"
+            self.designationP = "Russian ship"
+            self.designationE = "American ship"
         else:
-            self.designationP = "Russian"
-            self.designationE = "American"
+            self.designationP = "American ship"
+            self.designationE = "Russian ship"
         i = 1
         for vessel in mission[code]['ships']:
             self.OBJECTS[f'Friendly_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], 0],
@@ -1253,9 +1253,9 @@ class App:
                 txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
                 self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
                 desc = f"The P-800 Oniks (П-800 Оникс),\nalso known as " \
-                       f"Yakhont\n(Russian: Яхонт; English: ruby), is\na Soviet / Russian supersonic anti-ship\ncruise" \
-                       f"missile developed by\nNPO Mashinostroyeniya as a ramjet\nversion of P-80 Zubr. Its GRAU\n" \
-                       f"designation is 3M55, the air\nlaunched Kh-61 variant also exists."
+                       f"Yakhont\n(Russian: Яхонт; English: ruby), is\na Soviet / Russian supersonic anti-ship\n" \
+                       f"cruise missile developed by\nNPO Mashinostroyeniya as a ramjet\nversion of P-80 Zubr. " \
+                       f"Its GRAU\ndesignation is 3M55, the air\nlaunched Kh-61 variant also exists."
                 i = 0
                 for line in desc.split('\n'):
                     txtsurf = self.middle_font.render(line, True, '#DADAFA')
@@ -2051,7 +2051,7 @@ class App:
                     missile[0] -= 0.01667 * fps_d
                     if missile[0] <= 0 and missile[3] == 'Target missed!':
                         for ship in list(self.OBJECTS):
-                            if ship.count('ship'):
+                            if ship.count('Enemy_ship'):
                                 sr = missile[6]  # Sensor range (range at which missile tracks on its own)
                                 if self.OBJECTS[ship][0][0] - sr < missile[1] < self.OBJECTS[ship][0][0] + sr and \
                                         self.OBJECTS[ship][0][1] - sr < missile[2] < self.OBJECTS[ship][0][1] + sr:
@@ -2286,9 +2286,15 @@ class App:
                                 angle = -(torpedo[0][2] - angle)
                             depth = self.OBJECTS[min_distance[1]][0][3] - torpedo[0][4]
                             max_distance = 10
-                            if torpedo[6] and distance <= 50:
+                            if torpedo[6] and distance <= 60:
                                 max_distance = 20
                                 self.DETECTED_TORPEDOES[key] = [distance, min_distance[1], angle]
+                                f = 0
+                                for notice in self.NOTICE_QUEUE:
+                                    if notice[0] == "Enemy torpedo detected!":
+                                        f = 1
+                                if not f:
+                                    self.NOTICE_QUEUE.append(["Enemy torpedo detected!", 0, 0])
                             if distance < max_distance and 120 > angle > -120 and -50 < depth < 50:
                                 turn = 0.34 * fps_d
                                 if turn > abs(angle):
@@ -2524,14 +2530,14 @@ class App:
                             target = target.split("!")
                             for enemy_target in self.FRIENDLY_TARGET_LOCATIONS:
                                 if str(enemy_target[0]) == target[0] and str(enemy_target[1]) == target[1]:
-                                    enemy_target[2] -= int(target[2])
                                     if enemy_target[2] - int(target[2]) < 0:
                                         self.ENEMY_SCORE += enemy_target[2] * 0.5  # Base damage score
                                         self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
                                     else:
                                         self.ENEMY_SCORE += int(target[2]) * 0.5  # Base damage score
                                         self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
-                                    if enemy_target[2] < 0:
+                                    enemy_target[2] -= int(target[2])
+                                    if enemy_target[2] <= 0:
                                         enemy_target[2] = 0
                                         self.ENEMY_SCORE += 50
                                         self.TARGETS_DESTROYED_ENEMY += 1

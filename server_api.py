@@ -86,8 +86,8 @@ async def on_ready():
         on_msg.start()
     if not api_listener.is_running():
         api_listener.start()  # Starts the loop.
-    LAST_UPDATE_AT = time.time()
-    LAST_SEND_AT = time.time()
+    # LAST_UPDATE_AT = time.time()
+    # LAST_SEND_AT = time.time()
     if not update_game.is_running():
         update_game.start()
     bot_started = True
@@ -247,7 +247,7 @@ async def wait_for_message():
     return message
 
 
-@tasks.loop(seconds=1)
+@tasks.loop(seconds=1.1)
 async def update_game():
     global bot_started
     if not bot_started:
@@ -257,12 +257,20 @@ async def update_game():
     if LAST_UPDATE_AT:
         if time.time() - LAST_UPDATE_AT > 10:
             print("Connection problems!", time.time()-LAST_UPDATE_AT)
+            if time.time() - LAST_UPDATE_AT > 20:
+                print("Waiting 5 seconds...")
+                log.info("Waiting 5 seconds...")
+                await asyncio.sleep(5)
+        elif time.time() - LAST_UPDATE_AT < 1:
+            return
     """
     Every update that goes to the other player *MUST* be sent through this function to ensure efficiency.
     """
     global SEND_INFO
     global LAST_SEND_AT
-    # log.info(f'update game running.. {PLAYER}, {SEND_INFO}')
+    log.info(f'update game running.. {PLAYER}, {SEND_INFO}')
+    if BOT.is_ws_ratelimited():
+        log.error("Rate limited.")
     # print(f'update game running.. {PLAYER}, {SEND_INFO}')
     if SEND_INFO:
         if len(SEND_INFO.split("%!%")) > 1:
