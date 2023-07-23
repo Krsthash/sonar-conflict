@@ -80,6 +80,11 @@ def calculate_azimuth(rel_x, rel_y, distance):
     return angle
 
 
+def mid_rect(rect, txtsurf):
+    return ((rect[0] + (rect[2] / 2 - txtsurf.get_width() / 2)),
+            (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))
+
+
 class App:
     def __init__(self):
         self.CHEATS = False
@@ -327,7 +332,8 @@ class App:
                 point1 = (
                     self.TORPEDOES[torpedo][0][0] + length * math.cos(math.radians(self.TORPEDOES[torpedo][0][2] - 90)),
                     self.TORPEDOES[torpedo][0][1] + length * math.sin(math.radians(self.TORPEDOES[torpedo][0][2] - 90)))
-                pygame.draw.aaline(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), point1)
+                pygame.draw.aaline(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]),
+                                   point1)
                 pygame.draw.circle(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), 2)
         # Enemy relayed position
         if self.ENEMY_VISIBLE:
@@ -801,11 +807,20 @@ class App:
                                     self.LOCAL_POSITION[4] < 60:
                                 print("ALLOWED")
                                 flag = 1
-                            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == 1 and self.mode_var != -1:
+                            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84' and self.mode_var == -1 and \
+                                    self.LOCAL_POSITION[4] < 100:
                                 print("ALLOWED")
                                 flag = 1
-                            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84' and self.mode_var == -1 and \
-                                    self.LOCAL_POSITION[4] < 60:
+                            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar' and self.mode_var != -1 and \
+                                    self.LOCAL_POSITION[4] < 600:
+                                print("ALLOWED")
+                                flag = 1
+                            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Mk-48' and self.mode_var != -1 and \
+                                    self.LOCAL_POSITION[4] < 800:
+                                print("ALLOWED")
+                                flag = 1
+                            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Sonar decoy' and \
+                                    self.mode_var != -1 and self.LOCAL_POSITION[4] < 400:
                                 print("ALLOWED")
                                 flag = 1
                             else:
@@ -857,7 +872,7 @@ class App:
                                      destruction])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TLAM-E':
-                            speed = 2
+                            speed = 1.74
                             range = 200  # = 2500km  # = 400 km
                             distance = float(self.distance_var[1]) / 2  # converting to px
                             if distance > range:
@@ -897,7 +912,7 @@ class App:
                                      destruction])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'P-800 Oniks':
-                            sensor_range = 5
+                            sensor_range = 13
                             speed = 2.5
                             range = 40  # = 2500km  # = 80 km
                             distance = float(self.distance_var[1]) / 2  # converting to px
@@ -912,8 +927,9 @@ class App:
                             impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
                             impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
                             # Anti missile defence
-                            if random_int(0, 10) < 2:
+                            if random_int(0, 10) < 1:
                                 destruction = 0
+                                print("Defense system defeated the missile.")
                             else:
                                 destruction = random_int(40, 60)
                             if distance > range:
@@ -927,7 +943,7 @@ class App:
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TASM':
                             sensor_range = 15
                             speed = 2
-                            range = 70  # = 2500km  # = 140 km
+                            range = 55  # = 2500km  # = 110 km
                             distance = float(self.distance_var[1]) / 2  # converting to px
                             if distance > range:
                                 time = range / speed
@@ -941,6 +957,7 @@ class App:
                             # Anti missile defence
                             if random_int(0, 10) < 4:
                                 destruction = 0
+                                print("Defense system defeated the missile.")
                             else:
                                 destruction = random_int(50, 65)
                             if distance > range:
@@ -952,9 +969,9 @@ class App:
                                                    sensor_range])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84':
-                            sensor_range = 10
-                            speed = 2.1
-                            range = 70  # = 2500km  # = 140 km
+                            sensor_range = 16
+                            speed = 1.92
+                            range = 45  # = 2500km  # = 90 km
                             distance = float(self.distance_var[1]) / 2  # converting to px
                             if distance > range:
                                 time = range / speed
@@ -968,6 +985,7 @@ class App:
                             # Anti missile defence
                             if random_int(0, 10) < 3:
                                 destruction = 0
+                                print("Defense system defeated the missile.")
                             else:
                                 destruction = random_int(45, 65)
                             if distance > range:
@@ -1106,7 +1124,10 @@ class App:
                                     else:
                                         self.WEAPON_LAYOUT[weapon][1] = '3M54-1 Kalibr'
                                 else:
-                                    self.WEAPON_LAYOUT[weapon][1] = 'Futlyar'
+                                    if self.WEAPON_LAYOUT[weapon][1] == 'Futlyar':
+                                        self.WEAPON_LAYOUT[weapon][1] = 'Sonar decoy'
+                                    else:
+                                        self.WEAPON_LAYOUT[weapon][1] = 'Futlyar'
                             else:
                                 # USA
                                 if self.WEAPON_LAYOUT[weapon][0][0] == 0:
@@ -1133,6 +1154,328 @@ class App:
         pygame.draw.line(self.window, '#b6b6d1', (300, 0), (300, self.size[1]))
         pygame.draw.line(self.window, '#b6b6d1', (300, 100), (self.size[0], 100))
         pygame.draw.line(self.window, '#b6b6d1', (0, 300), (300, 300))
+        pygame.draw.line(self.window, '#b6b6d1', (self.size[0] - 320, 0), (self.size[0] - 320, self.size[1]))
+
+        # Selected weapon information
+        if self.SELECTED_WEAPON:
+            txtsurf_ = self.middle_font.render(f'Weapon: ', True, '#b6b6d1')
+            self.window.blit(txtsurf_, (self.size[0] - 300, 25 - txtsurf_.get_height() / 2))
+            txtsurf = self.middle_font.render(f'{self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1]}', True, '#DADAFA')
+            self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 25 - txtsurf.get_height() / 2))
+            txtsurf_ = self.middle_font.render(f'Type: ', True, '#b6b6d1')
+            self.window.blit(txtsurf_, (self.size[0] - 300, 50 - txtsurf_.get_height() / 2))
+            if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
+                txtsurf = self.middle_font.render(f'Land-attack missile', True, '#c95918')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
+                # TODO: Add descriptions for all weapons
+                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'300km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'3 Mach', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'25-50%', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'20km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'60m', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
+                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
+                desc = f"The Novator Kalibr, (Калибр, caliber),\nalso referred to as 3M54-1" \
+                       f"Kalibr,\nis a family of Russian cruise " \
+                       f"missiles\ndeveloped by NPO Novator (OKB-8).\nIt first saw service " \
+                       f"in 1994. There are \nship-launched, submarine-launched\nand " \
+                       f"air-launched versions of the missile.\nVariants are made for anti-ship,\n" \
+                       f"anti-submarine and land attack\nuse. The missile can carry " \
+                       f"a warhead\nweighing up to 500 kilograms\n(1,100 lb) of explosive."
+                i = 0
+                for line in desc.split('\n'):
+                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    i += 1
+            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'P-800 Oniks':
+                txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
+                # TODO: Add descriptions for all weapons
+                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'80km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'2.6 Mach', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'40-60%', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'26km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'60m', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
+                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
+                desc = f"The P-800 Oniks (П-800 Оникс),\nalso known as " \
+                       f"Yakhont\n(Russian: Яхонт; English: ruby), is\na Soviet / Russian supersonic anti-ship\ncruise" \
+                       f"missile developed by\nNPO Mashinostroyeniya as a ramjet\nversion of P-80 Zubr. Its GRAU\n" \
+                       f"designation is 3M55, the air\nlaunched Kh-61 variant also exists."
+                i = 0
+                for line in desc.split('\n'):
+                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    i += 1
+            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
+                txtsurf = self.middle_font.render(f'Torpedo', True, '#263ded')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
+                # TODO: Add descriptions for all weapons
+                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'70km (eff. 45km)', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'114 km/h', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'30-50%', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'20km/40km (active)', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'600m', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
+                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
+                desc = f"Futlyar (Fizik-2) is a Russian\ndeep-water homing torpedo tested\nby the Russian " \
+                       f"Navy in 2017; " \
+                       f"it entered\nservice in the same year. Futlyar\nis a wire-guided, combustion-driven\n" \
+                       f"torpedo " \
+                       f"with " \
+                       f"a top speed\nof 114km/h and a maximum depth\nof more than 500m. Homing\noptions " \
+                       f"are Active or " \
+                       f"Passive.\nActive utilises active sonar to\ntrack the target which increases\nthe " \
+                       f"range at " \
+                       f"which " \
+                       f"the target\ncan be found, but\nexposes your position to the enemy."
+                # TODO: Active torpedo mode makes you visible for a few seconds to an enemy in range.
+                i = 0
+                for line in desc.split('\n'):
+                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
+                    i += 1
+            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Sonar decoy':
+                txtsurf = self.middle_font.render(f'Countermeasure', True, '#ffff82')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
+                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'30km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'54 km/h', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'400m', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
+                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 225 - txtsurf.get_height() / 2))
+                desc = f"Sonar decoy is a countermeasure\nagainst torpedoes. It is fired\nfrom a torpedo " \
+                       f"tube and has\nan increased sonar signature to\nfool sensors on a torpedo. " \
+                       f"Newer models\nare fitted with a noisemaker\nwhich can fool enemy passive sonar.\n" \
+                       f"Once deployed the decoy will go to the\nspecified bearing and distance before\n" \
+                       f"self destructing. There are two\nmodes, active and passive,\nactive mode will simulate " \
+                       f"active\nsonar echoes coming from the\ntarget which can confuse\nenemy active sonar " \
+                       f"torpedoes\nbut will not be effective\nagainst the passive sensors."
+                i = 0
+                for line in desc.split('\n'):
+                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
+                    self.window.blit(txtsurf, (self.size[0] - 300, 250 + i * 25 - txtsurf.get_height() / 2))
+                    i += 1
+            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Mk-48':
+                txtsurf = self.middle_font.render(f'Torpedo', True, '#263ded')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
+                # TODO: Add descriptions for all weapons
+                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'70km (eff. 45km)', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'106 km/h', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'30-50%', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'20km/40km (active)', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'800m', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
+                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
+                desc = f"The Mark 48 and its improved\nAdvanced Capability (ADCAP) variant\nare American heavyweight\n" \
+                       f"submarine-launched torpedoes.\nThey were designed to sink\ndeep-diving nuclear-powered\n" \
+                       f"submarines and high-performance\n surface ships." \
+                       f"It has a top speed\nof 114km/h and a maximum depth\nof more than 500m. Homing\noptions " \
+                       f"are Active or " \
+                       f"Passive.\nActive utilises active sonar to\ntrack the target which increases\nthe " \
+                       f"range at " \
+                       f"which " \
+                       f"the target\ncan be found, but\nexposes your position to the enemy."
+                # TODO: Active torpedo mode makes you visible for a few seconds to an enemy in range.
+                i = 0
+                for line in desc.split('\n'):
+                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
+                    i += 1
+            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TLAM-E':
+                txtsurf = self.middle_font.render(f'Land-attack missile', True, '#c95918')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
+                # TODO: Add descriptions for all weapons
+                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'400km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'0.74 Mach', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'40-60%', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'60km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'60m', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
+                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
+                desc = f"The Tomahawk Land Attack Missile\n(TLAM) is a long-range, all-weather,\njet-powered, subsonic " \
+                       f"cruise\nmissile that is primarily used\nby the United States Navy\nand Royal Navy in ship\nand " \
+                       f"submarine-based\nland-attack operations.\nMissile possesses an advanced\ncourse correction " \
+                       f"system\ncalled TERCOM (Terrain Contour\nMatching). " \
+                       f"This system allows for\nlow altitude flight and precise routes."
+                i = 0
+                for line in desc.split('\n'):
+                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    i += 1
+            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TASM':
+                txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
+                # TODO: Add descriptions for all weapons
+                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'110km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'0.8 Mach', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'50-65%', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'30km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'60m', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
+                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
+                desc = f"The TASM was the first version\nof the anti-ship variant\nof the Tomahawk, equipped\nwith an " \
+                       f"active radar\nseeker, rather than TERCOM.\nTASM, along with other Tomahawk\nconventional " \
+                       f"variants,\ncarried a 454 kg conventional\nwarhead. Its range was\nshorter than other " \
+                       f"variants\n" \
+                       f"but it was known for its agility,\ncapable of various flight patterns.\nDue to the lower " \
+                       f"speeds\nof the missile, ship defence\nsystems have an easier time\nshooting them down."
+                i = 0
+                for line in desc.split('\n'):
+                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    i += 1
+            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84':
+                txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
+                # TODO: Add descriptions for all weapons
+                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'90km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'0.92 Mach', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'45-65%', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'32km', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
+                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
+                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
+                txtsurf = self.middle_font.render(f'100m', True, '#DADAFA')
+                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
+                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
+                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
+                desc = f"The Harpoon is an all-weather,\nover-the-horizon, anti-ship\nmissile manufactured by\n" \
+                       f"McDonnell Douglas. There\nare also " \
+                       f"cruise missile\nvariants.The regular Harpoon\nuses active radar homing\nand flies just above " \
+                       f"the\nwater and due to being\nslightly faster than the\nTomahawk TASM it can evade\n" \
+                       f"defenses a bit easier. The\nmissile can be launched from\nvarious platforms including\n" \
+                       f"torpedo tubes on submarines."
+                i = 0
+                for line in desc.split('\n'):
+                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    i += 1
 
         # Fired ordnance information
         i = 0
@@ -1241,6 +1584,29 @@ class App:
                     self.window.blit(txtsurf, (rect[0], rect[1] + 10))
                 # [Rect] VLS/T (Tube/Storage), Weapon type
                 pygame.draw.rect(self.window, 'red', rect, border_radius=5, width=1)
+            txtsurf = self.small_font.render("VLS", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((320, 440, 50, 7), txtsurf))
+            kalibr = 0
+            oniks = 0
+            futlyar = 0
+            decoy = 0
+            for weapon in self.WEAPON_LAYOUT:
+                if self.WEAPON_LAYOUT[weapon][1] == '3M54-1 Kalibr':
+                    kalibr += 1
+                elif self.WEAPON_LAYOUT[weapon][1] == 'P-800 Oniks':
+                    oniks += 1
+                elif self.WEAPON_LAYOUT[weapon][1] == 'Futlyar':
+                    futlyar += 1
+                elif self.WEAPON_LAYOUT[weapon][1] == 'Sonar decoy':
+                    decoy += 1
+            i = 0
+            if kalibr:
+                txtsurf = self.small_font.render(f"Kalibr: {kalibr}", True, '#b6b6d1')
+                self.window.blit(txtsurf, mid_rect((320, 460, 50, 7), txtsurf))
+                i += 1
+            if oniks:
+                txtsurf = self.small_font.render(f"Oniks: {oniks}", True, '#b6b6d1')
+                self.window.blit(txtsurf, mid_rect((320, 460 + i * 20, 50, 7), txtsurf))
             # VLS Storage
             for j in range(3):
                 for i in range(8):
@@ -1255,6 +1621,8 @@ class App:
                         txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
                         self.window.blit(txtsurf, (rect[0], rect[1] + 10))
                     pygame.draw.rect(self.window, '#b6b6d1', rect, border_radius=5, width=1)
+            txtsurf = self.small_font.render("VLS Storage", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((480, 440, 50, 7), txtsurf))
             # Torpedo tubes
             for i in range(10):
                 rect = (640, 120 + i * 40, 50, 7)
@@ -1270,6 +1638,19 @@ class App:
                     txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
                     self.window.blit(txtsurf, (rect[0], rect[1] + 10))
                 pygame.draw.rect(self.window, 'red', rect, border_radius=5, width=1)
+            txtsurf = self.small_font.render("Torpedo", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((640, 520, 50, 7), txtsurf))
+            txtsurf = self.small_font.render("tubes", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((640, 530, 50, 7), txtsurf))
+            i = 0
+            if futlyar:
+                txtsurf = self.small_font.render(f"Futlyar: {futlyar}", True, '#b6b6d1')
+                self.window.blit(txtsurf, mid_rect((640, 550 + i * 20, 50, 7), txtsurf))
+                i += 1
+            if decoy:
+                txtsurf = self.small_font.render(f"Sonar decoy: {decoy}", True, '#b6b6d1')
+                self.window.blit(txtsurf, mid_rect((640, 550 + i * 20, 50, 7), txtsurf))
+
             # Torpedo tube storage
             for j in range(3):
                 for i in range(10):
@@ -1284,6 +1665,10 @@ class App:
                         txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
                         self.window.blit(txtsurf, (rect[0], rect[1] + 10))
                     pygame.draw.rect(self.window, '#b6b6d1', rect, border_radius=5, width=1)
+            txtsurf = self.small_font.render("Torpedo", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((800, 520, 50, 7), txtsurf))
+            txtsurf = self.small_font.render("storage", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((800, 530, 50, 7), txtsurf))
         else:
             # American weapon layout
             # Vertical Launch System
@@ -1300,6 +1685,33 @@ class App:
                     self.window.blit(txtsurf, (rect[0], rect[1] + 10))
                 # [Rect] VLS/T (Tube/Storage), Weapon type
                 pygame.draw.rect(self.window, 'red', rect, border_radius=5, width=1)
+            txtsurf = self.small_font.render("VLS", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((320, 600, 50, 7), txtsurf))
+            tlam = 0
+            tasm = 0
+            mk48 = 0
+            ugm84 = 0
+            decoy = 0
+            for weapon in self.WEAPON_LAYOUT:
+                if self.WEAPON_LAYOUT[weapon][1] == 'TLAM-E':
+                    tlam += 1
+                elif self.WEAPON_LAYOUT[weapon][1] == 'TASM':
+                    tasm += 1
+                elif self.WEAPON_LAYOUT[weapon][1] == 'Mk-48':
+                    mk48 += 1
+                elif self.WEAPON_LAYOUT[weapon][1] == 'UGM-84':
+                    ugm84 += 1
+                elif self.WEAPON_LAYOUT[weapon][1] == 'Sonar decoy':
+                    decoy += 1
+            i = 0
+            if tlam:
+                txtsurf = self.small_font.render(f"TLAM-E: {tlam}", True, '#b6b6d1')
+                self.window.blit(txtsurf, mid_rect((320, 620, 50, 7), txtsurf))
+                i += 1
+            if tasm:
+                txtsurf = self.small_font.render(f"TASM: {tasm}", True, '#b6b6d1')
+                self.window.blit(txtsurf, mid_rect((320, 620 + i * 20, 50, 7), txtsurf))
+
             for j in range(2):
                 for i in range(12):
                     rect = (400 + j * 80, 120 + i * 40, 50, 7)
@@ -1313,6 +1725,8 @@ class App:
                         txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
                         self.window.blit(txtsurf, (rect[0], rect[1] + 10))
                     pygame.draw.rect(self.window, '#b6b6d1', rect, border_radius=5, width=1)
+            txtsurf = self.small_font.render("VLS Storage", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((480, 600, 50, 7), txtsurf))
             for i in range(4):
                 rect = (560, 120 + i * 40, 50, 7)
                 if rect not in list(self.WEAPON_LAYOUT):
@@ -1342,6 +1756,22 @@ class App:
                     txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
                     self.window.blit(txtsurf, (rect[0], rect[1] + 10))
                 pygame.draw.rect(self.window, 'red', rect, border_radius=5, width=1)
+            txtsurf = self.small_font.render(f"Torpedo", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((640, 280, 50, 7), txtsurf))
+            txtsurf = self.small_font.render(f"tubes", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((640, 290, 50, 7), txtsurf))
+            i = 0
+            if mk48:
+                txtsurf = self.small_font.render(f"Mk-48: {mk48}", True, '#b6b6d1')
+                self.window.blit(txtsurf, mid_rect((640, 310 + i * 20, 50, 7), txtsurf))
+                i += 1
+            if ugm84:
+                txtsurf = self.small_font.render(f"UGM-84: {ugm84}", True, '#b6b6d1')
+                self.window.blit(txtsurf, mid_rect((640, 310 + i * 20, 50, 7), txtsurf))
+                i += 1
+            if decoy:
+                txtsurf = self.small_font.render(f"Sonar decoy: {decoy}", True, '#b6b6d1')
+                self.window.blit(txtsurf, mid_rect((640, 310 + i * 20, 50, 7), txtsurf))
             for j in range(2):
                 for i in range(11):
                     rect = (720 + j * 80, 120 + i * 40, 50, 7)
@@ -1357,6 +1787,10 @@ class App:
                         txtsurf = self.small_font.render(self.WEAPON_LAYOUT[rect][1], True, '#b6b6d1')
                         self.window.blit(txtsurf, (rect[0], rect[1] + 10))
                     pygame.draw.rect(self.window, '#b6b6d1', rect, border_radius=5, width=1)
+            txtsurf = self.small_font.render("Torpedo", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((800, 560, 50, 7), txtsurf))
+            txtsurf = self.small_font.render("storage", True, '#b6b6d1')
+            self.window.blit(txtsurf, mid_rect((800, 570, 50, 7), txtsurf))
         # Selected weapon render
         if self.SELECTED_WEAPON:
             pygame.draw.rect(self.window, 'green', self.SELECTED_WEAPON, border_radius=5, width=1)
@@ -1415,12 +1849,12 @@ class App:
         txtsurf = self.middle_font.render(f"{self.distance_var[1]}", True, 'white')
         self.window.blit(txtsurf, (505, 37.5 + (12.5 - txtsurf.get_height() // 2)))
 
-        txtsurf = self.middle_font.render("Mode: ", True, 'white')
+        txtsurf = self.middle_font.render("Mode: ", True, '#b6b6d1')
         self.window.blit(txtsurf, (620, 37.5 + (12.5 - txtsurf.get_height() // 2)))
         if self.mode_var == 1:
-            txtsurf = self.middle_font.render("Active", True, 'white')
+            txtsurf = self.middle_font.render("Active", True, '#FFFDD2')
         elif self.mode_var == 0:
-            txtsurf = self.middle_font.render("Passive", True, 'white')
+            txtsurf = self.middle_font.render("Passive", True, '#DFFFD3')
         else:
             txtsurf = self.middle_font.render("Normal", True, 'white')
         self.window.blit(txtsurf, (680, 37.5 + (12.5 - txtsurf.get_height() // 2)))
@@ -1805,7 +2239,7 @@ class App:
                             max_distance = 10
                             if torpedo[6]:
                                 max_distance = 20
-                            if distance < max_distance and 150 > angle > -150 and -50 < depth < 50:
+                            if distance < max_distance and 120 > angle > -120 and -50 < depth < 50:
                                 turn = 0.34 * fps_d
                                 if turn > abs(angle):
                                     turn = abs(angle)
@@ -2314,6 +2748,7 @@ class App:
         p1_sonar_end = self.size[0] // 2 + (self.size[0] // 2 - 30) // 2
         p2_sonar_start = self.size[0] // 2 + (self.size[0] // 2 - 30) // 2
         p2_sonar_end = self.size[0] - 30
+
         scale = (p1_sonar_end - p1_sonar_start) / 360
         pygame.draw.rect(self.window, '#b6b6d1', (self.size[0] // 2 - 30, 0, self.size[0] // 2 + 30, self.size[1]),
                          width=2)
@@ -2457,6 +2892,11 @@ class App:
                 torpedo[5] -= 0.0167
             else:
                 torpedo[5] = -5
+
+        txtsurf = self.small_font.render('Above', True, "#b6b6d1")
+        self.window.blit(txtsurf, (p1_sonar_start + (p1_sonar_end - p1_sonar_start) // 2 - txtsurf.get_width() // 2, 5))
+        txtsurf = self.small_font.render('Below', True, "#b6b6d1")
+        self.window.blit(txtsurf, (p2_sonar_start + (p2_sonar_end - p2_sonar_start) // 2 - txtsurf.get_width() // 2, 5))
 
         # Passive sonar contact identification
         txtsurf = self.middle_font.render("Passive sonar contact identification", True, '#b6b6d1')
@@ -2640,10 +3080,6 @@ class App:
 
         pygame.display.update()
 
-    def mid_rect(self, rect, txtsurf):
-        return ((rect[0] + (rect[2] / 2 - txtsurf.get_width() / 2)),
-                (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))
-
     def start_hosting(self):
         server_api.remove_old_games()
         LISTENING_CHANNEL = None
@@ -2706,7 +3142,7 @@ class App:
         if self.starts_in is not None:
             self.must_update = True
             txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
-            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 31 * self.pos - 20, 120, 40), txtsurf))
+            self.window.blit(txtsurf, mid_rect((self.size[0] / 2 - 60, 31 * self.pos - 20, 120, 40), txtsurf))
         if not self.random_game_rect:  # Make sure the screen has been loaded first
             return
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
@@ -2801,12 +3237,12 @@ class App:
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
             pygame.draw.rect(self.window, 'white', self.browse_game_rect, width=2, border_radius=2)
             txtsurf = self.middle_font.render('Browse', True, 'white')
-            self.window.blit(txtsurf, self.mid_rect(self.browse_game_rect, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.browse_game_rect, txtsurf))
         elif pygame.Rect(self.random_game_rect).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
             pygame.draw.rect(self.window, 'white', self.random_game_rect, width=2, border_radius=2)
             txtsurf = self.middle_font.render('Random', True, 'white')
-            self.window.blit(txtsurf, self.mid_rect(self.random_game_rect, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.random_game_rect, txtsurf))
         elif pygame.Rect(self.ru_team_box).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
         elif pygame.Rect(self.usa_team_box).collidepoint(pygame.mouse.get_pos()):
@@ -2826,13 +3262,13 @@ class App:
                 txtsurf = self.middle_font.render('Start', True, '#DBFFD6')
             else:
                 txtsurf = self.middle_font.render('Host', True, '#DBFFD6')
-            self.window.blit(txtsurf, self.mid_rect(self.host_game_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.host_game_box, txtsurf))
         elif pygame.Rect(self.back_box).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
             pygame.draw.rect(self.window, '#FFDBDB', self.back_box, width=2, border_radius=2, border_top_left_radius=0,
                              border_bottom_left_radius=0)
             txtsurf = self.middle_font.render('Back', True, '#FFDBDB')
-            self.window.blit(txtsurf, self.mid_rect(self.back_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.back_box, txtsurf))
         elif self.copy_box:
             if pygame.Rect(self.copy_box).collidepoint(pygame.mouse.get_pos()):
                 pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
@@ -2840,7 +3276,7 @@ class App:
                                  border_top_left_radius=0,
                                  border_bottom_left_radius=0)
                 txtsurf = self.middle_font.render('Copy', True, 'white')
-                self.window.blit(txtsurf, self.mid_rect(self.copy_box, txtsurf))
+                self.window.blit(txtsurf, mid_rect(self.copy_box, txtsurf))
 
         pygame.display.update()
 
@@ -2848,7 +3284,7 @@ class App:
         self.window.fill("#021019")
         if self.HOST_STATUS == 3:
             txtsurf = self.middle_font.render(f'Player joined the game!', True, '#B7FFB7')
-            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 31 * self.pos - 20, 120, 40), txtsurf))
+            self.window.blit(txtsurf, mid_rect((self.size[0] / 2 - 60, 31 * self.pos - 20, 120, 40), txtsurf))
         chunk = 33
         self.pos = self.size[1] / chunk
         txtsurf = self.big_font.render('Host a game', True, '#b6b6d1')
@@ -2857,7 +3293,7 @@ class App:
         self.browse_game_rect = (self.size[0] / 2 - 65 - 90 - 10, 8 * self.pos - 20, 90, 40)
         pygame.draw.rect(self.window, '#b6b6d1', self.browse_game_rect, width=2, border_radius=2)
         txtsurf = self.middle_font.render('Browse', True, '#b6b6d1')
-        self.window.blit(txtsurf, self.mid_rect(self.browse_game_rect, txtsurf))
+        self.window.blit(txtsurf, mid_rect(self.browse_game_rect, txtsurf))
         self.mission_name_box = (self.size[0] / 2 - 65, 8 * self.pos - 20, 130, 40)
         pygame.draw.rect(self.window, '#b6b6d1', self.mission_name_box, width=2, border_radius=2)
 
@@ -2869,48 +3305,48 @@ class App:
                 txtsurf = self.middle_font.render(f'{name[-1]}', True, '#b6b6d1')
         else:
             txtsurf = self.middle_font.render(f'None', True, '#b6b6d1')
-        self.window.blit(txtsurf, self.mid_rect(self.mission_name_box, txtsurf))
+        self.window.blit(txtsurf, mid_rect(self.mission_name_box, txtsurf))
         self.random_game_rect = (self.size[0] / 2 + 65 + 10, 8 * self.pos - 20, 90, 40)
         pygame.draw.rect(self.window, '#b6b6d1', self.random_game_rect, width=2, border_radius=2)
         txtsurf = self.middle_font.render('Random', True, '#b6b6d1')
-        self.window.blit(txtsurf, self.mid_rect(self.random_game_rect, txtsurf))
+        self.window.blit(txtsurf, mid_rect(self.random_game_rect, txtsurf))
 
         if self.team_selected == 0:
             self.ru_team_box = (self.size[0] / 2 - 53 - 90, 12 * self.pos - 20, 90, 40)
             pygame.draw.rect(self.window, '#b6b6d1', self.ru_team_box, border_radius=2, border_top_right_radius=0,
                              border_bottom_right_radius=0)
             txtsurf = self.middle_font.render('RU', True, '#021019')
-            self.window.blit(txtsurf, self.mid_rect(self.ru_team_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.ru_team_box, txtsurf))
         else:
             self.ru_team_box = (self.size[0] / 2 - 53 - 90, 12 * self.pos - 20, 90, 40)
             pygame.draw.rect(self.window, '#b6b6d1', self.ru_team_box, width=2, border_radius=2,
                              border_top_right_radius=0,
                              border_bottom_right_radius=0)
             txtsurf = self.middle_font.render('RU', True, '#b6b6d1')
-            self.window.blit(txtsurf, self.mid_rect(self.ru_team_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.ru_team_box, txtsurf))
         if self.team_selected == 2:
             self.random_team_box = (self.size[0] / 2 - 55, 12 * self.pos - 20, 110, 40)
             pygame.draw.rect(self.window, '#b6b6d1', self.random_team_box, border_radius=0)
             txtsurf = self.middle_font.render('Random', True, '#021019')
-            self.window.blit(txtsurf, self.mid_rect(self.random_team_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.random_team_box, txtsurf))
         else:
             self.random_team_box = (self.size[0] / 2 - 55, 12 * self.pos - 20, 110, 40)
             pygame.draw.rect(self.window, '#b6b6d1', self.random_team_box, width=2, border_radius=0)
             txtsurf = self.middle_font.render('Random', True, '#b6b6d1')
-            self.window.blit(txtsurf, self.mid_rect(self.random_team_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.random_team_box, txtsurf))
         if self.team_selected == 1:
             self.usa_team_box = (self.size[0] / 2 + 53, 12 * self.pos - 20, 90, 40)
             pygame.draw.rect(self.window, '#b6b6d1', self.usa_team_box, border_radius=2, border_top_left_radius=0,
                              border_bottom_left_radius=0)
             txtsurf = self.middle_font.render('USA', True, '#021019')
-            self.window.blit(txtsurf, self.mid_rect(self.usa_team_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.usa_team_box, txtsurf))
         else:
             self.usa_team_box = (self.size[0] / 2 + 53, 12 * self.pos - 20, 90, 40)
             pygame.draw.rect(self.window, '#b6b6d1', self.usa_team_box, width=2, border_radius=2,
                              border_top_left_radius=0,
                              border_bottom_left_radius=0)
             txtsurf = self.middle_font.render('USA', True, '#b6b6d1')
-            self.window.blit(txtsurf, self.mid_rect(self.usa_team_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.usa_team_box, txtsurf))
 
         self.host_game_box = (self.size[0] / 2 - 60, 16 * self.pos - 20, 120, 40)
         pygame.draw.rect(self.window, '#b6b6d1', self.host_game_box, width=2, border_radius=2, border_top_left_radius=0,
@@ -2923,13 +3359,13 @@ class App:
             txtsurf = self.middle_font.render('Start', True, '#b6b6d1')
         else:
             txtsurf = self.middle_font.render('Host', True, '#b6b6d1')
-        self.window.blit(txtsurf, self.mid_rect(self.host_game_box, txtsurf))
+        self.window.blit(txtsurf, mid_rect(self.host_game_box, txtsurf))
 
         self.back_box = (self.size[0] / 2 - 60, 29 * self.pos - 20, 120, 40)
         pygame.draw.rect(self.window, '#b6b6d1', self.back_box, width=2, border_radius=2, border_top_left_radius=0,
                          border_bottom_left_radius=0)
         txtsurf = self.middle_font.render('Back', True, '#b6b6d1')
-        self.window.blit(txtsurf, self.mid_rect(self.back_box, txtsurf))
+        self.window.blit(txtsurf, mid_rect(self.back_box, txtsurf))
 
         if self.GAME_CODE:
             txtsurf = self.middle_font.render(f'Join code: {self.GAME_CODE}', True, '#DBFFD6')
@@ -2939,7 +3375,7 @@ class App:
             pygame.draw.rect(self.window, '#b6b6d1', self.copy_box, width=2, border_radius=2, border_top_left_radius=0,
                              border_bottom_left_radius=0)
             txtsurf = self.middle_font.render('Copy', True, '#b6b6d1')
-            self.window.blit(txtsurf, self.mid_rect(self.copy_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.copy_box, txtsurf))
         if self.must_update:
             self.must_update = False
             pygame.display.update()
@@ -3003,7 +3439,7 @@ class App:
     def join_game_screen_events(self, event):
         if self.starts_in is not None:
             txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
-            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 25 * self.pos - 20, 120, 40), txtsurf))
+            self.window.blit(txtsurf, mid_rect((self.size[0] / 2 - 60, 25 * self.pos - 20, 120, 40), txtsurf))
         if not self.game_code_box:  # Make sure the screen has been loaded first
             return
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
@@ -3056,7 +3492,7 @@ class App:
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_IBEAM))
             pygame.draw.rect(self.window, 'white', self.game_code_box, width=2, border_radius=2)
             txtsurf = self.middle_font.render(f'{self.GAME_CODE_VAR[1]}', True, 'white')
-            self.window.blit(txtsurf, self.mid_rect(self.game_code_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.game_code_box, txtsurf))
         elif pygame.Rect(self.join_game_box).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
             pygame.draw.rect(self.window, '#DBFFD6', self.join_game_box, width=2, border_radius=2,
@@ -3070,14 +3506,14 @@ class App:
                 txtsurf = self.middle_font.render('Wrong code!', True, '#DBFFD6')
             else:
                 txtsurf = self.middle_font.render('Join', True, '#DBFFD6')
-            self.window.blit(txtsurf, self.mid_rect(self.join_game_box, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.join_game_box, txtsurf))
         elif pygame.Rect(self.back_box_join).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
             pygame.draw.rect(self.window, '#FFDBDB', self.back_box_join, width=2, border_radius=2,
                              border_top_left_radius=0,
                              border_bottom_left_radius=0)
             txtsurf = self.middle_font.render('Back', True, '#FFDBDB')
-            self.window.blit(txtsurf, self.mid_rect(self.back_box_join, txtsurf))
+            self.window.blit(txtsurf, mid_rect(self.back_box_join, txtsurf))
 
         pygame.display.update()
 
@@ -3094,7 +3530,7 @@ class App:
         if self.starts_in is not None:
             self.must_update = True
             txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
-            self.window.blit(txtsurf, self.mid_rect((self.size[0] / 2 - 60, 25 * self.pos - 20, 120, 40), txtsurf))
+            self.window.blit(txtsurf, mid_rect((self.size[0] / 2 - 60, 25 * self.pos - 20, 120, 40), txtsurf))
         chunk = 33
         self.pos = self.size[1] / chunk
         txtsurf = self.big_font.render('Join a game', True, '#b6b6d1')
@@ -3107,7 +3543,7 @@ class App:
         else:
             pygame.draw.rect(self.window, '#b6b6d1', self.game_code_box, width=2, border_radius=2)
             txtsurf = self.middle_font.render(f'{self.GAME_CODE_VAR[1]}', True, '#b6b6d1')
-        self.window.blit(txtsurf, self.mid_rect(self.game_code_box, txtsurf))
+        self.window.blit(txtsurf, mid_rect(self.game_code_box, txtsurf))
 
         self.join_game_box = (self.size[0] / 2 - 60, 16 * self.pos - 20, 120, 40)
         pygame.draw.rect(self.window, '#b6b6d1', self.join_game_box, width=2, border_radius=2, border_top_left_radius=0,
@@ -3120,13 +3556,13 @@ class App:
             txtsurf = self.middle_font.render('Wrong code!', True, '#b6b6d1')
         else:
             txtsurf = self.middle_font.render('Join', True, '#b6b6d1')
-        self.window.blit(txtsurf, self.mid_rect(self.join_game_box, txtsurf))
+        self.window.blit(txtsurf, mid_rect(self.join_game_box, txtsurf))
 
         self.back_box_join = (self.size[0] / 2 - 60, 29 * self.pos - 20, 120, 40)
         pygame.draw.rect(self.window, '#b6b6d1', self.back_box_join, width=2, border_radius=2, border_top_left_radius=0,
                          border_bottom_left_radius=0)
         txtsurf = self.middle_font.render('Back', True, '#b6b6d1')
-        self.window.blit(txtsurf, self.mid_rect(self.back_box_join, txtsurf))
+        self.window.blit(txtsurf, mid_rect(self.back_box_join, txtsurf))
 
         if self.must_update:
             self.must_update = False
