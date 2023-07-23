@@ -87,6 +87,7 @@ def mid_rect(rect, txtsurf):
 
 class App:
     def __init__(self):
+        self.LAUNCH_AUTH = [None, 0]
         self.CHEATS = False
         self.ENEMY_VISIBLE_AS = None
         self.ENEMY_SONAR = 0
@@ -467,7 +468,7 @@ class App:
             self.blitmap()
 
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_m:
+            if event.key == pygame.K_m or event.key == pygame.K_e:
                 self.clear_scene()
                 self.GAME_OPEN = True
             elif event.key == pygame.K_LCTRL:
@@ -830,6 +831,7 @@ class App:
                     else:
                         print("NOT ALLOWED")
                     if flag:
+                        self.LAUNCH_AUTH = [True, 3]
                         if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
                             speed = 3.5  # 1 pixel = 2.09km 0.0193 = 1km/h | 1 px = actual 12.5km # random speed idk
                             range = 150  # = 2500km  # = 300 km
@@ -1059,6 +1061,8 @@ class App:
                                 mode, self.SELECTED_WEAPON]
                             self.UPDATE_TORP_QUEUE.append(f"{torpedo_info}")
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
+                    else:
+                        self.LAUNCH_AUTH = [False, 3]
 
         elif event.type == pygame.KEYDOWN:
             if self.bearing_var[0]:
@@ -1867,6 +1871,21 @@ class App:
         txtsurf = self.middle_font.render("FIRE", True, 'white')
         self.window.blit(txtsurf, (795 + (40 - txtsurf.get_width() // 2), 37.5 + (12.5 - txtsurf.get_height() // 2)))
 
+        if self.LAUNCH_AUTH[0] is not None:
+            self.LAUNCH_AUTH[1] -= 0.0167 * (self.fps/self.current_fps)
+            if self.LAUNCH_AUTH[1] > 0:
+                if self.LAUNCH_AUTH[0]:
+                    txtsurf = self.middle_font.render("Launch authorized.", True, 'green')
+                    self.window.blit(txtsurf,
+                                     (795 + (40 - txtsurf.get_width() // 2), 75 + (12.5 - txtsurf.get_height() // 2)))
+                else:
+                    txtsurf = self.middle_font.render("Launch unauthorized.", True, 'red')
+                    self.window.blit(txtsurf,
+                                     (795 + (40 - txtsurf.get_width() // 2), 75 + (12.5 - txtsurf.get_height() // 2)))
+            else:
+                self.LAUNCH_AUTH[1] = 0
+                self.LAUNCH_AUTH[0] = None
+
         pygame.display.update()
 
     def on_execute(self):
@@ -1948,8 +1967,16 @@ class App:
                 self.LOCAL_POSITION[1] += (self.LOCAL_VELOCITY * fps_d) * math.sin(
                     math.radians(self.LOCAL_POSITION[2] - 90))
 
-                self.LOCAL_POSITION[4] -= (self.LOCAL_VELOCITY * fps_d) * math.sin(math.radians(self.LOCAL_POSITION[3]))
-                self.LOCAL_POSITION[4] += (self.BALLAST - 50) * 0.0008 * fps_d
+                if -1 < self.LOCAL_POSITION[3] < 1:
+                    pitch = 0
+                else:
+                    pitch = self.LOCAL_POSITION[3]
+                self.LOCAL_POSITION[4] -= (self.LOCAL_VELOCITY * fps_d) * math.sin(math.radians(pitch)) * 1.2
+                if 49 < self.BALLAST < 51:
+                    BALLAST = 50
+                else:
+                    BALLAST = self.BALLAST
+                self.LOCAL_POSITION[4] += (BALLAST - 50) * 0.0005 * fps_d
                 if self.LOCAL_POSITION[4] < 0:
                     self.LOCAL_POSITION[4] = 0
                 elif self.LOCAL_POSITION[4] >= 700:
@@ -2141,7 +2168,7 @@ class App:
                             torpedo[0][2] += turn
                         else:
                             torpedo[0][2] -= turn
-                        dive_rate = 0.42 * fps_d
+                        dive_rate = 0.24 * fps_d
                         depth = torpedo[1][2] - torpedo[0][4]
                         if dive_rate > depth:
                             dive_rate = depth
@@ -2149,11 +2176,12 @@ class App:
                             torpedo[0][4] += dive_rate
                         else:
                             torpedo[0][4] -= dive_rate
+                        print(f"Depth to destination: {depth} Distance: {distance}")
                         torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
                             math.radians(torpedo[0][2] - 90))
                         torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                             math.radians(torpedo[0][2] - 90))
-                        if -10 < distance < 10:
+                        if -10 < distance < 10 and -30 < depth < 30:
                             torpedo[2] = True
                     else:
                         # Go into seeking mode
@@ -2193,7 +2221,7 @@ class App:
                             max_distance = 10
                             if torpedo[6]:
                                 max_distance = 20
-                            if distance < 10 and 150 > angle > -150 and -50 < depth < 50:
+                            if distance < max_distance and 150 > angle > -150 and -40 < depth < 40:
                                 turn = 0.34 * fps_d
                                 if turn > abs(angle):
                                     turn = abs(angle)
@@ -2201,19 +2229,20 @@ class App:
                                     torpedo[0][2] += turn
                                 else:
                                     torpedo[0][2] -= turn
-                                dive_rate = 0.22 * fps_d
+                                dive_rate = 0.08 * fps_d
                                 if dive_rate > depth:
                                     dive_rate = depth
                                 if depth > 0:
                                     torpedo[0][4] += dive_rate
                                 else:
                                     torpedo[0][4] -= dive_rate
+                                print(f"Depth to target: {depth} Distance: {distance}")
                                 # Updating torpedo's position
                                 torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
                                     math.radians(torpedo[0][2] - 90))
                                 torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                     math.radians(torpedo[0][2] - 90))
-                                if -1 < distance < 1:
+                                if -0.2 < distance < 0.2 and -0.2 < depth < 0.2:
                                     print("TORPEDO HIT!")
                                     self.TORPEDOES.pop(key)
                                     self.HEALTH -= random_int(30, 50)
@@ -2247,7 +2276,7 @@ class App:
                                     torpedo[0][2] += turn
                                 else:
                                     torpedo[0][2] -= turn
-                                dive_rate = 0.22 * fps_d
+                                dive_rate = 0.1 * fps_d
                                 if dive_rate > depth:
                                     dive_rate = depth
                                 if depth > 0:
@@ -2259,7 +2288,7 @@ class App:
                                     math.radians(torpedo[0][2] - 90))
                                 torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                     math.radians(torpedo[0][2] - 90))
-                                if -1 < distance < 1:
+                                if -1 < distance < 1 and -1 < depth < 1:
                                     print("TORPEDO HIT!")
                                     self.TORPEDOES.pop(key)
                                     self.OBJECTS[min_distance[1]][4] -= random_int(30, 50)
@@ -2336,13 +2365,16 @@ class App:
                             self.LOCAL_POSITION[2] = 0
                 if keys[pygame.K_w]:
                     if not self.LOCAL_VELOCITY == 0:
-                        if self.LOCAL_POSITION[3] < 45:
-                            pitch_rate = 0.18 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
-                            self.LOCAL_POSITION[3] += pitch_rate * fps_d
+                        if self.LOCAL_POSITION[4] > 0.2:
+                            if self.LOCAL_POSITION[3] < 45:
+                                pitch_rate = 0.08 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
+                                self.LOCAL_POSITION[3] += pitch_rate * fps_d
+                        else:
+                            self.LOCAL_POSITION[3] = 0
                 elif keys[pygame.K_s]:
                     if not self.LOCAL_VELOCITY == 0:
                         if self.LOCAL_POSITION[3] > -45:
-                            pitch_rate = 0.18 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
+                            pitch_rate = 0.08 * (1 - (abs(self.LOCAL_VELOCITY) / 0.034))
                             self.LOCAL_POSITION[3] -= pitch_rate * fps_d
                 if keys[pygame.K_UP]:
                     # self.LOCAL_POSITION[0] = 762
@@ -2354,7 +2386,9 @@ class App:
                     elif self.distance_var[0]:
                         self.distance_var[1] = str(float(self.distance_var[1]) + 1)
                     elif self.BALLAST < 100:
-                        self.BALLAST += 0.5 * fps_d
+                        self.BALLAST += 0.1 * fps_d
+                        if self.BALLAST > 100:
+                            self.BALLAST = 100
                 elif keys[pygame.K_DOWN]:
                     if self.depth_var[0]:
                         self.depth_var[1] = str(float(self.depth_var[1]) - 1)
@@ -2364,6 +2398,8 @@ class App:
                         self.distance_var[1] = str(float(self.distance_var[1]) - 1)
                     if self.BALLAST > 0:
                         self.BALLAST -= 0.5 * fps_d
+                        if self.BALLAST < 0:
+                            self.BALLAST = 0
                 torpedo_send_info = []
                 for torpedo in self.TORPEDOES:
                     torpedo_send_info.append(
