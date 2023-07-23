@@ -87,6 +87,7 @@ def mid_rect(rect, txtsurf):
 
 class App:
     def __init__(self):
+        self.DETECTED_TORPEDOES = {}
         self.LAUNCH_AUTH = [None, 0]
         self.CHEATS = False
         self.ENEMY_VISIBLE_AS = None
@@ -361,6 +362,21 @@ class App:
                       self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
             pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
             pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
+        # Detected active mode torpedoes around friendly ships
+        for detection in self.DETECTED_TORPEDOES:
+            if detection in list(self.TORPEDOES.keys()):
+                length = self.DETECTED_TORPEDOES[detection][0] + random_int(-1, 1)
+                if length < 0:
+                    length = 10
+                elif length > 150:
+                    length = 150
+                point1 = (self.TORPEDOES[detection][0][0] + length * math.cos(
+                    math.radians(self.DETECTED_TORPEDOES[detection][2] - 270 + random_int(-1, 1))),
+                          self.TORPEDOES[detection][0][1] + length * math.sin(
+                              math.radians(self.DETECTED_TORPEDOES[detection][2] - 270 + random_int(-1, 1))))
+                pygame.draw.aaline(self.map, 'yellow', (self.OBJECTS[(self.DETECTED_TORPEDOES[detection][1])][0][0],
+                                                        self.OBJECTS[(self.DETECTED_TORPEDOES[detection][1])][0][1]),
+                                   point1)
 
         pygame.display.update()
 
@@ -860,7 +876,7 @@ class App:
 
                             if distance > range:
                                 flag = None
-                                print("TARGET OUT OF RANGE")
+                                print("TARGET OUT OF RANGE", distance, range)
                                 self.LAM_FIRED.append(
                                     [time, True, flag, 'Ran out of fuel!',
                                      self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
@@ -1206,7 +1222,7 @@ class App:
                 i = 0
                 for line in desc.split('\n'):
                     txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
                     i += 1
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'P-800 Oniks':
                 txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
@@ -1243,7 +1259,7 @@ class App:
                 i = 0
                 for line in desc.split('\n'):
                     txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
                     i += 1
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
                 txtsurf = self.middle_font.render(f'Torpedo', True, '#263ded')
@@ -1400,7 +1416,7 @@ class App:
                 i = 0
                 for line in desc.split('\n'):
                     txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
                     i += 1
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TASM':
                 txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
@@ -1439,7 +1455,7 @@ class App:
                 i = 0
                 for line in desc.split('\n'):
                     txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
                     i += 1
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84':
                 txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
@@ -1478,7 +1494,7 @@ class App:
                 i = 0
                 for line in desc.split('\n'):
                     txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i*25 - txtsurf.get_height() / 2))
+                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
                     i += 1
 
         # Fired ordnance information
@@ -1872,7 +1888,7 @@ class App:
         self.window.blit(txtsurf, (795 + (40 - txtsurf.get_width() // 2), 37.5 + (12.5 - txtsurf.get_height() // 2)))
 
         if self.LAUNCH_AUTH[0] is not None:
-            self.LAUNCH_AUTH[1] -= 0.0167 * (self.fps/self.current_fps)
+            self.LAUNCH_AUTH[1] -= 0.0167 * (self.fps / self.current_fps)
             if self.LAUNCH_AUTH[1] > 0:
                 if self.LAUNCH_AUTH[0]:
                     txtsurf = self.middle_font.render("Launch authorized.", True, 'green')
@@ -2005,26 +2021,27 @@ class App:
                 # Land attack missile simulation:
                 for missile in self.LAM_FIRED:
                     missile[0] -= 0.01667 * fps_d
-                    if missile[2]:
+                    target = None
+                    if missile[2] and missile[2] in self.ENEMY_TARGET_LOCATIONS:
                         target = self.ENEMY_TARGET_LOCATIONS[self.ENEMY_TARGET_LOCATIONS.index(missile[2])]
                     if missile[0] <= 0:
-                        if missile[1] and missile[2]:  # Will hit and has a target
+                        if missile[1] and target:  # Will hit and has a target
                             print("TARGET HIT!")
-                            missile[2][2] -= missile[5]
-                            if missile[2][2] - missile[5] < 0:
-                                self.LOCAL_SCORE += missile[2][2] * 0.5  # Base damage score
+                            if target[2] - missile[5] <= 0:
+                                self.LOCAL_SCORE += target[2] * 0.5  # Base damage score
                                 self.NOTICE_QUEUE.append(["Target damaged!", 0, 0])
                             else:
                                 self.LOCAL_SCORE += missile[5] * 0.5  # Base damage score
                                 self.NOTICE_QUEUE.append(["Target damaged!", 0, 0])
-                            if missile[2][2] < 0:
-                                missile[2][2] = 0
+                            target[2] -= missile[5]
+                            if target[2] <= 0:
+                                target[2] = 0
                                 self.ENEMY_TARGET_LOCATIONS.remove(target)
                                 self.LOCAL_SCORE += 50  # Base destruction score
                                 self.TARGETS_DESTROYED += 1
                                 self.NOTICE_QUEUE.append(["Target destroyed!", 0, 0])
                                 # Max score from destroying a base = 100 (50 destruction, 50 max damage)
-                            self.TARGET_DAMAGE_QUEUE.append([missile[2][0], missile[2][1], missile[5]])
+                            self.TARGET_DAMAGE_QUEUE.append([target[0], target[1], missile[5]])
                         missile[1] = False
                     if missile[0] < -5:
                         self.LAM_FIRED.remove(missile)
@@ -2144,7 +2161,10 @@ class App:
                 # Enemy torpedo simulation
                 for key in list(self.TORPEDOES):
                     torpedo = self.TORPEDOES[key]
-                    if torpedo[6]:  # If torpedo is in the active mode
+                    rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
+                    rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
+                    distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                    if torpedo[6] and distance <= 150:  # If torpedo is in the active mode
                         if torpedo[5] <= 1:
                             torpedo[5] = 2
                     torpedo[3] -= 0.0167 * fps_d
@@ -2176,7 +2196,7 @@ class App:
                             torpedo[0][4] += dive_rate
                         else:
                             torpedo[0][4] -= dive_rate
-                        print(f"Depth to destination: {depth} Distance: {distance}")
+                        # print(f"Depth to destination: {depth} Distance: {distance}")
                         torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
                             math.radians(torpedo[0][2] - 90))
                         torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
@@ -2236,7 +2256,7 @@ class App:
                                     torpedo[0][4] += dive_rate
                                 else:
                                     torpedo[0][4] -= dive_rate
-                                print(f"Depth to target: {depth} Distance: {distance}")
+                                # print(f"Depth to target: {depth} Distance: {distance}")
                                 # Updating torpedo's position
                                 torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
                                     math.radians(torpedo[0][2] - 90))
@@ -2266,8 +2286,9 @@ class App:
                                 angle = -(torpedo[0][2] - angle)
                             depth = self.OBJECTS[min_distance[1]][0][3] - torpedo[0][4]
                             max_distance = 10
-                            if torpedo[6]:
+                            if torpedo[6] and distance <= 50:
                                 max_distance = 20
+                                self.DETECTED_TORPEDOES[key] = [distance, min_distance[1], angle]
                             if distance < max_distance and 120 > angle > -120 and -50 < depth < 50:
                                 turn = 0.34 * fps_d
                                 if turn > abs(angle):
@@ -2479,7 +2500,7 @@ class App:
                     if self.OBJECTS['Enemy'][5] <= 0:
                         self.ENEMY_SONAR = 0
                     if server_api.UPDATE_INFO[7] != 'None':
-                        for ship in server_api.UPDATE_INFO[6].split("!"):
+                        for ship in server_api.UPDATE_INFO[7].split("!"):
                             if ship.count("Friendly"):  # You destroyed enemy's friendly ship
                                 ship = ship.replace("Friendly", "Enemy")
                                 print(ship)
@@ -2499,7 +2520,7 @@ class App:
                                     self.SHIPS_DESTROYED_ENEMY += 1
                                     self.NOTICE_QUEUE.append(["Friendly ship got destroyed!", 0, 1])
                     if server_api.UPDATE_INFO[8] != 'None':
-                        for target in server_api.UPDATE_INFO[7].split("?"):
+                        for target in server_api.UPDATE_INFO[8].split("?"):
                             target = target.split("!")
                             for enemy_target in self.FRIENDLY_TARGET_LOCATIONS:
                                 if str(enemy_target[0]) == target[0] and str(enemy_target[1]) == target[1]:
@@ -2887,7 +2908,7 @@ class App:
             distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
             bearing = calculate_bearing(rel_x, rel_y, distance)
             distance_ratio = (distance / PASSIVE_SONAR_RANGE) * 10
-            if distance + ((1 - 0.6) * PASSIVE_SONAR_RANGE) <= PASSIVE_SONAR_RANGE:
+            if distance + ((1 - 0.1) * PASSIVE_SONAR_RANGE) <= PASSIVE_SONAR_RANGE:
                 # Draw it on the passive sonar display
                 # print(f"Angle: {angle} Local Angle: {local_position} "
                 #       f"Bearing: {bearing}")
@@ -3672,7 +3693,7 @@ class App:
         self.window.blit(txtsurf,
                          (100 + (sb_grid * 2 + sb_grid / 2 - txtsurf.get_width() / 2),
                           175 + p * 50 - txtsurf.get_height() / 2))
-        txtsurf = self.middle_font.render(f'{self.LOCAL_SCORE}', True, "#b6b6d1")
+        txtsurf = self.middle_font.render(f'{self.LOCAL_SCORE:.0f}', True, "#b6b6d1")
         self.window.blit(txtsurf,
                          (100 + (sb_grid * 3 + sb_grid / 2 - txtsurf.get_width() / 2),
                           175 + p * 50 - txtsurf.get_height() / 2))
@@ -3689,7 +3710,7 @@ class App:
         self.window.blit(txtsurf,
                          (100 + (sb_grid * 2 + sb_grid / 2 - txtsurf.get_width() / 2),
                           175 + e * 50 - txtsurf.get_height() / 2))
-        txtsurf = self.middle_font.render(f'{self.ENEMY_SCORE}', True, "#b6b6d1")
+        txtsurf = self.middle_font.render(f'{self.ENEMY_SCORE:.0f}', True, "#b6b6d1")
         self.window.blit(txtsurf,
                          (100 + (sb_grid * 3 + sb_grid / 2 - txtsurf.get_width() / 2),
                           175 + e * 50 - txtsurf.get_height() / 2))
