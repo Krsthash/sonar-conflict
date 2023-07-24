@@ -35,6 +35,11 @@ sh = logging.StreamHandler(stdout)
 sh.setLevel(logging.DEBUG)
 sh.setFormatter(formatter)
 log.addHandler(sh)
+loop_log = logging.getLogger('loop_logger')
+loop_log.setLevel(logging.INFO)
+loop_log.addHandler(fh)
+loop_log.addHandler(sh)
+loop_log.debug("Loop logging enabled.")
 # ------------------------------------------
 
 
@@ -527,6 +532,13 @@ class App:
             if event.key == pygame.K_m or event.key == pygame.K_e:
                 self.clear_scene()
                 self.GAME_OPEN = True
+            elif event.key == pygame.K_F3:
+                if server_api.LOOP_LOGGING:
+                    server_api.LOOP_LOGGING = False
+                    loop_log.setLevel(logging.INFO)
+                else:
+                    server_api.LOOP_LOGGING = True
+                    loop_log.setLevel(logging.DEBUG)
             elif event.key == pygame.K_LCTRL:
                 if self.GEAR > -3:
                     self.GEAR -= 1
@@ -727,6 +739,13 @@ class App:
                 else:
                     log.info("debug mode ON")
                     self.DEBUG = True
+            elif event.key == pygame.K_F3:
+                if server_api.LOOP_LOGGING:
+                    server_api.LOOP_LOGGING = False
+                    loop_log.setLevel(logging.INFO)
+                else:
+                    server_api.LOOP_LOGGING = True
+                    loop_log.setLevel(logging.DEBUG)
             elif event.key == pygame.K_LCTRL:
                 if self.GEAR > -3:
                     self.GEAR -= 1
@@ -1218,6 +1237,13 @@ class App:
                 self.SCOREBOARD_OPEN = True
             elif event.key == pygame.K_SPACE:
                 self.fire_weapon()
+            elif event.key == pygame.K_F3:
+                if server_api.LOOP_LOGGING:
+                    server_api.LOOP_LOGGING = False
+                    loop_log.setLevel(logging.INFO)
+                else:
+                    server_api.LOOP_LOGGING = True
+                    loop_log.setLevel(logging.DEBUG)
 
     def weapon_screen_render(self):
         """
@@ -2139,10 +2165,8 @@ class App:
                         # if -20 < self.OBJECTS[ship][5] < 1:
                         #     self.OBJECTS[ship][5] = 2
                         if distance + ((1 - self.OBJECTS["Enemy"][3]) * 50) <= 50:
-                            log.info("Enemy visible to friendly ships!")
                             flag = 1
                         if self.OBJECTS['Enemy'][5] >= 1 and distance <= 60:
-                            log.info("Enemy's active sonar heard by a friendly ship!")
                             if not min_d:
                                 min_d = [distance, [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
                                                     calculate_azimuth(rel_x, rel_y, distance)]]
@@ -2156,6 +2180,7 @@ class App:
                         if notice[0] == "Enemy submarine detected!":
                             f = 1
                     if not f:
+                        log.info("Enemy visible to friendly ships!")
                         self.NOTICE_QUEUE.append(["Enemy submarine detected!", 0, 0])
                 else:
                     self.ENEMY_VISIBLE = False
@@ -2166,6 +2191,7 @@ class App:
                         if notice[0] == "Active sonar heard!":
                             f = 1
                     if not f:
+                        log.info("Enemy's active sonar heard by a friendly ship!")
                         self.NOTICE_QUEUE.append(["Active sonar heard!", 0, 0])
 
                 # Enemy ships trying to detect/shoot simulation
@@ -2538,11 +2564,11 @@ class App:
                                            f"{self.DETECTION_CHANCE}, {sonar_info}, {sink_info}, " \
                                            f"{target_info}, {torpedo_send_info}]" \
                                            f" {torpedo_send_info2}ANDSYUI{ship_sync_info}"
+                    loop_log.debug(f"Information to send: {server_api.SEND_INFO}")
                     self.UPDATE_TORP_QUEUE = []
                     self.SINK_QUEUE = []
                     self.TARGET_DAMAGE_QUEUE = []
                 if server_api.UPDATE_INFO:
-                    # print(server_api.TORPEDO_INFO)
                     if server_api.UPDATE_INFO.count("PLAYER HAS DIED"):
                         log.info("Received information about enemy's death, R.I.P.")
                         self.clear_scene()
@@ -2600,7 +2626,7 @@ class App:
                                         self.NOTICE_QUEUE.append(["Friendly base got destroyed!", 0, 1])
                                     break
                     if server_api.SHIP_SYNC_INFO != 'None':
-                        # print("SHIP INFO RECIEVED!")
+                        loop_log.debug(f"Ship information received: ")
                         temp_s = []
                         for ship in self.OBJECTS:
                             if ship.count("Enemy_ship"):
@@ -2613,14 +2639,12 @@ class App:
                         for ship in temp_s:
                             for ship_update in temp_s_update:
                                 if ship == ship_update[-1]:
-                                    # print(f"Updated ship info for: {ship}")
+                                    loop_log.debug(f"Updated ship info for: {ship}")
                                     self.OBJECTS[ship][0][0] = float(ship_update[0])
                                     self.OBJECTS[ship][0][1] = float(ship_update[1])
                                     self.OBJECTS[ship][0][2] = float(ship_update[2])
                         server_api.SHIP_SYNC_INFO = "None"
                     torpedo_update_info = server_api.UPDATE_INFO[9:]
-                    # print(torpedo_update_info)
-                    # print(list(self.WEAPON_LAYOUT), list(self.FIRED_TORPEDOES))
                     for weapon in list(self.WEAPON_LAYOUT):
                         if weapon in list(self.FIRED_TORPEDOES) and self.FIRED_TORPEDOES[weapon][2] >= 0:
                             flag = 0
@@ -2637,10 +2661,10 @@ class App:
                                     self.WEAPON_LAYOUT[weapon][1] = ''
                                     self.FIRED_TORPEDOES.pop(weapon)
                                 else:
-                                    log.debug(f"Torpedo information isn't being received. Chance left: "
+                                    loop_log.debug(f"Torpedo information isn't being received. Chance left: "
                                               f"{5 - self.FIRED_TORPEDOES[weapon][2]}")
                             else:
-                                log.debug("Torpedo status information received.")
+                                loop_log.debug("Torpedo status information received.")
                                 t1 = False
                                 t2 = False
                                 if torp_info.split('!')[1] == 'True':
@@ -2652,7 +2676,6 @@ class App:
 
                     server_api.UPDATE_INFO = None
                 if server_api.TORPEDO_INFO:
-                    # print(server_api.TORPEDO_INFO, "TORPEDO INFORMATION!!")
                     for info in server_api.TORPEDO_INFO:
                         if info[8] == 'True':
                             t1 = True
@@ -3332,7 +3355,7 @@ class App:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_F2:
                 self.CHEATS = True
-            elif event.key == pygame.K_F3:
+            elif event.key == pygame.K_HOME:
                 if self.mission_name and self.HOST_STATUS == 0 and self.CHEATS:
                     log.info("Forcefully starting game...")
                     if self.team_selected == 2:
@@ -3365,6 +3388,13 @@ class App:
                     self.game_init()
                     self.GAME_OPEN = True
                     self.GAME_INIT = True
+            elif event.key == pygame.K_F3:
+                if server_api.LOOP_LOGGING:
+                    server_api.LOOP_LOGGING = False
+                    loop_log.setLevel(logging.INFO)
+                else:
+                    server_api.LOOP_LOGGING = True
+                    loop_log.setLevel(logging.DEBUG)
 
         if pygame.Rect(self.browse_game_rect).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
@@ -3628,6 +3658,13 @@ class App:
                         self.GAME_CODE_VAR[1] += k.upper()
             elif event.key == pygame.K_F2:
                 self.CHEATS = True
+            elif event.key == pygame.K_F3:
+                if server_api.LOOP_LOGGING:
+                    server_api.LOOP_LOGGING = False
+                    loop_log.setLevel(logging.INFO)
+                else:
+                    server_api.LOOP_LOGGING = True
+                    loop_log.setLevel(logging.DEBUG)
 
         if pygame.Rect(self.game_code_box).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_IBEAM))
@@ -3829,6 +3866,13 @@ class App:
                     self.GAME_OPEN = True
                 else:
                     self.MAP_OPEN = True
+            elif event.key == pygame.K_F3:
+                if server_api.LOOP_LOGGING:
+                    server_api.LOOP_LOGGING = False
+                    loop_log.setLevel(logging.INFO)
+                else:
+                    server_api.LOOP_LOGGING = True
+                    loop_log.setLevel(logging.DEBUG)
 
         pygame.display.update()
 
