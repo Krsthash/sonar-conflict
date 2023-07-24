@@ -125,7 +125,8 @@ async def on_msg():
     if LAST_UPDATE_AT:
         if time.time() - LAST_UPDATE_AT < 1:
             log.debug(f"Fetch too soon. Time: {time.time() - LAST_UPDATE_AT}")
-            return
+            await asyncio.sleep(1 - (time.time() - LAST_UPDATE_AT))
+            log.debug(f"Fetch allowed. Time: {time.time() - LAST_UPDATE_AT}")
     headers = {"authorization": f"Bot {TOKEN}"}
     r = requests.get(f'https://discord.com/api/v9/channels/{LISTENING_CHANNEL.id}/messages?limit=2',
                      headers=headers)
@@ -276,7 +277,8 @@ async def update_game():
     if LAST_SEND_AT:
         if time.time() - LAST_SEND_AT < 1 and SEND_INFO:
             log.debug(f"Update attempted too soon: {time.time() - LAST_SEND_AT}")
-            return
+            await asyncio.sleep(1 - (time.time() - LAST_SEND_AT))
+            log.debug(f"Update allowed. Time: {time.time() - LAST_SEND_AT}")
     """
     Every update that goes to the other player *MUST* be sent through this function to ensure efficiency.
     """
