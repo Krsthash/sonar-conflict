@@ -2489,7 +2489,6 @@ class App:
                     self.SINK_QUEUE = []
                     self.TARGET_DAMAGE_QUEUE = []
                 if server_api.UPDATE_INFO:
-                    print(server_api.UPDATE_INFO)
                     # print(server_api.TORPEDO_INFO)
                     if server_api.UPDATE_INFO.count("PLAYER HAS DIED"):
                         print("Recieved information about player's death, R.I.P.")
@@ -2509,7 +2508,6 @@ class App:
                         for ship in server_api.UPDATE_INFO[7].split("!"):
                             if ship.count("Friendly"):  # You destroyed enemy's friendly ship
                                 ship = ship.replace("Friendly", "Enemy")
-                                print(ship)
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
                                     print(f"Ship {ship} has been sunk by you!")
@@ -2518,7 +2516,6 @@ class App:
                                     self.NOTICE_QUEUE.append(["Ship destroyed!", 0, 0])
                             elif ship.count("Enemy"):  # They destroyed your friendly ship
                                 ship = ship.replace("Enemy", "Friendly")
-                                print(ship)
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
                                     print(f"Ship {ship} has been sunk by the enemy!")
@@ -2526,15 +2523,20 @@ class App:
                                     self.SHIPS_DESTROYED_ENEMY += 1
                                     self.NOTICE_QUEUE.append(["Friendly ship got destroyed!", 0, 1])
                     if server_api.UPDATE_INFO[8] != 'None':
+                        print("Target information received!")
                         for target in server_api.UPDATE_INFO[8].split("?"):
+                            print(f"Target: {target.split('!')}")
                             target = target.split("!")
                             for enemy_target in self.FRIENDLY_TARGET_LOCATIONS:
                                 if str(enemy_target[0]) == target[0] and str(enemy_target[1]) == target[1]:
                                     if enemy_target[2] - int(target[2]) < 0:
                                         self.ENEMY_SCORE += enemy_target[2] * 0.5  # Base damage score
+                                        print(f"Friendly base got damaged beyond repair. Enemy score "
+                                              f"+= {enemy_target[2]*0.5}")
                                         self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
                                     else:
                                         self.ENEMY_SCORE += int(target[2]) * 0.5  # Base damage score
+                                        print(f"Friendly base got damaged. Enemy score += {int(target[2]) * 0.5}")
                                         self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
                                     enemy_target[2] -= int(target[2])
                                     if enemy_target[2] <= 0:
@@ -2545,7 +2547,7 @@ class App:
                                         self.NOTICE_QUEUE.append(["Friendly base got destroyed!", 0, 1])
                                     break
                     if server_api.SHIP_SYNC_INFO != 'None':
-                        print("SHIP INFO RECIEVED!")
+                        # print("SHIP INFO RECIEVED!")
                         temp_s = []
                         for ship in self.OBJECTS:
                             if ship.count("Enemy_ship"):
@@ -2596,7 +2598,7 @@ class App:
 
                     server_api.UPDATE_INFO = None
                 if server_api.TORPEDO_INFO:
-                    print(server_api.TORPEDO_INFO, "TORPEDO INFORMATION!!")
+                    # print(server_api.TORPEDO_INFO, "TORPEDO INFORMATION!!")
                     for info in server_api.TORPEDO_INFO:
                         if info[8] == 'True':
                             t1 = True

@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+from sys import stdout
 import threading
 import time
 import logging
@@ -37,11 +38,15 @@ MSGS_PROCESSED = []
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 formatter = logging.Formatter(fmt="[%(asctime)s %(levelname)s]: %(message)s",
-                              datefmt="%d-%m-%Y - %H:%M:%S")
+                              datefmt="%H:%M:%S")
 fh = logging.FileHandler("log.log", "w")
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 log.addHandler(fh)
+sh = logging.StreamHandler(stdout)
+sh.setLevel(logging.DEBUG)
+sh.setFormatter(formatter)
+log.addHandler(sh)
 log.info("\nStarting up...")
 
 
@@ -58,12 +63,13 @@ def execute(function):
     def wrapper(*args, **kwargs):
         func_list = [partial(function, *args, **kwargs), [None]]
         toExecute.append(func_list)
-        log.info("Appended")
-        log.info(toExecute)
+        log.debug(f"Appended {func_list} to execution queue.")
+        log.debug(f"Queue: {toExecute}")
 
         while toExecute[toExecute.index(func_list)][1] == [None]:
             time.sleep(0.5)
         result = toExecute[toExecute.index(func_list)][1]
+        log.debug(f"Function {func_list[0]} finished: {result}")
         toExecute.pop(toExecute.index(func_list))
         return result
 
@@ -80,8 +86,7 @@ async def on_ready():
     try:
         SERVER = BOT.guilds[1]
     except IndexError:
-        print("Server not found.")
-    print("ON_READY!")
+        log.error("Server not found.")
     if not on_msg.is_running():
         on_msg.start()
     if not api_listener.is_running():
@@ -92,7 +97,7 @@ async def on_ready():
         update_game.start()
     bot_started = True
 
-    log.info("Connected.")
+    log.info("Connected to the server.")
 
 
 @execute
@@ -100,24 +105,13 @@ def fetch_channel_object(id):
     """
     Example function to demonstrate how the api_listener function executes commands.
     """
-    print("Fetching channel...")
+    log.debug("Fetching channel object...")
     return SERVER.get_channel(id)
 
 
 @execute
 def get_all_channel_names():
     return SERVER.channels
-
-
-@execute
-def do_something(something):
-    """
-    Example function to demonstrate how the api_listener function executes commands.
-    """
-    print("Doing something...")
-    print(something)
-    print("Did something.")
-    return "Test!"
 
 
 @tasks.loop(seconds=1)
@@ -129,39 +123,45 @@ async def on_msg():
     global MSGS_PROCESSED
     if not LISTENING_CHANNEL:
         return
+    if LAST_UPDATE_AT:
+        if time.time() - LAST_UPDATE_AT < 1:
+            log.debug(f"Fetch too soon. Time: {time.time() - LAST_UPDATE_AT}")
+            return
     headers = {"authorization": f"Bot {TOKEN}"}
     r = requests.get(f'https://discord.com/api/v9/channels/{LISTENING_CHANNEL.id}/messages?limit=2',
                      headers=headers)
     json_ = json.loads(r.text)
-    print(json_)
+    if LAST_UPDATE_AT:
+        log.debug(f"Message fetching running... [{time.time() - LAST_UPDATE_AT}]")
+    else:
+        log.debug(f"Message initial fetching running...")
     messages = []
     for item in json_:
         messages.append(item)
     for msg in messages:
         if msg is None:
-            print("No msgs!")
+            log.debug(f"Channel is empty.")
             return
         if msg in MSGS_PROCESSED:
-            print("Already seen this message.", msg['content'])
+            # print("Already seen this message.", msg['content'])
             return
-        log.info(f"Message! {msg}")
-        print(f"MESSAGE FOUND...{PLAYER}, {msg['content']},{msg}")
+        log.debug(f"Fetched a new message.")
+        log.debug(f"Content: {msg['content']}")
+        # print(f"MESSAGE FOUND...{PLAYER}, {msg['content']},{msg}")
         if str(msg['content']) == "":
-            print("Possible attachments message found!")
+            log.debug("Message is empty!")
             if len(msg['attachments']):
-                print("Has attachments!")
-                print(msg['attachments'])
+                log.debug("Message has attachments!")
                 r = requests.get(url=msg['attachments'][0]['url'])
-                print(r)
-                print(r.text)
-                print(r.content)
-                msg['content'] = f"MISSION-INFORMATION{r.content}"  # .read()
+                log.debug(f"Attachments fetched. Status: {r.status_code}")
+                msg['content'] = f"MISSION-INFORMATION{r.content}"
                 ON_MESSAGE_BUFFER.append(msg)
         elif str(msg['content'][1]) != str(PLAYER):
             if msg['content'][2] == ']':
                 ON_MESSAGE_BUFFER.append(msg)
                 if msg['content'][4] == '[':
-                    print("UPDATE MSG!", msg['content'][1], PLAYER)
+                    log.debug(f"Message contains update information.")
+                    # print("UPDATE MSG!", msg['content'][1], PLAYER)
                     LAST_UPDATE_AT = time.time()
                     UPDATE_INFO = msg['content'][3:].replace('[', '').replace(']', '').replace(' ', '').split('AND')[
                         0].split(',')
@@ -171,10 +171,20 @@ async def on_msg():
                         temp.append(info.replace('[', '').replace(']', '').replace(' ', '').split(','))
                     TORPEDO_INFO = temp
                     SHIP_SYNC_INFO = msg['content'][3:].split('SYUI')[-1]
+                    log.debug(f"Message update information: ")
+                    if UPDATE_INFO:
+                        log.debug("UPDATE_INFO")
+                    if TORPEDO_INFO:
+                        log.debug("TORPEDO_INFO")
+                    if SHIP_SYNC_INFO:
+                        log.debug("SHIP_SYNC_INFO")
                 elif msg['content'].count("Player has died."):
                     UPDATE_INFO = "PLAYER HAS DIED"
+                    log.debug("Message update information: ")
+                    log.debug("Enemy died.")
         MSGS_PROCESSED.append(msg)
         if len(MSGS_PROCESSED) > 100:
+            log.debug("Clearing message cache...")
             MSGS_PROCESSED = MSGS_PROCESSED[98:]
 
 
@@ -186,10 +196,9 @@ async def send_message(message: str, channel_id: int):
     :param message: The message content.
     :param channel_id: The id of the channel it needs to send to.
     """
-    log.info("Sending the message...")
+    log.debug("Sending the message...")
     msg = await SERVER.get_channel(channel_id).send(message)
-    log.info(f"Sent message: {msg}")
-    log.info("Message sent.")
+    log.debug(f"Message sent. Message: {message}")
     return msg
 
 
@@ -212,19 +221,19 @@ async def remove_old_games():
     """
     Removes all text channels associated with games older than 2 hours.
     """
-    print("Removing old games...")
+    log.debug("Removing old games...")
     current_time = int(time.mktime(datetime.datetime.utcnow().timetuple()))
-    log.info(f"Current time: {current_time}")
-    log.info("Channels:")
+    log.debug(f"Current time: {current_time}")
+    log.debug("Channels:")
     for channel in SERVER.channels:
         if channel.name[:4] == "game":
             timestamp = channel.name.split("-")[-1]
             timestamp = int(timestamp)
-            log.info(f"Channel: {channel.name} Timestamp: {timestamp}")
+            log.debug(f"Channel: {channel.name} Timestamp: {timestamp}")
             if current_time - timestamp > 7200:
-                log.info("Channel will be deleted.")
+                log.debug("Channel will be deleted.")
                 await channel.delete()
-                log.info("Channel deleted.")
+                log.debug("Channel deleted.")
                 await asyncio.sleep(1)
 
 
@@ -235,57 +244,66 @@ async def wait_for_message():
     """
     global ALLOW_WAIT
 
-    log.info("Waiting for message...")
+    log.debug("Waiting for message...")
     while not len(ON_MESSAGE_BUFFER):
         await asyncio.sleep(0.5)
         if not ALLOW_WAIT:
-            log.info("Waiting for message aborted.")
+            log.debug("Waiting for message aborted.")
             return None
     message = ON_MESSAGE_BUFFER[0]
     ON_MESSAGE_BUFFER.pop(0)
-    log.info("Awaited the message!")
+    log.debug("Awaited the message!")
     return message
 
 
 @tasks.loop(seconds=1.1)
 async def update_game():
     global bot_started
+    global SEND_INFO
+    global LAST_SEND_AT
     if not bot_started:
-        print("Bot not started!")
+        log.debug("Bot isn't connected, cannot update game.")
         return
     global LAST_UPDATE_AT
     if LAST_UPDATE_AT:
         if time.time() - LAST_UPDATE_AT > 10:
-            print("Connection problems!", time.time()-LAST_UPDATE_AT)
+            log.error(f"Connection problems, no updates for {time.time()-LAST_UPDATE_AT}s.")
             if time.time() - LAST_UPDATE_AT > 20:
-                print("Waiting 5 seconds...")
-                log.info("Waiting 5 seconds...")
+                log.error("Pausing connection for 5 seconds...")
                 await asyncio.sleep(5)
-        elif time.time() - LAST_UPDATE_AT < 1:
+                log.debug("Resuming...")
+    if LAST_SEND_AT:
+        if time.time() - LAST_SEND_AT < 1 and SEND_INFO:
+            log.debug(f"Update attempted too soon: {time.time() - LAST_SEND_AT}")
             return
     """
     Every update that goes to the other player *MUST* be sent through this function to ensure efficiency.
     """
-    global SEND_INFO
-    global LAST_SEND_AT
-    log.info(f'update game running.. {PLAYER}, {SEND_INFO}')
+    if LAST_SEND_AT:
+        log.debug(f"Running update... {time.time() - LAST_SEND_AT}")
+    else:
+        log.debug(f"Running initial update...")
     if BOT.is_ws_ratelimited():
         log.error("Rate limited.")
     # print(f'update game running.. {PLAYER}, {SEND_INFO}')
     if SEND_INFO:
         if len(SEND_INFO.split("%!%")) > 1:
-            print("FILE SEND INFO!")
             await CHANNEL.send(file=discord.File(SEND_INFO.split("%!%")[-1]))
-            log.info("SENT SEND FILE INFO.")
-            print(f"SENT FILE INFO, {PLAYER}")
+            log.debug("Sent a file.")
+            LAST_SEND_AT = time.time()
             SEND_INFO = None
         else:
-            d = await CHANNEL.send(SEND_INFO)
+            headers = {"authorization": f"Bot {TOKEN}"}
+            payload = {"content": {SEND_INFO}}
+            d = requests.post(f'https://discord.com/api/v9/channels/{CHANNEL.id}/messages',
+                             headers=headers, data=payload, timeout=3)
+            log.debug(f"Sent update info. Status: {d.status_code}")
+            # d = await CHANNEL.send(SEND_INFO)
             LAST_SEND_AT = time.time()
-            log.info(f"SENT SEND INFO. {PLAYER}, {d}")
             # print(f"SENT INFO, {PLAYER}, {d}")
             SEND_INFO = None
-
+    else:
+        log.debug(f"No send info provided.")
 
 @tasks.loop(seconds=1)
 async def api_listener():
@@ -311,8 +329,8 @@ async def api_listener():
                             log.error(E)
                     function[1] = result
             except AttributeError as e:
-                print("Function does not exist.")
-                print(e)
+                log.error(f"Function does not exist.")
+                log.error(f"Error: {e}")
 
 
 async def start_bot():
