@@ -2,6 +2,7 @@ import asyncio
 import colorsys
 import datetime
 import json
+import logging
 import math
 import os
 import random
@@ -9,12 +10,32 @@ import string
 import threading
 import time
 import tkinter
+from sys import stdout
 from tkinter import filedialog
 
 import pygame
 import pyperclip
 
 import server_api
+
+
+# --------- Logging for debugging -------- #
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    fmt="[{asctime}.{msecs:03.0f}] <{name}> ({funcName})  {levelname}: \"{message}\"",
+    datefmt="%H:%M:%S",
+    style="{"
+)
+fh = logging.FileHandler("main.log", "w")
+fh.setLevel(logging.DEBUG)
+fh.setFormatter(formatter)
+log.addHandler(fh)
+sh = logging.StreamHandler(stdout)
+sh.setLevel(logging.DEBUG)
+sh.setFormatter(formatter)
+log.addHandler(sh)
+# ------------------------------------------
 
 
 def random_int(low, high):
@@ -204,24 +225,26 @@ class App:
         # Clock to ensure stable fps
         self.clock = pygame.time.Clock()
 
-        # create window
+        # Creating the window
         self.window = pygame.display.set_mode(self.size, pygame.DOUBLEBUF | pygame.HWSURFACE)
         pygame.display.set_caption("Sonar Conflict")
 
-        # create map
+        # Creating the map
         current_dir = os.path.dirname(os.path.realpath(__name__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
         self.map_rect = self.map.get_rect(topleft=self.window.get_rect().topleft)
 
-        # collision detection map
+        # Copy of the map in full resolution for collision detection
         self.coll_detection = pygame.image.load(current_dir + '/Assets/map.png')
 
-        # create window
+        # Clearing the window
         pygame.display.flip()
 
     def render_notifications(self):
-
-        # debug info
+        """
+        Renders in-game notifications based on the NOTICE_QUEUE.
+        """
+        # Debug information (F1)
         if server_api.LAST_UPDATE_AT and server_api.LAST_SEND_AT and self.DEBUG:
             rec_ = float(time.time() - server_api.LAST_UPDATE_AT)
             sen = float(time.time() - server_api.LAST_SEND_AT)
@@ -256,6 +279,9 @@ class App:
                 break
 
     def clear_scene(self):
+        """
+        Used for setting all screen variables to False.
+        """
         self.MAP_OPEN = False
         self.SCOREBOARD_OPEN = False
         self.MAIN_MENU_OPEN = False
@@ -264,11 +290,17 @@ class App:
         self.HOST_GAME_SCREEN = False
 
     def open_map(self):
+        """
+        Helper function to initially open the map view.
+        """
         # Uncomment to reset map's position
         # self.map_rect = self.map.get_rect(topleft=self.window.get_rect().topleft)
         self.blitmap()
 
     def blitmap(self):
+        """
+        Used for drawing the map.
+        """
         current_dir = os.path.dirname(os.path.realpath(__name__))
         self.map = pygame.image.load(current_dir + '/Assets/map.png')
         self.map_render()
@@ -285,7 +317,10 @@ class App:
         self.window.blit(txtsurf, (100 + self.range_indicator // 2 - txtsurf.get_width() // 2, self.size[1] - 95))
 
     def map_render(self):
-        # Location marker rendering
+        """
+        Utilized for rendering all the map elements on the screen.
+        """
+        # Location marker
         length = 10
         point1 = (self.LOCAL_POSITION[0] + length * math.cos(math.radians(self.LOCAL_POSITION[2] - 90)),
                   self.LOCAL_POSITION[1] + length * math.sin(math.radians(self.LOCAL_POSITION[2] - 90)))
@@ -310,23 +345,19 @@ class App:
                     pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]),
                                        point1)
                     pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
-
         # Port locations
         for port in self.FRIENDLY_PORT_LOCATIONS:
             pygame.draw.circle(self.map, 'green', (port[0], port[1]), 4)
-
         # Friendly target locations
         for target in self.FRIENDLY_TARGET_LOCATIONS:
             pygame.draw.circle(self.map, 'yellow', (target[0], target[1]), 2)
             txtsurf = self.small_font.render(f"{target[2]}%", True, '#b6b6d1')
             self.map.blit(txtsurf, (target[0], target[1]))
-
         # Enemy target locations
         for target in self.ENEMY_TARGET_LOCATIONS:
             pygame.draw.circle(self.map, 'orange', (target[0], target[1]), 2)
             txtsurf = self.small_font.render(f"{target[2]}%", True, '#b6b6d1')
             self.map.blit(txtsurf, (target[0], target[1]))
-
         # Enemy torpedoes
         if self.CHEATS:
             for torpedo in self.TORPEDOES:
@@ -381,9 +412,15 @@ class App:
         pygame.display.update()
 
     def on_cleanup(self):
+        """
+        Handles closing the application.
+        """
         os._exit(0)
 
     def open_main_menu(self):
+        """
+        All drawing operations needed for displaying the main menu.
+        """
         self.window.fill("#021019")
 
         txtsurf = self.big_font.render("Sonar Conflict", True, "#b6b6d1")
@@ -439,6 +476,9 @@ class App:
                                                    self.quit_rect.bottom - self.quit_rect.top) - txtsurf.get_height()) // 2))
 
     def check_map_events(self, event):
+        """
+        Handles events in the map screen.
+        """
         if event.type == pygame.QUIT:
             self.running = False
 
@@ -446,12 +486,12 @@ class App:
             if event.button == 1:
                 self.moving = True
                 if self.CHEATS:
-                    print(pygame.mouse.get_pos())
+                    log.info(f"Position on the map: {pygame.mouse.get_pos()}")
             elif event.button == 2:
                 if self.CHEATS:
                     self.LOCAL_POSITION[0] = pygame.mouse.get_pos()[0]
                     self.LOCAL_POSITION[1] = pygame.mouse.get_pos()[1]
-                    print(f"Teleported to {pygame.mouse.get_pos()}")
+                    log.info(f"Teleported to {pygame.mouse.get_pos()}")
             elif event.button == 4 or event.button == 5:
                 zoom = 1.2 if event.button == 4 else 0.8
                 mx, my = event.pos
@@ -490,11 +530,11 @@ class App:
             elif event.key == pygame.K_LCTRL:
                 if self.GEAR > -3:
                     self.GEAR -= 1
-                print(self.GEAR)
+                log.info(self.GEAR)
             elif event.key == pygame.K_LSHIFT:
                 if self.GEAR != 3:
                     self.GEAR += 1
-                print(self.GEAR)
+                log.info(self.GEAR)
             elif event.key == pygame.K_TAB:
                 self.clear_scene()
                 self.SCOREBOARD_OPEN = True
@@ -503,6 +543,9 @@ class App:
         pygame.display.update()
 
     def main_menu_events(self, event):
+        """
+        Handles events in the main menu screen.
+        """
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
         if event.type == pygame.QUIT:
             self.running = False
@@ -593,6 +636,9 @@ class App:
         pygame.display.update()
 
     def game_init(self):
+        """
+        Initializes the game by loading the mission file and setting necessary variables.
+        """
         # Load mission information from a file
         with open(self.mission_name, 'r') as file:
             mission = json.load(file)
@@ -604,16 +650,13 @@ class App:
         self.FRIENDLY_PORT_LOCATIONS = mission[code]['ports']
         self.FRIENDLY_TARGET_LOCATIONS = mission[code]['targets']  # X, Y, Health
         self.ENEMY_TARGET_LOCATIONS = mission[enemy_code]['targets']
-        # x, y, azimuth, depth
         self.LOCAL_POSITION = [mission[code]['spawn'][0], mission[code]['spawn'][1],
                                mission[code]['spawn'][2], 0, mission[code]['spawn'][3]]
-        # x, y, azimuth, pitch, depth
-        # self.ENEMY_POSITION = [mission[enemy_code]['spawn'][0], mission[enemy_code]['spawn'][1],
-        #                        mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]]
+        # LOCAL_POSITION: [x, y, azimuth, pitch, depth]
         self.OBJECTS['Enemy'] = [[mission[enemy_code]['spawn'][0], mission[enemy_code]['spawn'][1],
                                   mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]], 'Submarine', 0, 1,
                                  100, -25]
-        # [x, y, azimuth, depth], type, velocity, detection_chance, HEALTH* ACTIVE_SONAR**
+        # OBJECTS: [x, y, azimuth, depth], type, velocity, detection_chance, HEALTH* ACTIVE_SONAR**
         if not self.PLAYER_ID:
             self.designationP = "Russian ship"
             self.designationE = "American ship"
@@ -630,11 +673,16 @@ class App:
             self.OBJECTS[f'Enemy_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], 0],
                                                self.designationE, 0.008, 0.8, 100, -25]
             i += 1
+
+        # Switch to the sonar screen
         self.SONAR_SCREEN = True
         self.sonar_screen_render()
         self.weapon_screen_render()
 
     def game_events(self, event):
+        """
+        Handles events in the sonar screen.
+        """
         self.PASSIVE_SONAR_BUTTON_HOVER = False
         self.sonar_cursor_position = None
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
@@ -649,7 +697,6 @@ class App:
                     mouse_pos = pygame.mouse.get_pos()
                     flag = 0
                     for contact in self.PASSIVE_SONAR_DISPLAY_CONTACTS:
-                        # print((int(contact[0]), contact[1]+31), mouse_pos)
                         if mouse_pos[0] - 2 < contact[0] < mouse_pos[0] + 2 and \
                                 mouse_pos[1] - 2 < contact[1] + 31 < mouse_pos[1] + 2:
                             self.PASSIVE_SELECTED_CONTACT = contact
@@ -675,29 +722,27 @@ class App:
                 self.map_render()
             elif event.key == pygame.K_F1:
                 if self.DEBUG:
-                    print("Debug mode OFF")
+                    log.info("Debug mode OFF")
                     self.DEBUG = False
                 else:
-                    print("debug mode ON")
+                    log.info("debug mode ON")
                     self.DEBUG = True
             elif event.key == pygame.K_LCTRL:
                 if self.GEAR > -3:
                     self.GEAR -= 1
-                print(self.GEAR)
+                log.info(self.GEAR)
             elif event.key == pygame.K_LSHIFT:
                 if self.GEAR != 3:
                     self.GEAR += 1
-                print(self.GEAR)
+                log.info(self.GEAR)
             elif event.key == pygame.K_t:
+                self.ACTIVE_SONAR_PING_DELAY = 0
+                self.ACTIVE_SONAR_PING_RADIUS = 0
                 if self.ACTIVE_SONAR:
                     self.ACTIVE_SONAR = False
-                    self.ACTIVE_SONAR_PING_DELAY = 0
-                    self.ACTIVE_SONAR_PING_RADIUS = 0
                     self.NOTICE_QUEUE.append(["Active sonar off!", 0, 0])
                 else:
                     self.ACTIVE_SONAR = True
-                    self.ACTIVE_SONAR_PING_DELAY = 0
-                    self.ACTIVE_SONAR_PING_RADIUS = 0
                     self.NOTICE_QUEUE.append(["Active sonar on!", 0, 0])
             elif event.key == pygame.K_f:
                 if self.PASSIVE_SONAR_FREEZE:
@@ -725,6 +770,9 @@ class App:
             self.sonar_cursor_position = mouse_pos
 
     def weapon_screen_events(self, event):
+        """
+        Handles events in the weapon screen.
+        """
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
         if event.type == pygame.QUIT:
             self.running = False
@@ -822,30 +870,30 @@ class App:
                                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] != '':
                             if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == 0 and self.mode_var == -1 and \
                                     self.LOCAL_POSITION[4] < 60:
-                                print("ALLOWED")
+                                log.debug("Launch authorized.")
                                 flag = 1
                             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84' and self.mode_var == -1 and \
                                     self.LOCAL_POSITION[4] < 100:
-                                print("ALLOWED")
+                                log.debug("Launch authorized.")
                                 flag = 1
                             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar' and self.mode_var != -1 and \
                                     self.LOCAL_POSITION[4] < 600:
-                                print("ALLOWED")
+                                log.debug("Launch authorized.")
                                 flag = 1
                             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Mk-48' and self.mode_var != -1 and \
                                     self.LOCAL_POSITION[4] < 800:
-                                print("ALLOWED")
+                                log.debug("Launch authorized.")
                                 flag = 1
                             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Sonar decoy' and \
                                     self.mode_var != -1 and self.LOCAL_POSITION[4] < 400:
-                                print("ALLOWED")
+                                log.debug("Launch authorized.")
                                 flag = 1
                             else:
-                                print("NOT ALLOWED")
+                                log.debug("Launch unauthorized.")
                         else:
-                            print("NOT ALLOWED")
+                            log.debug("Launch unauthorized.")
                     else:
-                        print("NOT ALLOWED")
+                        log.debug("Launch unauthorized.")
                     if flag:
                         self.LAUNCH_AUTH = [True, 3]
                         if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
@@ -860,23 +908,22 @@ class App:
                             angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
                             if angle > 360:
                                 angle -= 360
-                            print(angle)
                             impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
                             impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
-                            print(impact_x, impact_y, distance)
+                            log.debug(f"LAM Impact: ({impact_x}, {impact_y}) Distance: {distance}km.")
                             flag = None
                             for target in self.ENEMY_TARGET_LOCATIONS:
                                 if target[0] - 10 < impact_x < target[0] + 10 and \
                                         target[1] - 10 < impact_y < target[1] + 10:
                                     flag = target
-                                    print(target[0], target[1])
-                                    print("HIT!")
+                                    log.debug(f"Hit target at: {target[0]}, {target[1]}")
 
                             destruction = random_int(25, 50)
+                            log.debug(f"Destruction: {destruction}")
 
                             if distance > range:
                                 flag = None
-                                print("TARGET OUT OF RANGE", distance, range)
+                                log.debug(f"Impact point out of range. Distance: {distance} Range: {range}")
                                 self.LAM_FIRED.append(
                                     [time, True, flag, 'Ran out of fuel!',
                                      self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
@@ -900,23 +947,22 @@ class App:
                             angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
                             if angle > 360:
                                 angle -= 360
-                            print(angle)
                             impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
                             impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
-                            print(impact_x, impact_y, distance)
+                            log.debug(f"LAM Impact: ({impact_x}, {impact_y}) Distance: {distance}km.")
                             flag = None
                             for target in self.ENEMY_TARGET_LOCATIONS:
                                 if target[0] - 30 < impact_x < target[0] + 30 and \
                                         target[1] - 30 < impact_y < target[1] + 30:
                                     flag = target
-                                    print(target[0], target[1])
-                                    print("HIT!")
+                                    log.debug(f"Hit target at: {target[0]}, {target[1]}")
 
                             destruction = random_int(40, 60)
+                            log.debug(f"Destruction: {destruction}")
 
                             if distance > range:
                                 flag = None
-                                print("TARGET OUT OF RANGE")
+                                log.debug(f"Impact point out of range. Distance: {distance} Range: {range}")
                                 self.LAM_FIRED.append(
                                     [time, True, flag, 'Ran out of fuel!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
                                      destruction])
@@ -941,13 +987,12 @@ class App:
                             angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
                             if angle > 360:
                                 angle -= 360
-                            print(angle)
                             impact_x = self.LOCAL_POSITION[0] - distance * math.cos(math.radians(angle + 90))
                             impact_y = self.LOCAL_POSITION[1] - distance * math.sin(math.radians(angle + 90))
                             # Anti missile defence
                             if random_int(0, 10) < 1:
                                 destruction = 0
-                                print("Defense system defeated the missile.")
+                                log.debug("Defense system defeated the missile.")
                             else:
                                 destruction = random_int(40, 60)
                             if distance > range:
@@ -975,7 +1020,7 @@ class App:
                             # Anti missile defence
                             if random_int(0, 10) < 4:
                                 destruction = 0
-                                print("Defense system defeated the missile.")
+                                log.debug("Defense system defeated the missile.")
                             else:
                                 destruction = random_int(50, 65)
                             if distance > range:
@@ -1003,7 +1048,7 @@ class App:
                             # Anti missile defence
                             if random_int(0, 10) < 3:
                                 destruction = 0
-                                print("Defense system defeated the missile.")
+                                log.debug("Defense system defeated the missile.")
                             else:
                                 destruction = random_int(45, 65)
                             if distance > range:
@@ -1015,7 +1060,7 @@ class App:
                                                    sensor_range])
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
-                            print("FIRED!")
+                            log.debug("Fired the torpedo.")
                             speed = 0.0367
                             range = 35  # 70 km
                             distance = float(self.distance_var[1]) / 2  # converting to px
@@ -1038,7 +1083,7 @@ class App:
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
                             self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Mk-48':
-                            print("FIRED!")
+                            log.debug("Fired the torpedo.")
                             speed = 0.0367
                             range = 35  # 70 km
                             distance = float(self.distance_var[1]) / 2  # converting to px
@@ -1060,7 +1105,7 @@ class App:
                             self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
                             self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
                         elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Fired':
-                            print("TORPEDO UPDATE!!")
+                            log.debug("Updated the torpedo's settings.")
                             distance = float(self.distance_var[1]) / 2  # converting to px
                             angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
                             if angle > 360:
@@ -1121,11 +1166,11 @@ class App:
             elif event.key == pygame.K_LCTRL:
                 if self.GEAR > -3:
                     self.GEAR -= 1
-                print(self.GEAR)
+                log.info(self.GEAR)
             elif event.key == pygame.K_LSHIFT:
                 if self.GEAR != 3:
                     self.GEAR += 1
-                print(self.GEAR)
+                log.info(self.GEAR)
             elif event.key == pygame.K_e:
                 self.WEAPON_SCREEN = False
                 self.SONAR_SCREEN = True
@@ -1167,6 +1212,9 @@ class App:
                 self.SCOREBOARD_OPEN = True
 
     def weapon_screen_render(self):
+        """
+        All the necessary rendering for the weapon screen.
+        """
         self.window.fill(0)
         self.render_notifications()
 
@@ -1905,6 +1953,9 @@ class App:
         pygame.display.update()
 
     def on_execute(self):
+        """
+        Game's mainloop function.
+        """
         WATER_DRAG = 0.00001
         map_delay = 0
         self.open_main_menu()
@@ -1912,24 +1963,20 @@ class App:
             tick_time = self.clock.tick(self.fps)
             self.current_fps = self.clock.get_fps()
             if self.current_fps:
-                fps_d = self.fps / self.current_fps
+                fps_d = self.fps / self.current_fps  # Ratio needed to correct for fps loss
             else:
                 fps_d = 1
-            # print(self.clock.get_fps())
             # Scene checks
             if self.GAME_INIT:
                 self.ship_sync += 0.0167 * fps_d
                 # Collision detection
                 if self.coll_detection.get_at((int(self.LOCAL_POSITION[0]), int(self.LOCAL_POSITION[1])))[:3] != (
                         2, 16, 25):
-                    print("COLLIDED WITH LAND.")
+                    if self.HEALTH != 0:
+                        log.info("Player collided with land.")
                     self.LOCAL_VELOCITY = 0
                     self.LOCAL_ACCELERATION = 0
                     self.HEALTH = 0
-
-                # # Checking if the player is alive
-                # if self.HEALTH <= 0:
-                #     print("PLAYER DIED.")
 
                 # Movement calculations
                 if self.GEAR == 1:
@@ -1968,6 +2015,7 @@ class App:
 
                 self.LOCAL_VELOCITY += self.LOCAL_ACCELERATION
 
+                # Slowing down from water drag
                 if self.LOCAL_VELOCITY - WATER_DRAG >= 0:
                     self.LOCAL_VELOCITY -= WATER_DRAG
                 elif self.LOCAL_VELOCITY + WATER_DRAG <= 0:
@@ -2013,7 +2061,7 @@ class App:
                             if self.OBJECTS[vessel][0][2] > 360:
                                 self.OBJECTS[vessel][0][2] -= 360
                     except Exception as e:
-                        print(e)
+                        log.error(f"Vessel collision detection failed, turning around... {e}")
                         self.OBJECTS[vessel][0][2] += 180
                         if self.OBJECTS[vessel][0][2] > 360:
                             self.OBJECTS[vessel][0][2] -= 360
@@ -2026,7 +2074,7 @@ class App:
                         target = self.ENEMY_TARGET_LOCATIONS[self.ENEMY_TARGET_LOCATIONS.index(missile[2])]
                     if missile[0] <= 0:
                         if missile[1] and target:  # Will hit and has a target
-                            print("TARGET HIT!")
+                            log.info("Target hit!")
                             if target[2] - missile[5] <= 0:
                                 self.LOCAL_SCORE += target[2] * 0.5  # Base damage score
                                 self.NOTICE_QUEUE.append(["Target damaged!", 0, 0])
@@ -2055,7 +2103,7 @@ class App:
                                 sr = missile[6]  # Sensor range (range at which missile tracks on its own)
                                 if self.OBJECTS[ship][0][0] - sr < missile[1] < self.OBJECTS[ship][0][0] + sr and \
                                         self.OBJECTS[ship][0][1] - sr < missile[2] < self.OBJECTS[ship][0][1] + sr:
-                                    print("SHIP HIT!")
+                                    log.info("Ship hit!")
                                     missile[3] = 'Target hit!'
                                     self.OBJECTS[ship][4] -= missile[5]
                                     if self.OBJECTS[ship][4] <= 0:
@@ -2083,10 +2131,10 @@ class App:
                         # if -20 < self.OBJECTS[ship][5] < 1:
                         #     self.OBJECTS[ship][5] = 2
                         if distance + ((1 - self.OBJECTS["Enemy"][3]) * 50) <= 50:
-                            print("Enemy visible to friendly ships!")
+                            log.info("Enemy visible to friendly ships!")
                             flag = 1
                         if self.OBJECTS['Enemy'][5] >= 1 and distance <= 60:
-                            print("Enemy's active sonar heard by a friendly ship!")
+                            log.info("Enemy's active sonar heard by a friendly ship!")
                             if not min_d:
                                 min_d = [distance, [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
                                                     calculate_azimuth(rel_x, rel_y, distance)]]
@@ -2145,8 +2193,6 @@ class App:
                                     math.radians(self.LOCAL_POSITION[2] - 90))) * time * 60
                                 dest_y = self.LOCAL_POSITION[1] + ((self.LOCAL_VELOCITY * fps_d) * math.sin(
                                     math.radians(self.LOCAL_POSITION[2] - 90))) * time * 60
-
-                                print(self.LOCAL_POSITION[0], self.LOCAL_POSITION[1], dest_x, dest_y)
                                 if flag == 0:
                                     id = 0
                                 else:
@@ -2263,7 +2309,7 @@ class App:
                                 torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                     math.radians(torpedo[0][2] - 90))
                                 if -0.2 < distance < 0.2 and -0.2 < depth < 0.2:
-                                    print("TORPEDO HIT!")
+                                    log.info("Torpedo hit the player!")
                                     self.TORPEDOES.pop(key)
                                     self.HEALTH -= random_int(30, 50)
                                     self.NOTICE_QUEUE.append(["We got hit!", 0, 1])
@@ -2316,13 +2362,13 @@ class App:
                                 torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                     math.radians(torpedo[0][2] - 90))
                                 if -1 < distance < 1 and -1 < depth < 1:
-                                    print("TORPEDO HIT!")
+                                    log.info("Torpedo hit a friendly ship!")
                                     self.TORPEDOES.pop(key)
                                     self.OBJECTS[min_distance[1]][4] -= random_int(30, 50)
                                     if self.OBJECTS[min_distance[1]][4] <= 0:
                                         self.SINK_QUEUE.append(min_distance[1])
                                         self.OBJECTS.pop(min_distance[1])
-                                        print("TORPEDO SUNK THE SHIP!")
+                                        log.info("Torpedo sunk a friendly ship!")
                                         self.ENEMY_SCORE += 200
                                         self.SHIPS_DESTROYED_ENEMY += 1
                                         self.NOTICE_QUEUE.append(["Friendly ship got destroyed.", 0, 1])
@@ -2474,7 +2520,6 @@ class App:
                         if ship_sync_info == "":
                             ship_sync_info = "None"
 
-                    print(torpedo_send_info2)
                     if self.ACTIVE_SONAR:
                         sonar_info = 1
                     else:
@@ -2491,7 +2536,7 @@ class App:
                 if server_api.UPDATE_INFO:
                     # print(server_api.TORPEDO_INFO)
                     if server_api.UPDATE_INFO.count("PLAYER HAS DIED"):
-                        print("Recieved information about player's death, R.I.P.")
+                        log.info("Received information about enemy's death, R.I.P.")
                         self.clear_scene()
                         self.WIN_SCREEN = True
                         continue
@@ -2510,7 +2555,7 @@ class App:
                                 ship = ship.replace("Friendly", "Enemy")
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
-                                    print(f"Ship {ship} has been sunk by you!")
+                                    log.info(f"Ship {ship} has been sunk by you!")
                                     self.LOCAL_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED += 1
                                     self.NOTICE_QUEUE.append(["Ship destroyed!", 0, 0])
@@ -2518,25 +2563,25 @@ class App:
                                 ship = ship.replace("Enemy", "Friendly")
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
-                                    print(f"Ship {ship} has been sunk by the enemy!")
+                                    log.info(f"Ship {ship} has been sunk by the enemy!")
                                     self.ENEMY_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED_ENEMY += 1
                                     self.NOTICE_QUEUE.append(["Friendly ship got destroyed!", 0, 1])
                     if server_api.UPDATE_INFO[8] != 'None':
-                        print("Target information received!")
+                        log.debug("Target information received!")
                         for target in server_api.UPDATE_INFO[8].split("?"):
-                            print(f"Target: {target.split('!')}")
+                            log.debug(f"Target: {target.split('!')}")
                             target = target.split("!")
                             for enemy_target in self.FRIENDLY_TARGET_LOCATIONS:
                                 if str(enemy_target[0]) == target[0] and str(enemy_target[1]) == target[1]:
                                     if enemy_target[2] - int(target[2]) < 0:
                                         self.ENEMY_SCORE += enemy_target[2] * 0.5  # Base damage score
-                                        print(f"Friendly base got damaged beyond repair. Enemy score "
-                                              f"+= {enemy_target[2]*0.5}")
+                                        log.debug(f"Friendly base got damaged beyond repair. Enemy score "
+                                              f"+= {enemy_target[2] * 0.5}")
                                         self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
                                     else:
                                         self.ENEMY_SCORE += int(target[2]) * 0.5  # Base damage score
-                                        print(f"Friendly base got damaged. Enemy score += {int(target[2]) * 0.5}")
+                                        log.debug(f"Friendly base got damaged. Enemy score += {int(target[2]) * 0.5}")
                                         self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
                                     enemy_target[2] -= int(target[2])
                                     if enemy_target[2] <= 0:
@@ -2584,9 +2629,10 @@ class App:
                                     self.WEAPON_LAYOUT[weapon][1] = ''
                                     self.FIRED_TORPEDOES.pop(weapon)
                                 else:
-                                    print("YOU GOT A CHANCE")
+                                    log.debug(f"Torpedo information isn't being received. Chance left: "
+                                              f"{5 - self.FIRED_TORPEDOES[weapon][2]}")
                             else:
-                                print("THAT'S IT, THAT'S MY BOY")
+                                log.debug("Torpedo status information received.")
                                 t1 = False
                                 t2 = False
                                 if torp_info.split('!')[1] == 'True':
@@ -2616,14 +2662,14 @@ class App:
                         if torp_key in list(self.TORPEDOES.keys()):
                             flag = 1
                         if flag:
-                            print("Updating existing torpedo's settings.")
+                            log.debug("Updating existing torpedo's settings.")
                             self.TORPEDOES[torp_key][1][0] = float(info[5])
                             self.TORPEDOES[torp_key][1][1] = float(info[6])
                             self.TORPEDOES[torp_key][1][2] = float(info[7])
                             self.TORPEDOES[torp_key][6] = t2
                         else:
                             try:
-                                print("Launching a new torpedo!")
+                                log.debug("Launching a new torpedo!")
                                 torp = [[float(info[0]), float(info[1]),
                                          float(info[2]),
                                          float(info[3]), float(info[4])],
@@ -2633,16 +2679,22 @@ class App:
                                         float(info[11]), t2]
                                 self.TORPEDOES[torp_key] = torp
                             except ValueError:
-                                print("Torpedo no longer exists.")
+                                log.debug("Torpedo no longer exists.")
                         server_api.TORPEDO_INFO = None
 
         self.on_cleanup()
 
     def sonar_screen_render(self):
+        """
+        All the necessary rendering for the sonar screen.
+        """
         self.window.fill('black')
         self.render_notifications()
 
         def calculate_bearing(rel_x, rel_y, distance):
+            """
+            Calculates bearing of an object at specified coordinates relative to the player's position.
+            """
             if rel_x == 0:
                 if rel_y < 0:
                     angle = 0
@@ -3146,6 +3198,9 @@ class App:
         pygame.display.update()
 
     def start_hosting(self):
+        """
+        Creates 2 new channels for the game to be hosted in and waits for the other player.
+        """
         server_api.remove_old_games()
         LISTENING_CHANNEL = None
         SENDING_CHANNEL = None
@@ -3164,7 +3219,7 @@ class App:
         server_api.CHANNEL = SENDING_CHANNEL
 
         self.GAME_CODE = f"{rand_id}{enemy}"
-        print("Waiting for enemy..")
+        log.info("Waiting for enemy to join the game..")
         self.HOST_STATUS = 2
         self.must_update = True
 
@@ -3179,7 +3234,7 @@ class App:
             if msg is None:
                 server_api.ALLOW_WAIT = True
                 return
-        print("SOMEONE JOINED THE GAME!")
+        log.info("Enemy joined the game!")
         # Sending mission information
         server_api.SEND_INFO = f"MISSION-INFORMATION%!%{self.mission_name}"
         # Waiting for the other player to download mission info
@@ -3193,17 +3248,23 @@ class App:
             if msg is None:
                 server_api.ALLOW_WAIT = True
                 return
-        print("Finished loading, ready to start.")
+        log.info("Finished loading, ready to start.")
         self.HOST_STATUS = 3
         self.must_update = True
 
     def sync_time_start(self):
+        """
+        Starts the game.
+        """
         self.clear_scene()
         self.game_init()
         self.GAME_OPEN = True
         self.GAME_INIT = True
 
     def host_game_screen_events(self, event):
+        """
+        Handles events in the host game screen.
+        """
         if self.starts_in is not None:
             self.must_update = True
             txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
@@ -3234,19 +3295,18 @@ class App:
                         choice.append(f)
                 self.mission_name = random.choice(choice)
             elif event.button == 1 and pygame.Rect(self.host_game_box).collidepoint(pygame.mouse.get_pos()):
-                print("Clicked on host game.")
                 if self.mission_name and self.HOST_STATUS == 0:
                     if self.team_selected == 2:
                         self.PLAYER_ID = random_int(0, 1)
                         server_api.PLAYER = self.PLAYER_ID
-                        print("Hosting...")
+                        log.info("Hosting...")
                         self.HOST_STATUS = 1
                         hosting_thread = threading.Thread(target=self.start_hosting)
                         hosting_thread.start()
                     else:
                         self.PLAYER_ID = self.team_selected
                         server_api.PLAYER = self.PLAYER_ID
-                        print("Hosting...")
+                        log.info("Hosting...")
                         self.HOST_STATUS = 1
                         hosting_thread = threading.Thread(target=self.start_hosting)
                         hosting_thread.start()
@@ -3254,19 +3314,19 @@ class App:
                     server_api.SEND_INFO = f"[{self.PLAYER_ID}] Start the game."
                     while server_api.SEND_INFO:
                         pass
-                    print("Starting the game!")
+                    log.info("Starting the game!")
                     threading.Thread(target=self.sync_time_start).start()
 
             elif self.copy_box:
                 if event.button == 1 and pygame.Rect(self.copy_box).collidepoint(pygame.mouse.get_pos()):
                     pyperclip.copy(self.GAME_CODE)
-                    print("Copied!")
+                    log.debug("Copied!")
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_F2:
                 self.CHEATS = True
             elif event.key == pygame.K_F3:
                 if self.mission_name and self.HOST_STATUS == 0 and self.CHEATS:
-                    print("Forcefully starting game...")
+                    log.info("Forcefully starting game...")
                     if self.team_selected == 2:
                         self.PLAYER_ID = random_int(0, 1)
                         server_api.PLAYER = self.PLAYER_ID
@@ -3274,7 +3334,7 @@ class App:
                     else:
                         self.PLAYER_ID = self.team_selected
                         server_api.PLAYER = self.PLAYER_ID
-                    print("Hosting...")
+                    log.info("Hosting...")
                     self.HOST_STATUS = 1
                     server_api.remove_old_games()
                     LISTENING_CHANNEL = None
@@ -3292,7 +3352,7 @@ class App:
                     server_api.LISTENING_CHANNEL = LISTENING_CHANNEL
                     server_api.CHANNEL = SENDING_CHANNEL
                     self.GAME_CODE = f"{rand_id}{enemy}"
-                    print("Finished loading, ready to start.")
+                    log.info("Finished loading, ready to start.")
                     self.clear_scene()
                     self.game_init()
                     self.GAME_OPEN = True
@@ -3346,6 +3406,9 @@ class App:
         pygame.display.update()
 
     def host_game_render(self):
+        """
+        All the necessary rendering to display the host game screen.
+        """
         self.window.fill("#021019")
         if self.HOST_STATUS == 3:
             txtsurf = self.middle_font.render(f'Player joined the game!', True, '#B7FFB7')
@@ -3446,6 +3509,9 @@ class App:
             pygame.display.update()
 
     def start_joining(self):
+        """
+        Attempts to find the channel using the specified code and initiate the joining procedure.
+        """
         flag = 0
         if self.PLAYER_ID:
             enemy = 0
@@ -3453,15 +3519,15 @@ class App:
             enemy = 1
         for channel in server_api.get_all_channel_names():
             if channel.name.count(f"{self.PLAYER_ID}{self.GAME_CODE_VAR[1][:-1].lower()}"):
-                print("Sending channel found!")
+                log.debug("Sending channel found!")
                 server_api.CHANNEL = channel
                 flag += 1
             elif channel.name.count(f"{enemy}{self.GAME_CODE_VAR[1][:-1].lower()}"):
-                print("Listening channel found!")
+                log.debug("Listening channel found!")
                 server_api.LISTENING_CHANNEL = channel
                 flag += 1
         if flag >= 2:
-            print("Connected!")
+            log.info("Connected!")
             server_api.SEND_INFO = f"[{self.PLAYER_ID}] Joined the game."
             # Waiting for mission information
             msg = server_api.wait_for_message()
@@ -3474,7 +3540,7 @@ class App:
                 if msg is None:
                     server_api.ALLOW_WAIT = True
                     return
-            print("Received mission information!", msg['content'])
+            log.debug("Received mission information!", msg['content'])
             info = json.loads(eval(msg['content'].replace("MISSION-INFORMATION", "")))
             json_object = json.dumps(info, indent=4)
             with open("TEMP.json", "w", encoding="utf-8") as temp_file:
@@ -3494,14 +3560,17 @@ class App:
                 if msg is None:
                     server_api.ALLOW_WAIT = True
                     return
-            print("Starting the game!")
+            log.info("Starting the game!")
             threading.Thread(target=self.sync_time_start).start()
         else:
-            print("Join failed.")
+            log.info("Join failed.")
             self.JOIN_STATUS = 3
             self.must_update = True
 
     def join_game_screen_events(self, event):
+        """
+        Handles events in the join game screen.
+        """
         if self.starts_in is not None:
             txtsurf = self.middle_font.render(f'Starting in {self.starts_in}', True, '#b6b6d1')
             self.window.blit(txtsurf, mid_rect((self.size[0] / 2 - 60, 25 * self.pos - 20, 120, 40), txtsurf))
@@ -3516,19 +3585,18 @@ class App:
                 self.GAME_CODE_VAR[0] = True
                 self.GAME_CODE_VAR[1] = ""
             elif event.button == 1 and pygame.Rect(self.join_game_box).collidepoint(pygame.mouse.get_pos()):
-                print("Clicked on join game.")
                 if self.JOIN_STATUS == 0:
                     if self.GAME_CODE_VAR[1] != "" and self.GAME_CODE_VAR[1] != "Game code" and \
                             self.GAME_CODE_VAR[1][-1].isnumeric():
                         self.PLAYER_ID = int(self.GAME_CODE_VAR[1][-1])
                         server_api.PLAYER = self.PLAYER_ID
-                        print("Joining...")
+                        log.info("Joining...")
                         self.JOIN_STATUS = 1
                         self.must_update = True
                         joining_thread = threading.Thread(target=self.start_joining)
                         joining_thread.start()
                     else:
-                        print("Wrong code!")
+                        log.info("Wrong code!")
                         self.JOIN_STATUS = 3
                         self.must_update = True
             elif event.button == 1 and pygame.Rect(self.back_box_join).collidepoint(pygame.mouse.get_pos()):
@@ -3566,7 +3634,7 @@ class App:
             if self.JOIN_STATUS == 1:
                 txtsurf = self.middle_font.render('Joining...', True, '#DBFFD6')
             elif self.JOIN_STATUS == 2:
-                txtsurf = self.middle_font.render('Ready...', True, '#DBFFD6')
+                txtsurf = self.middle_font.render('Joined.', True, '#DBFFD6')
             elif self.JOIN_STATUS == 3:
                 txtsurf = self.middle_font.render('Wrong code!', True, '#DBFFD6')
             else:
@@ -3583,6 +3651,9 @@ class App:
         pygame.display.update()
 
     def join_game_render(self):
+        """
+        All the necessary rendering to display the join game screen.
+        """
         if self.JOIN_STATUS == 3 and self.ERROR_DELAY == 0:
             self.ERROR_DELAY = 3
         if self.ERROR_DELAY:
@@ -3634,6 +3705,9 @@ class App:
             pygame.display.update()
 
     def win_screen_render(self):
+        """
+        Renders a screen which signalizes that you've won the game.
+        """
         self.window.fill("#021019")
         chunk = 33
         self.pos = self.size[1] / chunk
@@ -3647,6 +3721,9 @@ class App:
         pygame.display.update()
 
     def loss_screen_render(self):
+        """
+        Renders a screen which signalizes that you've lost the game.
+        """
         self.window.fill("#021019")
         chunk = 33
         self.pos = self.size[1] / chunk
@@ -3663,6 +3740,9 @@ class App:
         pygame.display.update()
 
     def scoreboard_render(self):
+        """
+        Renders a scoreboard containing statistics of players' objectives.
+        """
         self.window.fill("#021019")
         self.render_notifications()
         sb_grid = (self.size[0] - 200) / 4
@@ -3725,6 +3805,9 @@ class App:
         pygame.display.update()
 
     def scoreboard_events(self, event):
+        """
+        Handles events in the scoreboard screen.
+        """
         pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
         if event.type == pygame.QUIT:
             self.running = False
@@ -3743,6 +3826,9 @@ class App:
 
 
 def start_the_game():
+    """
+    A helper function to execute necessary functions to begin the game in a separate thread.
+    """
     pygame.init()
     app = App()
     app.on_execute()
@@ -3750,4 +3836,4 @@ def start_the_game():
 
 if __name__ == "__main__":
     threading.Thread(target=start_the_game).start()
-    asyncio.run(server_api.start_bot())
+    asyncio.run(server_api.start_bot())  # Starts the connection

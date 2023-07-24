@@ -1,15 +1,14 @@
 import asyncio
 import datetime
 import json
-from sys import stdout
-import threading
-import time
 import logging
+import time
 from functools import partial, wraps
+from sys import stdout
 
 import discord
 import requests
-from discord.ext import commands, tasks
+from discord.ext import tasks
 
 BOT = discord.Client(intents=discord.Intents().all())
 
@@ -37,9 +36,12 @@ MSGS_PROCESSED = []
 # --------- Logging for debugging -------- #
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
-formatter = logging.Formatter(fmt="[%(asctime)s %(levelname)s]: %(message)s",
-                              datefmt="%H:%M:%S")
-fh = logging.FileHandler("log.log", "w")
+formatter = logging.Formatter(
+    fmt="[{asctime}.{msecs:03.0f}] <{name}> ({funcName})  {levelname}: \"{message}\"",
+    datefmt="%H:%M:%S",
+    style="{"
+)
+fh = logging.FileHandler("sever.log", "w")
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)
 log.addHandler(fh)
@@ -47,9 +49,7 @@ sh = logging.StreamHandler(stdout)
 sh.setLevel(logging.DEBUG)
 sh.setFormatter(formatter)
 log.addHandler(sh)
-log.info("\nStarting up...")
-
-
+log.info("Starting up...")
 # ------------------------------------------
 
 
@@ -64,7 +64,6 @@ def execute(function):
         func_list = [partial(function, *args, **kwargs), [None]]
         toExecute.append(func_list)
         log.debug(f"Appended {func_list} to execution queue.")
-        log.debug(f"Queue: {toExecute}")
 
         while toExecute[toExecute.index(func_list)][1] == [None]:
             time.sleep(0.5)
@@ -154,8 +153,10 @@ async def on_msg():
                 log.debug("Message has attachments!")
                 r = requests.get(url=msg['attachments'][0]['url'])
                 log.debug(f"Attachments fetched. Status: {r.status_code}")
-                msg['content'] = f"MISSION-INFORMATION{r.content}"
-                ON_MESSAGE_BUFFER.append(msg)
+                msg_ = msg
+                msg_['content'] = f"MISSION-INFORMATION{r.content}"
+                ON_MESSAGE_BUFFER.append(msg_)
+                LAST_UPDATE_AT = time.time()
         elif str(msg['content'][1]) != str(PLAYER):
             if msg['content'][2] == ']':
                 ON_MESSAGE_BUFFER.append(msg)
@@ -238,7 +239,7 @@ async def remove_old_games():
 
 
 @execute
-async def wait_for_message():
+async def wait_for_message() -> any:
     """
     Waits until the bot receives a new message.
     """
@@ -267,7 +268,7 @@ async def update_game():
     global LAST_UPDATE_AT
     if LAST_UPDATE_AT:
         if time.time() - LAST_UPDATE_AT > 10:
-            log.error(f"Connection problems, no updates for {time.time()-LAST_UPDATE_AT}s.")
+            log.error(f"Connection problems, no updates for {time.time() - LAST_UPDATE_AT}s.")
             if time.time() - LAST_UPDATE_AT > 20:
                 log.error("Pausing connection for 5 seconds...")
                 await asyncio.sleep(5)
@@ -296,7 +297,7 @@ async def update_game():
             headers = {"authorization": f"Bot {TOKEN}"}
             payload = {"content": {SEND_INFO}}
             d = requests.post(f'https://discord.com/api/v9/channels/{CHANNEL.id}/messages',
-                             headers=headers, data=payload, timeout=3)
+                              headers=headers, data=payload, timeout=3)
             log.debug(f"Sent update info. Status: {d.status_code}")
             # d = await CHANNEL.send(SEND_INFO)
             LAST_SEND_AT = time.time()
@@ -304,6 +305,7 @@ async def update_game():
             SEND_INFO = None
     else:
         log.debug(f"No send info provided.")
+
 
 @tasks.loop(seconds=1)
 async def api_listener():
