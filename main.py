@@ -1048,7 +1048,7 @@ class App:
                 self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Sonar decoy':
                 log.debug("Fired the sonar decoy!")
-                speed = 0.0173
+                speed = 0.012
                 range = 30  # 60 km
                 # distance = float(self.distance_var[1]) / 2  # converting to px
                 angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
@@ -2261,7 +2261,7 @@ class App:
 
                 # Sonar decoy simulation
                 for decoy in self.DECOYS:
-                    speed = 0.0173
+                    speed = 0.012
                     decoy[1][4] -= 0.0167 * fps_d
                     if decoy[1][4] <= 0:
                         log.debug("Sonar decoy ran out of fuel.")
@@ -2276,7 +2276,7 @@ class App:
                         angle = -((360 - angle) + decoy[0][2])
                     else:
                         angle = -(decoy[0][2] - angle)
-                    turn = 0.20 * fps_d
+                    turn = 0.34 * fps_d
                     if turn > abs(angle):
                         turn = abs(angle)
                     if angle > 0:
@@ -2300,6 +2300,9 @@ class App:
                 # Enemy torpedo simulation
                 for key in list(self.TORPEDOES):
                     torpedo = self.TORPEDOES[key]
+                    max_distance = 10
+                    if torpedo[6]:
+                        max_distance = 20
                     rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
                     rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
                     distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
@@ -2356,6 +2359,22 @@ class App:
                                 if min_distance[0] > distance:
                                     min_distance[0] = distance
                                     min_distance[1] = ship
+                        for decoy in self.DECOYS:
+                            rel_x = decoy[0][0] - torpedo[0][0]
+                            rel_y = decoy[0][1] - torpedo[0][1]
+                            distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                            if decoy[2] and not torpedo[6]:
+                                loop_log.debug("Sonar decoy filtered out due to its active mode.")
+                                continue  # If the decoy is active and the torpedo is passive, ignore it.
+                            elif decoy[2] and torpedo[6] and distance <= 10:
+                                loop_log.debug("Torpedo is being confused by active sonar decoy!")
+                                max_distance -= 12  # If both are active and close, lowers the max detection distance.
+                            if not min_distance[0]:
+                                min_distance[0] = distance
+                                min_distance[1] = decoy
+                            if min_distance[0] > distance:
+                                min_distance[0] = distance
+                                min_distance[1] = decoy
                         rel_x = self.LOCAL_POSITION[0] - torpedo[0][0]
                         rel_y = self.LOCAL_POSITION[1] - torpedo[0][1]
                         distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
@@ -2377,9 +2396,6 @@ class App:
                             else:
                                 angle = -(torpedo[0][2] - angle)
                             depth = self.LOCAL_POSITION[4] - torpedo[0][4]
-                            max_distance = 10
-                            if torpedo[6]:
-                                max_distance = 20
                             if distance < max_distance and 150 > angle > -150 and -40 < depth < 40:
                                 turn = 0.34 * fps_d
                                 if turn > abs(angle):
@@ -2401,7 +2417,7 @@ class App:
                                     math.radians(torpedo[0][2] - 90))
                                 torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                     math.radians(torpedo[0][2] - 90))
-                                if -0.2 < distance < 0.2 and -0.2 < depth < 0.2:
+                                if -0.5 < distance < 0.5 and -0.2 < depth < 0.2:
                                     log.info("Torpedo hit the player!")
                                     self.TORPEDOES.pop(key)
                                     self.HEALTH -= random_int(30, 50)
@@ -2412,7 +2428,7 @@ class App:
                                     math.radians(torpedo[0][2] - 90))
                                 torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                     math.radians(torpedo[0][2] - 90))
-                        else:
+                        elif min_distance[1] in list(self.OBJECTS.keys()):
                             rel_x = self.OBJECTS[min_distance[1]][0][0] - torpedo[0][0]
                             rel_y = self.OBJECTS[min_distance[1]][0][1] - torpedo[0][1]
                             distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
@@ -2424,9 +2440,7 @@ class App:
                             else:
                                 angle = -(torpedo[0][2] - angle)
                             depth = self.OBJECTS[min_distance[1]][0][3] - torpedo[0][4]
-                            max_distance = 10
                             if torpedo[6] and distance <= 60:
-                                max_distance = 20
                                 self.DETECTED_TORPEDOES[key] = [distance, min_distance[1], angle]
                                 f = 0
                                 for notice in self.NOTICE_QUEUE:
@@ -2473,6 +2487,51 @@ class App:
                                     math.radians(torpedo[0][2] - 90))
                                 torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                     math.radians(torpedo[0][2] - 90))
+                        elif isinstance(min_distance[1], list):
+                            rel_x = min_distance[1][0][0] - torpedo[0][0]
+                            rel_y = min_distance[1][0][1] - torpedo[0][1]
+                            distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                            angle = calculate_azimuth(rel_x, rel_y, distance)
+                            if torpedo[0][2] - angle > 180:
+                                angle = (360 - torpedo[0][2]) + angle
+                            elif torpedo[0][2] - angle < -180:
+                                angle = -((360 - angle) + torpedo[0][2])
+                            else:
+                                angle = -(torpedo[0][2] - angle)
+                            depth = min_distance[1][0][3] - torpedo[0][4]
+                            max_distance = 10
+                            if distance < max_distance and 120 > angle > -120 and -50 < depth < 50:
+                                turn = 0.34 * fps_d
+                                if turn > abs(angle):
+                                    turn = abs(angle)
+                                if angle > 0:
+                                    torpedo[0][2] += turn
+                                else:
+                                    torpedo[0][2] -= turn
+                                dive_rate = 0.1 * fps_d
+                                if dive_rate > depth:
+                                    dive_rate = depth
+                                if depth > 0:
+                                    torpedo[0][4] += dive_rate
+                                else:
+                                    torpedo[0][4] -= dive_rate
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
+                                if -1 < distance < 1 and -1 < depth < 1:
+                                    log.info("Torpedo hit a sonar decoy!")
+                                    self.DECOYS.remove(min_distance[1])
+                                    # self.TORPEDOES.pop(key)
+                                    # self.OBJECTS[min_distance[1]][4] -= random_int(30, 50)
+                            else:
+                                # Updating torpedo's position
+                                torpedo[0][0] += (torpedo[0][3] * fps_d) * math.cos(
+                                    math.radians(torpedo[0][2] - 90))
+                                torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
+                                    math.radians(torpedo[0][2] - 90))
+
 
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
