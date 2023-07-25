@@ -113,6 +113,7 @@ def mid_rect(rect, txtsurf):
 
 class App:
     def __init__(self):
+        self.DECOYS = []
         self.DETECTED_TORPEDOES = {}
         self.LAUNCH_AUTH = [None, 0]
         self.CHEATS = False
@@ -373,6 +374,17 @@ class App:
                 pygame.draw.aaline(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]),
                                    point1)
                 pygame.draw.circle(self.map, 'red', (self.TORPEDOES[torpedo][0][0], self.TORPEDOES[torpedo][0][1]), 2)
+        # Friendly decoys
+        if self.CHEATS:
+            for decoy in self.DECOYS:
+                length = 5
+                point1 = (
+                    decoy[0][0] + length * math.cos(math.radians(decoy[0][2] - 90)),
+                    decoy[0][1] + length * math.sin(math.radians(decoy[0][2] - 90)))
+                pygame.draw.aaline(self.map, 'yellow', (decoy[0][0], decoy[0][1]),
+                                   point1)
+                pygame.draw.circle(self.map, 'yellow', (decoy[0][0], decoy[0][1]), 2)
+
         # Enemy relayed position
         if self.ENEMY_VISIBLE:
             length = 5
@@ -1005,7 +1017,7 @@ class App:
                     mode = False
                 torpedo_info = [
                     [self.LOCAL_POSITION[0], self.LOCAL_POSITION[1],
-                     self.LOCAL_POSITION[2], speed, self.LOCAL_POSITION[3]],
+                     self.LOCAL_POSITION[2], speed, self.LOCAL_POSITION[4]],
                     [impact_x, impact_y, float(self.depth_var[1])], False, time, 'Enemy', 0,
                     mode, self.SELECTED_WEAPON]
                 self.UPDATE_TORP_QUEUE.append(f"{torpedo_info}")
@@ -1028,12 +1040,30 @@ class App:
                     mode = False
                 torpedo_info = [
                     [self.LOCAL_POSITION[0], self.LOCAL_POSITION[1],
-                     self.LOCAL_POSITION[2], speed, self.LOCAL_POSITION[3]],
+                     self.LOCAL_POSITION[2], speed, self.LOCAL_POSITION[4]],
                     [impact_x, impact_y, float(self.depth_var[1])], False, time, 'Enemy', 0,
                     mode, self.SELECTED_WEAPON]
                 self.UPDATE_TORP_QUEUE.append(f"{torpedo_info}")
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
                 self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
+            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Sonar decoy':
+                log.debug("Fired the sonar decoy!")
+                speed = 0.0173
+                range = 30  # 60 km
+                # distance = float(self.distance_var[1]) / 2  # converting to px
+                angle = self.LOCAL_POSITION[2] + float(self.bearing_var[1])
+                if angle > 360:
+                    angle -= 360
+                time = range / (speed * 60)
+                impact_x = self.LOCAL_POSITION[0] - range * math.cos(math.radians(angle + 90))
+                impact_y = self.LOCAL_POSITION[1] - range * math.sin(math.radians(angle + 90))
+                mode = True
+                if self.mode_var == 0:
+                    mode = False
+                self.DECOYS.append([[self.LOCAL_POSITION[0], self.LOCAL_POSITION[1],
+                                     self.LOCAL_POSITION[2], self.LOCAL_POSITION[4]],
+                                    [impact_x, impact_y, self.LOCAL_POSITION[2], float(self.depth_var[1]), time], mode])
+                self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Fired':
                 log.debug("Updated the torpedo's settings.")
                 distance = float(self.distance_var[1]) / 2  # converting to px
@@ -1269,7 +1299,6 @@ class App:
             if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
                 txtsurf = self.middle_font.render(f'Land-attack missile', True, '#c95918')
                 self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                # TODO: Add descriptions for all weapons
                 txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
                 self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
                 txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
@@ -1309,7 +1338,6 @@ class App:
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'P-800 Oniks':
                 txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
                 self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                # TODO: Add descriptions for all weapons
                 txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
                 self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
                 txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
@@ -1346,7 +1374,6 @@ class App:
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
                 txtsurf = self.middle_font.render(f'Torpedo', True, '#263ded')
                 self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                # TODO: Add descriptions for all weapons
                 txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
                 self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
                 txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
@@ -1382,7 +1409,6 @@ class App:
                        f"range at " \
                        f"which " \
                        f"the target\ncan be found, but\nexposes your position to the enemy."
-                # TODO: Active torpedo mode makes you visible for a few seconds to an enemy in range.
                 i = 0
                 for line in desc.split('\n'):
                     txtsurf = self.middle_font.render(line, True, '#DADAFA')
@@ -1422,7 +1448,6 @@ class App:
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Mk-48':
                 txtsurf = self.middle_font.render(f'Torpedo', True, '#263ded')
                 self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                # TODO: Add descriptions for all weapons
                 txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
                 self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
                 txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
@@ -1456,7 +1481,6 @@ class App:
                        f"range at " \
                        f"which " \
                        f"the target\ncan be found, but\nexposes your position to the enemy."
-                # TODO: Active torpedo mode makes you visible for a few seconds to an enemy in range.
                 i = 0
                 for line in desc.split('\n'):
                     txtsurf = self.middle_font.render(line, True, '#DADAFA')
@@ -1465,7 +1489,6 @@ class App:
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TLAM-E':
                 txtsurf = self.middle_font.render(f'Land-attack missile', True, '#c95918')
                 self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                # TODO: Add descriptions for all weapons
                 txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
                 self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
                 txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
@@ -1503,7 +1526,6 @@ class App:
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TASM':
                 txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
                 self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                # TODO: Add descriptions for all weapons
                 txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
                 self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
                 txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
@@ -1542,7 +1564,6 @@ class App:
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84':
                 txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
                 self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                # TODO: Add descriptions for all weapons
                 txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
                 self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
                 txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
@@ -2237,6 +2258,44 @@ class App:
                                     [dest_x, dest_y, self.LOCAL_POSITION[4]], False, 20, ship, 0,
                                     True]
                                 self.NOTICE_QUEUE.append(["Torpedo in the water!", 0, 1])
+
+                # Sonar decoy simulation
+                for decoy in self.DECOYS:
+                    speed = 0.0173
+                    decoy[1][4] -= 0.0167 * fps_d
+                    if decoy[1][4] <= 0:
+                        log.debug("Sonar decoy ran out of fuel.")
+                        self.DECOYS.remove(decoy)
+                    rel_x = decoy[1][0] - decoy[0][0]
+                    rel_y = decoy[1][1] - decoy[0][1]
+                    distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
+                    angle = calculate_azimuth(rel_x, rel_y, distance)
+                    if decoy[0][2] - angle > 180:
+                        angle = (360 - decoy[0][2]) + angle
+                    elif decoy[0][2] - angle < -180:
+                        angle = -((360 - angle) + decoy[0][2])
+                    else:
+                        angle = -(decoy[0][2] - angle)
+                    turn = 0.20 * fps_d
+                    if turn > abs(angle):
+                        turn = abs(angle)
+                    if angle > 0:
+                        decoy[0][2] += turn
+                    else:
+                        decoy[0][2] -= turn
+                    dive_rate = 0.24 * fps_d
+                    depth = decoy[1][3] - decoy[0][3]
+                    if dive_rate > depth:
+                        dive_rate = depth
+                    if depth > 0:
+                        decoy[0][3] += dive_rate
+                    else:
+                        decoy[0][3] -= dive_rate
+                    # print(f"Depth to destination: {depth} Distance: {distance}")
+                    decoy[0][0] += (speed * fps_d) * math.cos(
+                        math.radians(decoy[0][2] - 90))
+                    decoy[0][1] += (speed * fps_d) * math.sin(
+                        math.radians(decoy[0][2] - 90))
 
                 # Enemy torpedo simulation
                 for key in list(self.TORPEDOES):
