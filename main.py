@@ -12,6 +12,13 @@ import pygame
 import pyperclip
 
 import server_api
+from Components.Weapons.kalibr import Kalibr
+from Components.Weapons.oniks import Oniks
+from Components.Weapons.futlyar import Futlyar
+from Components.Weapons.tlam import Tlam
+from Components.Weapons.tasm import Tasm
+from Components.Weapons.ugm84 import Ugm84
+from Components.Weapons.mk48 import Mk48
 from Components.player import Player
 from Components.torpedo import Torpedo, DETECTED_TORPEDOES, TORPEDO_SINK_QUEUE, \
     TORPEDO_DAMAGE_QUEUE, TORPEDO_DECOY_QUEUE
@@ -774,211 +781,50 @@ class App:
         if flag:
             self.LAUNCH_AUTH = [True, 3]
             if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
-                speed = 3.5  # 1 pixel = 2.09km 0.0193 = 1km/h | 1 px = actual 12.5km # random speed idk
-                range = 150  # = 2500km  # = 300 km
-                distance = float(self.distance_var[1]) / 2  # converting to px
-                if distance > range:
-                    time = range / speed
-                else:
-                    time = distance / speed
-                # VLS launch
-                angle = self.player.azimuth + float(self.bearing_var[1])
-                if angle > 360:
-                    angle -= 360
-                impact_x = self.player.x - distance * math.cos(math.radians(angle + 90))
-                impact_y = self.player.y - distance * math.sin(math.radians(angle + 90))
-                log.debug(f"LAM Impact: ({impact_x}, {impact_y}) Distance: {distance}km.")
-                flag = None
-                for target in self.ENEMY_TARGET_LOCATIONS:
-                    if target[0] - 10 < impact_x < target[0] + 10 and \
-                            target[1] - 10 < impact_y < target[1] + 10:
-                        flag = target
-                        log.debug(f"Hit target at: {target[0]}, {target[1]}")
+                self.LAM_FIRED.append(
+                    Kalibr().launch(self.player, float(self.bearing_var[1]),
+                                    float(self.distance_var[1]) / 2, self.ENEMY_TARGET_LOCATIONS))
 
-                destruction = random_int(25, 50)
-                log.debug(f"Destruction: {destruction}")
-
-                if distance > range:
-                    flag = None
-                    log.debug(f"Impact point out of range. Distance: {distance} Range: {range}")
-                    self.LAM_FIRED.append(
-                        [time, True, flag, 'Ran out of fuel!',
-                         self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction])
-                elif flag:
-                    self.LAM_FIRED.append(
-                        [time, True, flag, 'Target hit!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
-                         destruction])
-                else:
-                    self.LAM_FIRED.append(
-                        [time, False, flag, 'Target missed!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
-                         destruction])
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TLAM-E':
-                speed = 1.74
-                range = 200  # = 2500km  # = 400 km
-                distance = float(self.distance_var[1]) / 2  # converting to px
-                if distance > range:
-                    time = range / speed
-                else:
-                    time = distance / speed
-                angle = self.player.azimuth + float(self.bearing_var[1])
-                if angle > 360:
-                    angle -= 360
-                impact_x = self.player.x - distance * math.cos(math.radians(angle + 90))
-                impact_y = self.player.y - distance * math.sin(math.radians(angle + 90))
-                log.debug(f"LAM Impact: ({impact_x}, {impact_y}) Distance: {distance}km.")
-                flag = None
-                for target in self.ENEMY_TARGET_LOCATIONS:
-                    if target[0] - 30 < impact_x < target[0] + 30 and \
-                            target[1] - 30 < impact_y < target[1] + 30:
-                        flag = target
-                        log.debug(f"Hit target at: {target[0]}, {target[1]}")
-
-                destruction = random_int(40, 60)
-                log.debug(f"Destruction: {destruction}")
-
-                if distance > range:
-                    flag = None
-                    log.debug(f"Impact point out of range. Distance: {distance} Range: {range}")
-                    self.LAM_FIRED.append(
-                        [time, True, flag, 'Ran out of fuel!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
-                         destruction])
-                elif flag:
-                    self.LAM_FIRED.append(
-                        [time, True, flag, 'Target hit!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
-                         destruction])
-                else:
-                    self.LAM_FIRED.append(
-                        [time, False, flag, 'Target missed!', self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1],
-                         destruction])
+                self.LAM_FIRED.append(
+                    Tlam().launch(self.player, float(self.bearing_var[1]),
+                                  float(self.distance_var[1]) / 2, self.ENEMY_TARGET_LOCATIONS))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'P-800 Oniks':
-                sensor_range = 13
-                speed = 2.5
-                range = 40  # = 2500km  # = 80 km
-                distance = float(self.distance_var[1]) / 2  # converting to px
-                if distance > range:
-                    time = range / speed
-                else:
-                    time = distance / speed
-                angle = self.player.azimuth + float(self.bearing_var[1])
-                if angle > 360:
-                    angle -= 360
-                impact_x = self.player.x - distance * math.cos(math.radians(angle + 90))
-                impact_y = self.player.y - distance * math.sin(math.radians(angle + 90))
-                # Anti missile defence
-                if random_int(0, 10) < 1:
-                    destruction = 0
-                    log.debug("Defense system defeated the missile.")
-                else:
-                    destruction = random_int(40, 60)
-                if distance > range:
-                    message = 'Out of fuel!'
-                else:
-                    message = 'Target missed!'
-                self.ASM_FIRED.append([time, impact_x, impact_y, message,
-                                       self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction,
-                                       sensor_range])
+                self.ASM_FIRED.append(Oniks().launch(self.player, float(self.bearing_var[1]),
+                                                     float(self.distance_var[1]) / 2))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TASM':
-                sensor_range = 15
-                speed = 2
-                range = 55  # = 2500km  # = 110 km
-                distance = float(self.distance_var[1]) / 2  # converting to px
-                if distance > range:
-                    time = range / speed
-                else:
-                    time = distance / speed
-                angle = self.player.azimuth + float(self.bearing_var[1])
-                if angle > 360:
-                    angle -= 360
-                impact_x = self.player.x - distance * math.cos(math.radians(angle + 90))
-                impact_y = self.player.y - distance * math.sin(math.radians(angle + 90))
-                # Anti missile defence
-                if random_int(0, 10) < 4:
-                    destruction = 0
-                    log.debug("Defense system defeated the missile.")
-                else:
-                    destruction = random_int(50, 65)
-                if distance > range:
-                    message = 'Out of fuel!'
-                else:
-                    message = 'Target missed!'
-                self.ASM_FIRED.append([time, impact_x, impact_y, message,
-                                       self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction,
-                                       sensor_range])
+                self.ASM_FIRED.append(Tasm().launch(self.player, float(self.bearing_var[1]),
+                                                    float(self.distance_var[1]) / 2))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84':
-                sensor_range = 16
-                speed = 1.92
-                range = 45  # = 2500km  # = 90 km
-                distance = float(self.distance_var[1]) / 2  # converting to px
-                if distance > range:
-                    time = range / speed
-                else:
-                    time = distance / speed
-                angle = self.player.azimuth + float(self.bearing_var[1])
-                if angle > 360:
-                    angle -= 360
-                impact_x = self.player.x - distance * math.cos(math.radians(angle + 90))
-                impact_y = self.player.y - distance * math.sin(math.radians(angle + 90))
-                # Anti missile defence
-                if random_int(0, 10) < 3:
-                    destruction = 0
-                    log.debug("Defense system defeated the missile.")
-                else:
-                    destruction = random_int(45, 65)
-                if distance > range:
-                    message = 'Out of fuel!'
-                else:
-                    message = 'Target missed!'
-                self.ASM_FIRED.append([time, impact_x, impact_y, message,
-                                       self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1], destruction,
-                                       sensor_range])
+                self.ASM_FIRED.append(Ugm84().launch(self.player, float(self.bearing_var[1]),
+                                                    float(self.distance_var[1]) / 2))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
                 log.debug("Fired the torpedo.")
-                speed = 0.0367
-                range = 35  # 70 km
-                distance = float(self.distance_var[1]) / 2  # converting to px
-                angle = self.player.azimuth + float(self.bearing_var[1])
-                if angle > 360:
-                    angle -= 360
-                time = range / (speed * 60)
-                impact_x = self.player.x - distance * math.cos(math.radians(angle + 90))
-                impact_y = self.player.y - distance * math.sin(math.radians(angle + 90))
                 mode = True
                 if self.mode_var == 0:
                     mode = False
-                torpedo_info = [
-                    [self.player.x, self.player.y,
-                     self.player.azimuth, speed, self.player.depth],
-                    [impact_x, impact_y, float(self.depth_var[1])], False, time, 'Enemy', 0,
-                    mode, self.SELECTED_WEAPON]
-                self.UPDATE_TORP_QUEUE.append(f"{torpedo_info}")
-                # server_api.send_message(, 1084976743565234289)
+                info = Futlyar().launch(self.player,
+                                        float(self.bearing_var[1]),
+                                        float(self.distance_var[1]) / 2, mode,
+                                        float(self.depth_var[1]), self.SELECTED_WEAPON)
+                self.UPDATE_TORP_QUEUE.append(f"{info}")
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
                 self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Mk-48':
                 log.debug("Fired the torpedo.")
-                speed = 0.0367
-                range = 35  # 70 km
-                distance = float(self.distance_var[1]) / 2  # converting to px
-                angle = self.player.azimuth + float(self.bearing_var[1])
-                if angle > 360:
-                    angle -= 360
-                time = range / (speed * 60)
-                impact_x = self.player.x - distance * math.cos(math.radians(angle + 90))
-                impact_y = self.player.y - distance * math.sin(math.radians(angle + 90))
                 mode = True
                 if self.mode_var == 0:
                     mode = False
-                torpedo_info = [
-                    [self.player.x, self.player.y,
-                     self.player.azimuth, speed, self.player.depth],
-                    [impact_x, impact_y, float(self.depth_var[1])], False, time, 'Enemy', 0,
-                    mode, self.SELECTED_WEAPON]
-                self.UPDATE_TORP_QUEUE.append(f"{torpedo_info}")
+                info = Mk48().launch(self.player,
+                                     float(self.bearing_var[1]),
+                                     float(self.distance_var[1]) / 2, mode,
+                                     float(self.depth_var[1]), self.SELECTED_WEAPON)
+                self.UPDATE_TORP_QUEUE.append(f"{info}")
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
                 self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Sonar decoy':
@@ -1047,7 +893,7 @@ class App:
                                     if not self.PLAYER_ID:
                                         # RU
                                         if self.WEAPON_LAYOUT[weapon][0][0] == 0:
-                                            if self.WEAPON_LAYOUT[weapon][1] == '3M54-1 Kalibr':
+                                            if self.WEAPON_LAYOUT[weapon][1] == Kalibr().designation:
                                                 self.WEAPON_LAYOUT[weapon][1] = 'P-800 Oniks'
                                             else:
                                                 self.WEAPON_LAYOUT[weapon][1] = '3M54-1 Kalibr'
@@ -1534,27 +1380,27 @@ class App:
         # Fired ordnance information
         i = 0
         for missile in self.LAM_FIRED:
-            if missile[0] > 0:
-                txtsurf = self.middle_font.render(f"{missile[4]}: Impact in: {float(missile[0]):.2f}", True, '#b6b6d1')
+            if missile.time > 0:
+                txtsurf = self.middle_font.render(f"{missile.weapon_name}: Impact in: {float(missile.time):.2f}", True, '#b6b6d1')
                 self.window.blit(txtsurf, (20, 320 + i * 20))
             else:
-                if missile[3] == "Target hit!":
-                    txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'green')
+                if missile.message == "Target hit!":
+                    txtsurf = self.middle_font.render(f"{missile.weapon_name}: {missile.message}", True, 'green')
                     self.window.blit(txtsurf, (20, 320 + i * 20))
                 else:
-                    txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'red')
+                    txtsurf = self.middle_font.render(f"{missile.weapon_name}: {missile.message}", True, 'red')
                     self.window.blit(txtsurf, (20, 320 + i * 20))
             i += 1
         for missile in self.ASM_FIRED:
-            if missile[0] > 0:
-                txtsurf = self.middle_font.render(f"{missile[4]}: Impact in: {float(missile[0]):.2f}", True, '#b6b6d1')
+            if missile.time > 0:
+                txtsurf = self.middle_font.render(f"{missile.weapon_name}: Impact in: {float(missile.time):.2f}", True, '#b6b6d1')
                 self.window.blit(txtsurf, (20, 320 + i * 20))
             else:
-                if missile[3] == "Target hit!":
-                    txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'green')
+                if missile.message == "Target hit!":
+                    txtsurf = self.middle_font.render(f"{missile.weapon_name}: {missile.message}", True, 'green')
                     self.window.blit(txtsurf, (20, 320 + i * 20))
                 else:
-                    txtsurf = self.middle_font.render(f"{missile[4]}: {missile[3]}", True, 'red')
+                    txtsurf = self.middle_font.render(f"{missile.weapon_name}: {missile.message}", True, 'red')
                     self.window.blit(txtsurf, (20, 320 + i * 20))
             i += 1
         for torpedo in self.FIRED_TORPEDOES:
@@ -1985,20 +1831,23 @@ class App:
 
                 # Land attack missile simulation:
                 for missile in self.LAM_FIRED:
-                    missile[0] -= 0.01667 * fps_d
+                    missile.time -= 0.01667 * fps_d
                     target = None
-                    if missile[2] and missile[2] in self.ENEMY_TARGET_LOCATIONS:
-                        target = self.ENEMY_TARGET_LOCATIONS[self.ENEMY_TARGET_LOCATIONS.index(missile[2])]
-                    if missile[0] <= 0:
-                        if missile[1] and target:  # Will hit and has a target
+                    if missile.hit_target and missile.hit_target in self.ENEMY_TARGET_LOCATIONS:
+                        target = self.ENEMY_TARGET_LOCATIONS[self.ENEMY_TARGET_LOCATIONS.index(missile.hit_target)]
+                    if missile.time <= 0:
+                        if missile.hit_status and target:  # Will hit and has a target
                             log.info("Target hit!")
-                            if target[2] - missile[5] <= 0:
+                            dmg = 0
+                            if target[2] - missile.destruction <= 0:
                                 self.LOCAL_SCORE += target[2] * 0.5  # Base damage score
+                                dmg = target[2]
                                 self.NOTICE_QUEUE.append(["Target damaged!", 0, 0])
                             else:
-                                self.LOCAL_SCORE += missile[5] * 0.5  # Base damage score
+                                self.LOCAL_SCORE += missile.destruction * 0.5  # Base damage score
+                                dmg = missile.destruction
                                 self.NOTICE_QUEUE.append(["Target damaged!", 0, 0])
-                            target[2] -= missile[5]
+                            target[2] -= missile.destruction
                             if target[2] <= 0:
                                 target[2] = 0
                                 self.ENEMY_TARGET_LOCATIONS.remove(target)
@@ -2006,24 +1855,24 @@ class App:
                                 self.TARGETS_DESTROYED += 1
                                 self.NOTICE_QUEUE.append(["Target destroyed!", 0, 0])
                                 # Max score from destroying a base = 100 (50 destruction, 50 max damage)
-                            self.TARGET_DAMAGE_QUEUE.append([target[0], target[1], missile[5]])
-                        missile[1] = False
-                    if missile[0] < -5:
+                            self.TARGET_DAMAGE_QUEUE.append([target[0], target[1], dmg])
+                        missile.hit_status = False
+                    if missile.time < -5:
                         self.LAM_FIRED.remove(missile)
 
                 # Anti ship missile simulation:
                 for missile in self.ASM_FIRED:
-                    missile[0] -= 0.01667 * fps_d
-                    if missile[0] <= 0 and missile[3] == 'Target missed!':
+                    missile.time -= 0.01667 * fps_d
+                    if missile.time <= 0 and missile.message == 'Target missed!':
                         for ship in list(self.OBJECTS):
                             if ship.count('Enemy_ship'):
-                                sr = missile[6]  # Sensor range (range at which missile tracks on its own)
-                                if self.OBJECTS[ship].x - sr < missile[1] < self.OBJECTS[ship].x + sr and \
-                                        self.OBJECTS[ship].y - sr < missile[2] < self.OBJECTS[ship].y + sr:
+                                sr = missile.sensor_range  # Sensor range (range at which missile tracks on its own)
+                                if self.OBJECTS[ship].x - sr < missile.impact_x < self.OBJECTS[ship].x + sr and \
+                                        self.OBJECTS[ship].y - sr < missile.impact_y < self.OBJECTS[ship].y + sr:
                                     log.info("Ship hit!")
-                                    missile[3] = 'Target hit!'
-                                    self.OBJECTS[ship][4] -= missile[5]
-                                    if self.OBJECTS[ship][4] <= 0:
+                                    missile.message = 'Target hit!'
+                                    self.OBJECTS[ship].health -= missile.destruction
+                                    if self.OBJECTS[ship].health <= 0:
                                         self.LOCAL_SCORE += 200  # Ship destruction score
                                         self.SHIPS_DESTROYED += 1
                                         self.OBJECTS.pop(ship)
@@ -2032,8 +1881,7 @@ class App:
                                         self.NOTICE_QUEUE.append(["Ship destroyed!", 0, 0])
                                     else:
                                         self.NOTICE_QUEUE.append(["Ship hit!", 0, 0])
-
-                    if missile[0] < -5:
+                    if missile.time < -5:
                         self.ASM_FIRED.remove(missile)
 
                 # Friendly ships relaying enemy positions
