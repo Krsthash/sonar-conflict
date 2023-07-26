@@ -33,7 +33,6 @@ MSGS_PROCESSED = []
 LOOP_LOGGING = False
 # ---------------------------------- #
 
-
 # --------- Logging for debugging -------- #
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)

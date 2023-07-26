@@ -19,7 +19,7 @@ from Components.Weapons.tlam import Tlam
 from Components.Weapons.tasm import Tasm
 from Components.Weapons.ugm84 import Ugm84
 from Components.Weapons.mk48 import Mk48
-from Components.sonar_decoy import Decoy
+from Components.Weapons.sonar_decoy import SonarDecoy
 from Components.player import Player
 from Components.torpedo import Torpedo, DETECTED_TORPEDOES, TORPEDO_SINK_QUEUE, \
     TORPEDO_DAMAGE_QUEUE, TORPEDO_DECOY_QUEUE
@@ -830,21 +830,12 @@ class App:
                 self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Sonar decoy':
                 log.debug("Fired the sonar decoy!")
-                speed = 0.012
-                range = 30  # 60 km
-                # distance = float(self.distance_var[1]) / 2  # converting to px
-                angle = self.player.azimuth + float(self.bearing_var[1])
-                if angle > 360:
-                    angle -= 360
-                time = range / (speed * 60)
-                impact_x = self.player.x - range * math.cos(math.radians(angle + 90))
-                impact_y = self.player.y - range * math.sin(math.radians(angle + 90))
                 mode = True
                 if self.mode_var == 0:
                     mode = False
-                self.DECOYS.append(Decoy(self.player.x, self.player.y,
-                                         self.player.azimuth, self.player.depth,
-                                         impact_x, impact_y, float(self.depth_var[1]), time, mode))
+                self.DECOYS.append(SonarDecoy().launch(self.player,
+                                                       float(self.bearing_var[1]),
+                                                       float(self.depth_var[1]), mode))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Fired':
                 log.debug("Updated the torpedo's settings.")
@@ -1072,311 +1063,9 @@ class App:
             self.window.blit(txtsurf_, (self.size[0] - 300, 25 - txtsurf_.get_height() / 2))
             txtsurf = self.middle_font.render(f'{self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1]}', True, '#DADAFA')
             self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 25 - txtsurf.get_height() / 2))
-            txtsurf_ = self.middle_font.render(f'Type: ', True, '#b6b6d1')
-            self.window.blit(txtsurf_, (self.size[0] - 300, 50 - txtsurf_.get_height() / 2))
-            if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
-                txtsurf = self.middle_font.render(f'Land-attack missile', True, '#c95918')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'300km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'3 Mach', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'25-50%', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'20km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'60m', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
-                desc = f"The Novator Kalibr, (Калибр, caliber),\nalso referred to as 3M54-1" \
-                       f"Kalibr,\nis a family of Russian cruise " \
-                       f"missiles\ndeveloped by NPO Novator (OKB-8).\nIt first saw service " \
-                       f"in 1994. There are \nship-launched, submarine-launched\nand " \
-                       f"air-launched versions of the missile.\nVariants are made for anti-ship,\n" \
-                       f"anti-submarine and land attack\nuse. The missile can carry " \
-                       f"a warhead\nweighing up to 500 kilograms\n(1,100 lb) of explosive."
-                i = 0
-                for line in desc.split('\n'):
-                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
-                    i += 1
-            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'P-800 Oniks':
-                txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'80km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'2.6 Mach', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'40-60%', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'26km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'60m', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
-                desc = f"The P-800 Oniks (П-800 Оникс),\nalso known as " \
-                       f"Yakhont\n(Russian: Яхонт; English: ruby), is\na Soviet / Russian supersonic anti-ship\n" \
-                       f"cruise missile developed by\nNPO Mashinostroyeniya as a ramjet\nversion of P-80 Zubr. " \
-                       f"Its GRAU\ndesignation is 3M55, the air\nlaunched Kh-61 variant also exists."
-                i = 0
-                for line in desc.split('\n'):
-                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
-                    i += 1
-            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
-                txtsurf = self.middle_font.render(f'Torpedo', True, '#263ded')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'70km (eff. 45km)', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'114 km/h', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'30-50%', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'20km/40km (active)', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'600m', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
-                desc = f"Futlyar (Fizik-2) is a Russian\ndeep-water homing torpedo tested\nby the Russian " \
-                       f"Navy in 2017; " \
-                       f"it entered\nservice in the same year. Futlyar\nis a wire-guided, combustion-driven\n" \
-                       f"torpedo " \
-                       f"with " \
-                       f"a top speed\nof 114km/h and a maximum depth\nof more than 500m. Homing\noptions " \
-                       f"are Active or " \
-                       f"Passive.\nActive utilises active sonar to\ntrack the target which increases\nthe " \
-                       f"range at " \
-                       f"which " \
-                       f"the target\ncan be found, but\nexposes your position to the enemy."
-                i = 0
-                for line in desc.split('\n'):
-                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
-                    i += 1
-            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Sonar decoy':
-                txtsurf = self.middle_font.render(f'Countermeasure', True, '#ffff82')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'30km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'54 km/h', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'400m', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 225 - txtsurf.get_height() / 2))
-                desc = f"Sonar decoy is a countermeasure\nagainst torpedoes. It is fired\nfrom a torpedo " \
-                       f"tube and has\nan increased sonar signature to\nfool sensors on a torpedo. " \
-                       f"Newer models\nare fitted with a noisemaker\nwhich can fool enemy passive sonar.\n" \
-                       f"Once deployed the decoy will go to the\nspecified bearing and distance before\n" \
-                       f"self destructing. There are two\nmodes, active and passive,\nactive mode will simulate " \
-                       f"active\nsonar echoes coming from the\ntarget which can confuse\nenemy active sonar " \
-                       f"torpedoes\nbut will not be effective\nagainst the passive sensors."
-                i = 0
-                for line in desc.split('\n'):
-                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 250 + i * 25 - txtsurf.get_height() / 2))
-                    i += 1
-            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Mk-48':
-                txtsurf = self.middle_font.render(f'Torpedo', True, '#263ded')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'70km (eff. 45km)', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'106 km/h', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'30-50%', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'20km/40km (active)', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'800m', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
-                desc = f"The Mark 48 and its improved\nAdvanced Capability (ADCAP) variant\nare American heavyweight\n" \
-                       f"submarine-launched torpedoes.\nThey were designed to sink\ndeep-diving nuclear-powered\n" \
-                       f"submarines and high-performance\n surface ships." \
-                       f"It has a top speed\nof 114km/h and a maximum depth\nof more than 500m. Homing\noptions " \
-                       f"are Active or " \
-                       f"Passive.\nActive utilises active sonar to\ntrack the target which increases\nthe " \
-                       f"range at " \
-                       f"which " \
-                       f"the target\ncan be found, but\nexposes your position to the enemy."
-                i = 0
-                for line in desc.split('\n'):
-                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
-                    i += 1
-            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TLAM-E':
-                txtsurf = self.middle_font.render(f'Land-attack missile', True, '#c95918')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'400km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'0.74 Mach', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'40-60%', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'60km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'60m', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
-                desc = f"The Tomahawk Land Attack Missile\n(TLAM) is a long-range, all-weather,\njet-powered, subsonic " \
-                       f"cruise\nmissile that is primarily used\nby the United States Navy\nand Royal Navy in ship\nand " \
-                       f"submarine-based\nland-attack operations.\nMissile possesses an advanced\ncourse correction " \
-                       f"system\ncalled TERCOM (Terrain Contour\nMatching). " \
-                       f"This system allows for\nlow altitude flight and precise routes."
-                i = 0
-                for line in desc.split('\n'):
-                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
-                    i += 1
-            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TASM':
-                txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'110km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'0.8 Mach', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'50-65%', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'30km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'60m', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
-                desc = f"The TASM was the first version\nof the anti-ship variant\nof the Tomahawk, equipped\nwith an " \
-                       f"active radar\nseeker, rather than TERCOM.\nTASM, along with other Tomahawk\nconventional " \
-                       f"variants,\ncarried a 454 kg conventional\nwarhead. Its range was\nshorter than other " \
-                       f"variants\n" \
-                       f"but it was known for its agility,\ncapable of various flight patterns.\nDue to the lower " \
-                       f"speeds\nof the missile, ship defence\nsystems have an easier time\nshooting them down."
-                i = 0
-                for line in desc.split('\n'):
-                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
-                    i += 1
-            elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84':
-                txtsurf = self.middle_font.render(f'Anti-ship missile', True, '#16c7c7')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 50 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Characteristics:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 125 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Maximum range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 150 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'90km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Max speed: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 175 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'0.92 Mach', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Damage: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 200 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'45-65%', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 200 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Sensor range: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 225 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'32km', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 225 - txtsurf.get_height() / 2))
-                txtsurf_ = self.middle_font.render(f'Launch depth: ', True, '#b6b6d1')
-                self.window.blit(txtsurf_, (self.size[0] - 300, 250 - txtsurf_.get_height() / 2))
-                txtsurf = self.middle_font.render(f'100m', True, '#DADAFA')
-                self.window.blit(txtsurf, (self.size[0] - 300 + txtsurf_.get_width(), 250 - txtsurf.get_height() / 2))
-                txtsurf = self.middle_font.render(f'Description:', True, '#b6b6d1')
-                self.window.blit(txtsurf, (self.size[0] - 300, 275 - txtsurf.get_height() / 2))
-                desc = f"The Harpoon is an all-weather,\nover-the-horizon, anti-ship\nmissile manufactured by\n" \
-                       f"McDonnell Douglas. There\nare also " \
-                       f"cruise missile\nvariants.The regular Harpoon\nuses active radar homing\nand flies just above " \
-                       f"the\nwater and due to being\nslightly faster than the\nTomahawk TASM it can evade\n" \
-                       f"defenses a bit easier. The\nmissile can be launched from\nvarious platforms including\n" \
-                       f"torpedo tubes on submarines."
-                i = 0
-                for line in desc.split('\n'):
-                    txtsurf = self.middle_font.render(line, True, '#DADAFA')
-                    self.window.blit(txtsurf, (self.size[0] - 300, 300 + i * 25 - txtsurf.get_height() / 2))
-                    i += 1
+            for weapon_system in [Kalibr, Futlyar, Oniks, Mk48, Ugm84, Tasm, Tlam, SonarDecoy]:
+                if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == weapon_system().designation:
+                    weapon_system().render_description(self.middle_font, self.size[0], self.window)
 
         # Fired ordnance information
         i = 0
@@ -1946,7 +1635,6 @@ class App:
                                 self.OBJECTS[ship].active_sonar = 2
                             flag = 0
                             for torpedo in list(self.TORPEDOES.keys()):
-                                print(f"TORPEDO: {torpedo} TS: {self.TORPEDOES[torpedo].sender} S: {ship}")
                                 if self.TORPEDOES[torpedo].sender == ship:
                                     flag = torpedo
                                     if self.TORPEDOES[torpedo].time > 10:
@@ -2021,7 +1709,6 @@ class App:
                 for key in list(self.TORPEDOES):
                     result = self.TORPEDOES[key].logic_calculation(key, fps_d, self.player, self.OBJECTS, self.DECOYS)
                     if result:
-                        print("TORPEDO POPPED OFF!")
                         self.TORPEDOES.pop(key)
                     if len(DETECTED_TORPEDOES):
                         f = 0
