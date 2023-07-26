@@ -1,5 +1,6 @@
 import math
 from Components.utilities import calculate_azimuth, random_int
+from Components.sonar_decoy import Decoy
 
 DETECTED_TORPEDOES = {}
 TORPEDO_SINK_QUEUE = []
@@ -24,7 +25,7 @@ class Torpedo:
         self.y = y
         self.x = x
 
-    def logic_calculation(self, key, fps_d, player, OBJECTS, DECOYS):
+    def logic_calculation(self, key, fps_d, player, objects, decoys):
         max_distance = 10
         if self.mode:
             max_distance = 20
@@ -74,10 +75,10 @@ class Torpedo:
         else:
             # Go into seeking mode
             min_distance = [None, None]
-            for ship in OBJECTS:
+            for ship in objects:
                 if ship.count('Friendly_ship'):
-                    rel_x = OBJECTS[ship].x - self.x
-                    rel_y = OBJECTS[ship].y - self.y
+                    rel_x = objects[ship].x - self.x
+                    rel_y = objects[ship].y - self.y
                     distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                     if not min_distance[0]:
                         min_distance[0] = distance
@@ -85,14 +86,14 @@ class Torpedo:
                     if min_distance[0] > distance:
                         min_distance[0] = distance
                         min_distance[1] = ship
-            for decoy in DECOYS:
-                rel_x = decoy[0][0] - self.x
-                rel_y = decoy[0][1] - self.y
+            for decoy in decoys:
+                rel_x = decoy.x - self.x
+                rel_y = decoy.y - self.y
                 distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-                if decoy[2] and not self.mode:
+                if decoy.mode and not self.mode:
                     # loop_log.debug("Sonar decoy filtered out due to its active mode.")
                     continue  # If the decoy is active and the torpedo is passive, ignore it.
-                elif decoy[2] and self.mode and distance <= 10:
+                elif decoy.mode and self.mode and distance <= 10:
                     # loop_log.debug("Torpedo is being confused by active sonar decoy!")
                     max_distance -= 12  # If both are active and close, lowers the max detection distance.
                 if not min_distance[0]:
@@ -153,9 +154,9 @@ class Torpedo:
                     self.y += (self.speed * fps_d) * math.sin(
                         math.radians(self.azimuth - 90))
                     return 0
-            elif min_distance[1] in list(OBJECTS.keys()):
-                rel_x = OBJECTS[min_distance[1]].x - self.x
-                rel_y = OBJECTS[min_distance[1]].y - self.y
+            elif min_distance[1] in list(objects.keys()):
+                rel_x = objects[min_distance[1]].x - self.x
+                rel_y = objects[min_distance[1]].y - self.y
                 distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                 angle = calculate_azimuth(rel_x, rel_y, distance)
                 if self.azimuth - angle > 180:
@@ -164,7 +165,7 @@ class Torpedo:
                     angle = -((360 - angle) + self.azimuth)
                 else:
                     angle = -(self.azimuth - angle)
-                depth = OBJECTS[min_distance[1]].depth - self.depth
+                depth = objects[min_distance[1]].depth - self.depth
                 if self.mode and distance <= 60:
                     DETECTED_TORPEDOES[key] = [distance, min_distance[1], angle]
                 if distance < max_distance and 120 > angle > -120 and -50 < depth < 50:
@@ -188,7 +189,7 @@ class Torpedo:
                     self.y += (self.speed * fps_d) * math.sin(
                         math.radians(self.azimuth - 90))
                     if -1 < distance < 1 and -1 < depth < 1:
-                        if OBJECTS[min_distance[1]].health <= 0:
+                        if objects[min_distance[1]].health <= 0:
                             TORPEDO_SINK_QUEUE.append(min_distance[1])
                             return -1
                         else:
@@ -199,9 +200,9 @@ class Torpedo:
                         math.radians(self.azimuth - 90))
                     self.y += (self.speed * fps_d) * math.sin(
                         math.radians(self.azimuth - 90))
-            elif isinstance(min_distance[1], list):
-                rel_x = min_distance[1][0][0] - self.x
-                rel_y = min_distance[1][0][1] - self.y
+            elif isinstance(min_distance[1], Decoy):
+                rel_x = min_distance[1].x - self.x
+                rel_y = min_distance[1].y - self.y
                 distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                 angle = calculate_azimuth(rel_x, rel_y, distance)
                 if self.azimuth - angle > 180:
@@ -210,7 +211,7 @@ class Torpedo:
                     angle = -((360 - angle) + self.azimuth)
                 else:
                     angle = -(self.azimuth - angle)
-                depth = min_distance[1][0][3] - self.depth
+                depth = min_distance[1].depth - self.depth
                 max_distance = 10
                 if distance < max_distance and 120 > angle > -120 and -50 < depth < 50:
                     turn = 0.34 * fps_d

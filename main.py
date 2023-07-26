@@ -19,6 +19,7 @@ from Components.Weapons.tlam import Tlam
 from Components.Weapons.tasm import Tasm
 from Components.Weapons.ugm84 import Ugm84
 from Components.Weapons.mk48 import Mk48
+from Components.sonar_decoy import Decoy
 from Components.player import Player
 from Components.torpedo import Torpedo, DETECTED_TORPEDOES, TORPEDO_SINK_QUEUE, \
     TORPEDO_DAMAGE_QUEUE, TORPEDO_DECOY_QUEUE
@@ -320,11 +321,11 @@ class App:
             for decoy in self.DECOYS:
                 length = 5
                 point1 = (
-                    decoy[0][0] + length * math.cos(math.radians(decoy[0][2] - 90)),
-                    decoy[0][1] + length * math.sin(math.radians(decoy[0][2] - 90)))
-                pygame.draw.aaline(self.map, 'yellow', (decoy[0][0], decoy[0][1]),
+                    decoy.x + length * math.cos(math.radians(decoy.azimuth - 90)),
+                    decoy.y + length * math.sin(math.radians(decoy.azimuth - 90)))
+                pygame.draw.aaline(self.map, 'yellow', (decoy.x, decoy.y),
                                    point1)
-                pygame.draw.circle(self.map, 'yellow', (decoy[0][0], decoy[0][1]), 2)
+                pygame.draw.circle(self.map, 'yellow', (decoy.x, decoy.y), 2)
 
         # Enemy relayed position
         if self.ENEMY_VISIBLE:
@@ -841,9 +842,9 @@ class App:
                 mode = True
                 if self.mode_var == 0:
                     mode = False
-                self.DECOYS.append([[self.player.x, self.player.y,
-                                     self.player.azimuth, self.player.depth],
-                                    [impact_x, impact_y, self.player.azimuth, float(self.depth_var[1]), time], mode])
+                self.DECOYS.append(Decoy(self.player.x, self.player.y,
+                                         self.player.azimuth, self.player.depth,
+                                         impact_x, impact_y, float(self.depth_var[1]), time, mode))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Fired':
                 log.debug("Updated the torpedo's settings.")
@@ -1981,40 +1982,40 @@ class App:
                 # Sonar decoy simulation
                 for decoy in self.DECOYS:
                     speed = 0.012
-                    decoy[1][4] -= 0.0167 * fps_d
-                    if decoy[1][4] <= 0:
+                    decoy.time -= 0.0167 * fps_d
+                    if decoy.time <= 0:
                         log.debug("Sonar decoy ran out of fuel.")
                         self.DECOYS.remove(decoy)
-                    rel_x = decoy[1][0] - decoy[0][0]
-                    rel_y = decoy[1][1] - decoy[0][1]
+                    rel_x = decoy.destination_x - decoy.x
+                    rel_y = decoy.destination_y - decoy.y
                     distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                     angle = calculate_azimuth(rel_x, rel_y, distance)
-                    if decoy[0][2] - angle > 180:
-                        angle = (360 - decoy[0][2]) + angle
-                    elif decoy[0][2] - angle < -180:
-                        angle = -((360 - angle) + decoy[0][2])
+                    if decoy.azimuth - angle > 180:
+                        angle = (360 - decoy.azimuth) + angle
+                    elif decoy.azimuth - angle < -180:
+                        angle = -((360 - angle) + decoy.azimuth)
                     else:
-                        angle = -(decoy[0][2] - angle)
+                        angle = -(decoy.azimuth - angle)
                     turn = 0.34 * fps_d
                     if turn > abs(angle):
                         turn = abs(angle)
                     if angle > 0:
-                        decoy[0][2] += turn
+                        decoy.azimuth += turn
                     else:
-                        decoy[0][2] -= turn
+                        decoy.azimuth -= turn
                     dive_rate = 0.24 * fps_d
-                    depth = decoy[1][3] - decoy[0][3]
+                    depth = decoy.destination_depth - decoy.depth
                     if dive_rate > depth:
                         dive_rate = depth
                     if depth > 0:
-                        decoy[0][3] += dive_rate
+                        decoy.depth += dive_rate
                     else:
-                        decoy[0][3] -= dive_rate
+                        decoy.depth -= dive_rate
                     # print(f"Depth to destination: {depth} Distance: {distance}")
-                    decoy[0][0] += (speed * fps_d) * math.cos(
-                        math.radians(decoy[0][2] - 90))
-                    decoy[0][1] += (speed * fps_d) * math.sin(
-                        math.radians(decoy[0][2] - 90))
+                    decoy.x += (speed * fps_d) * math.cos(
+                        math.radians(decoy.azimuth - 90))
+                    decoy.y += (speed * fps_d) * math.sin(
+                        math.radians(decoy.azimuth - 90))
 
                 # Enemy torpedo simulation
                 for key in list(self.TORPEDOES):
