@@ -18,7 +18,7 @@ import pyperclip
 
 import server_api
 from Components.player import Player
-
+from Components.vessel import Vessel
 
 # --------- Logging for debugging -------- #
 log = logging.getLogger(__name__)
@@ -41,6 +41,8 @@ loop_log.setLevel(logging.INFO)
 loop_log.addHandler(fh)
 loop_log.addHandler(sh)
 loop_log.debug("Loop logging enabled.")
+
+
 # ------------------------------------------
 
 
@@ -338,21 +340,21 @@ class App:
         for ship in self.OBJECTS:
             if ship[:13] == "Friendly_ship":
                 length = 5
-                point1 = (self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
-                          self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
-                pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), point1)
-                pygame.draw.circle(self.map, 'green', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
+                point1 = (self.OBJECTS[ship].x + length * math.cos(math.radians(self.OBJECTS[ship].azimuth - 90)),
+                          self.OBJECTS[ship].y + length * math.sin(math.radians(self.OBJECTS[ship].azimuth - 90)))
+                pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship].x, self.OBJECTS[ship].y), point1)
+                pygame.draw.circle(self.map, 'green', (self.OBJECTS[ship].x, self.OBJECTS[ship].y), 1)
         # Enemy ship locations
         if self.CHEATS:
             for ship in self.OBJECTS:
                 if ship.count("Enemy_ship"):
                     length = 5
                     point1 = (
-                        self.OBJECTS[ship][0][0] + length * math.cos(math.radians(self.OBJECTS[ship][0][2] - 90)),
-                        self.OBJECTS[ship][0][1] + length * math.sin(math.radians(self.OBJECTS[ship][0][2] - 90)))
-                    pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]),
+                        self.OBJECTS[ship].x + length * math.cos(math.radians(self.OBJECTS[ship].azimuth - 90)),
+                        self.OBJECTS[ship].y + length * math.sin(math.radians(self.OBJECTS[ship].azimuth - 90)))
+                    pygame.draw.aaline(self.map, 'red', (self.OBJECTS[ship].x, self.OBJECTS[ship].y),
                                        point1)
-                    pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1]), 1)
+                    pygame.draw.circle(self.map, 'purple', (self.OBJECTS[ship].x, self.OBJECTS[ship].y), 1)
         # Port locations
         for port in self.FRIENDLY_PORT_LOCATIONS:
             pygame.draw.circle(self.map, 'green', (port[0], port[1]), 4)
@@ -390,10 +392,10 @@ class App:
         # Enemy relayed position
         if self.ENEMY_VISIBLE:
             length = 5
-            point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
-                      self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
-            pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
-            pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
+            point1 = (self.OBJECTS['Enemy'].x + length * math.cos(math.radians(self.OBJECTS['Enemy'].azimuth - 90)),
+                      self.OBJECTS['Enemy'].y + length * math.sin(math.radians(self.OBJECTS['Enemy'].azimuth - 90)))
+            pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'].x, self.OBJECTS['Enemy'].y), point1)
+            pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'].x, self.OBJECTS['Enemy'].y), 1)
         if self.ENEMY_VISIBLE_AS:
             length = self.ENEMY_VISIBLE_AS[0] + random_int(-10, 10)
             if length < 0:
@@ -408,10 +410,10 @@ class App:
         # Enemy position
         if self.CHEATS:
             length = 5
-            point1 = (self.OBJECTS['Enemy'][0][0] + length * math.cos(math.radians(self.OBJECTS['Enemy'][0][2] - 90)),
-                      self.OBJECTS['Enemy'][0][1] + length * math.sin(math.radians(self.OBJECTS['Enemy'][0][2] - 90)))
-            pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), point1)
-            pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'][0][0], self.OBJECTS['Enemy'][0][1]), 1)
+            point1 = (self.OBJECTS['Enemy'].x + length * math.cos(math.radians(self.OBJECTS['Enemy'].azimuth - 90)),
+                      self.OBJECTS['Enemy'].y + length * math.sin(math.radians(self.OBJECTS['Enemy'].azimuth - 90)))
+            pygame.draw.aaline(self.map, 'red', (self.OBJECTS['Enemy'].x, self.OBJECTS['Enemy'].y), point1)
+            pygame.draw.circle(self.map, 'pink', (self.OBJECTS['Enemy'].x, self.OBJECTS['Enemy'].y), 1)
         # Detected active mode torpedoes around friendly ships
         for detection in self.DETECTED_TORPEDOES:
             if detection in list(self.TORPEDOES.keys()) and detection[1] in list(self.OBJECTS.keys()):
@@ -677,9 +679,12 @@ class App:
         # self.LOCAL_POSITION = [mission[code]['spawn'][0], mission[code]['spawn'][1],
         #                        mission[code]['spawn'][2], 0, mission[code]['spawn'][3]]
         # LOCAL_POSITION: [x, y, azimuth, pitch, depth]
-        self.OBJECTS['Enemy'] = [[mission[enemy_code]['spawn'][0], mission[enemy_code]['spawn'][1],
-                                  mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]], 'Submarine', 0, 1,
-                                 100, -25]
+        self.OBJECTS['Enemy'] = Vessel(mission[enemy_code]['spawn'][0], mission[enemy_code]['spawn'][1],
+                                       mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3], 'Submarine',
+                                       0.04)
+        # self.OBJECTS['Enemy'] = [[mission[enemy_code]['spawn'][0], mission[enemy_code]['spawn'][1],
+        #                           mission[enemy_code]['spawn'][2], mission[enemy_code]['spawn'][3]], 'Submarine', 0, 1,
+        #                          100, -25]
         # OBJECTS: [x, y, azimuth, depth], type, velocity, detection_chance, HEALTH* ACTIVE_SONAR**
         if not self.PLAYER_ID:
             self.designationP = "Russian ship"
@@ -689,13 +694,17 @@ class App:
             self.designationE = "Russian ship"
         i = 1
         for vessel in mission[code]['ships']:
-            self.OBJECTS[f'Friendly_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], 0],
-                                                  self.designationP, 0.008, 0.8, 100, -25]
+            self.OBJECTS[f'Friendly_ship_{i}'] = Vessel(vessel[0], vessel[1], vessel[2], 0,
+                                                        self.designationP, 0.8, velocity=0.008)
+            # self.OBJECTS[f'Friendly_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], 0],
+            #                                       self.designationP, 0.008, 0.8, 100, -25]
             i += 1
         i = 1
         for vessel in mission[enemy_code]['ships']:
-            self.OBJECTS[f'Enemy_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], 0],
-                                               self.designationE, 0.008, 0.8, 100, -25]
+            self.OBJECTS[f'Enemy_ship_{i}'] = Vessel(vessel[0], vessel[1], vessel[2], 0,
+                                                     self.designationE, 0.8, velocity=0.008)
+            # self.OBJECTS[f'Enemy_ship_{i}'] = [[vessel[0], vessel[1], vessel[2], 0],
+            #                                    self.designationE, 0.008, 0.8, 100, -25]
             i += 1
 
         # Switch to the sonar screen
@@ -2030,23 +2039,19 @@ class App:
 
                 # Other vessel's simulation
                 for vessel in self.OBJECTS:
-                    if self.OBJECTS[vessel][2] != 0:
-                        self.OBJECTS[vessel][0][0] += (self.OBJECTS[vessel][2] * fps_d) * math.cos(
-                            math.radians(self.OBJECTS[vessel][0][2] - 90))
-                        self.OBJECTS[vessel][0][1] += (self.OBJECTS[vessel][2] * fps_d) * math.sin(
-                            math.radians(self.OBJECTS[vessel][0][2] - 90))
+                    self.OBJECTS[vessel].movement_simulation(fps_d)
                     try:
                         if self.coll_detection.get_at(
-                                (int(self.OBJECTS[vessel][0][0]), int(self.OBJECTS[vessel][0][1])))[:3] != (
+                                (int(self.OBJECTS[vessel].x), int(self.OBJECTS[vessel].y)))[:3] != (
                                 2, 16, 25):
-                            self.OBJECTS[vessel][0][2] += 180
-                            if self.OBJECTS[vessel][0][2] > 360:
-                                self.OBJECTS[vessel][0][2] -= 360
+                            self.OBJECTS[vessel].azimuth += 180
+                            if self.OBJECTS[vessel].azimuth > 360:
+                                self.OBJECTS[vessel].azimuth -= 360
                     except Exception as e:
                         log.error(f"Vessel collision detection failed, turning around... {e}")
-                        self.OBJECTS[vessel][0][2] += 180
-                        if self.OBJECTS[vessel][0][2] > 360:
-                            self.OBJECTS[vessel][0][2] -= 360
+                        self.OBJECTS[vessel].azimuth += 180
+                        if self.OBJECTS[vessel].azimuth > 360:
+                            self.OBJECTS[vessel].azimuth -= 360
 
                 # Land attack missile simulation:
                 for missile in self.LAM_FIRED:
@@ -2083,8 +2088,8 @@ class App:
                         for ship in list(self.OBJECTS):
                             if ship.count('Enemy_ship'):
                                 sr = missile[6]  # Sensor range (range at which missile tracks on its own)
-                                if self.OBJECTS[ship][0][0] - sr < missile[1] < self.OBJECTS[ship][0][0] + sr and \
-                                        self.OBJECTS[ship][0][1] - sr < missile[2] < self.OBJECTS[ship][0][1] + sr:
+                                if self.OBJECTS[ship].x - sr < missile[1] < self.OBJECTS[ship].x + sr and \
+                                        self.OBJECTS[ship].y - sr < missile[2] < self.OBJECTS[ship].y + sr:
                                     log.info("Ship hit!")
                                     missile[3] = 'Target hit!'
                                     self.OBJECTS[ship][4] -= missile[5]
@@ -2106,20 +2111,20 @@ class App:
                 min_d = None
                 for ship in list(self.OBJECTS):
                     if ship.count("Friendly_ship"):
-                        rel_x = self.OBJECTS[ship][0][0] - self.OBJECTS["Enemy"][0][0]
-                        rel_y = self.OBJECTS[ship][0][1] - self.OBJECTS["Enemy"][0][1]
+                        rel_x = self.OBJECTS[ship].x - self.OBJECTS["Enemy"].x
+                        rel_y = self.OBJECTS[ship].y - self.OBJECTS["Enemy"].y
                         distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                         # Ships could only really detect you from 50km in the worst case scenario (dc = 0.5)
                         # if -20 < self.OBJECTS[ship][5] < 1:
                         #     self.OBJECTS[ship][5] = 2
-                        if distance + ((1 - self.OBJECTS["Enemy"][3]) * 50) <= 50:
+                        if distance + ((1 - self.OBJECTS["Enemy"].detection_chance) * 50) <= 50:
                             flag = 1
-                        if self.OBJECTS['Enemy'][5] >= 1 and distance <= 60:
+                        if self.OBJECTS['Enemy'].active_sonar >= 1 and distance <= 60:
                             if not min_d:
-                                min_d = [distance, [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
+                                min_d = [distance, [self.OBJECTS[ship].x, self.OBJECTS[ship].y,
                                                     calculate_azimuth(rel_x, rel_y, distance)]]
                             elif min_d[0] > distance:
-                                min_d = [distance, [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
+                                min_d = [distance, [self.OBJECTS[ship].x, self.OBJECTS[ship].y,
                                                     calculate_azimuth(rel_x, rel_y, distance)]]
                 if flag:
                     self.ENEMY_VISIBLE = True
@@ -2145,21 +2150,21 @@ class App:
                 # Enemy ships trying to detect/shoot simulation
                 for ship in list(self.OBJECTS):
                     if ship.count("Enemy_ship"):
-                        rel_x = self.OBJECTS[ship][0][0] - self.player.x
-                        rel_y = self.OBJECTS[ship][0][1] - self.player.y
+                        rel_x = self.OBJECTS[ship].x - self.player.x
+                        rel_y = self.OBJECTS[ship].y - self.player.y
                         distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                         # Ships could only really detect you from 50km in the worst case scenario (dc = 0.5)
                         # if -20 < self.OBJECTS[ship][5] < 1:
                         #     self.OBJECTS[ship][5] = 2
                         if distance + ((1 - self.player.detection_chance) * 50) <= 50 or \
                                 (self.ACTIVE_SONAR and distance <= 30):
-                            if self.OBJECTS[ship][5] < 1:
-                                self.OBJECTS[ship][5] = 2
-                        if self.OBJECTS[ship][5] > -20 and distance < 60:  # Ship's active sonar range 120km
+                            if self.OBJECTS[ship].active_sonar < 1:
+                                self.OBJECTS[ship].active_sonar = 2
+                        if self.OBJECTS[ship].active_sonar > -20 and distance < 60:  # Ship's active sonar range 120km
                             # [x, y, azimuth, velocity, depth], [destination x, destination y, depth], sensor on/off,
                             # timer, sender, active_sonar_ping_duration, active sonar on/off, weapon_bay
-                            if self.OBJECTS[ship][5] < 1:
-                                self.OBJECTS[ship][5] = 2
+                            if self.OBJECTS[ship].active_sonar < 1:
+                                self.OBJECTS[ship].active_sonar = 2
                             flag = 0
                             for torpedo in self.TORPEDOES:
                                 if self.TORPEDOES[torpedo][4] == ship:
@@ -2180,8 +2185,8 @@ class App:
                                 else:
                                     id = int(flag.split('_')[-1]) + 1
                                 self.TORPEDOES[f'Enemy_ship_torpedo_{id}'] = [
-                                    [self.OBJECTS[ship][0][0], self.OBJECTS[ship][0][1],
-                                     self.OBJECTS[ship][0][2], 0.0367, self.OBJECTS[ship][0][3]],
+                                    [self.OBJECTS[ship].x, self.OBJECTS[ship].y,
+                                     self.OBJECTS[ship].azimuth, 0.0367, self.OBJECTS[ship].depth],
                                     [dest_x, dest_y, self.player.depth], False, 20, ship, 0,
                                     True]
                                 self.NOTICE_QUEUE.append(["Torpedo in the water!", 0, 1])
@@ -2277,8 +2282,8 @@ class App:
                         min_distance = [None, None]
                         for ship in self.OBJECTS:
                             if ship.count('Friendly_ship'):
-                                rel_x = self.OBJECTS[ship][0][0] - torpedo[0][0]
-                                rel_y = self.OBJECTS[ship][0][1] - torpedo[0][1]
+                                rel_x = self.OBJECTS[ship].x - torpedo[0][0]
+                                rel_y = self.OBJECTS[ship].y - torpedo[0][1]
                                 distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                                 if not min_distance[0]:
                                     min_distance[0] = distance
@@ -2356,8 +2361,8 @@ class App:
                                 torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                     math.radians(torpedo[0][2] - 90))
                         elif min_distance[1] in list(self.OBJECTS.keys()):
-                            rel_x = self.OBJECTS[min_distance[1]][0][0] - torpedo[0][0]
-                            rel_y = self.OBJECTS[min_distance[1]][0][1] - torpedo[0][1]
+                            rel_x = self.OBJECTS[min_distance[1]].x - torpedo[0][0]
+                            rel_y = self.OBJECTS[min_distance[1]].y - torpedo[0][1]
                             distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                             angle = calculate_azimuth(rel_x, rel_y, distance)
                             if torpedo[0][2] - angle > 180:
@@ -2366,7 +2371,7 @@ class App:
                                 angle = -((360 - angle) + torpedo[0][2])
                             else:
                                 angle = -(torpedo[0][2] - angle)
-                            depth = self.OBJECTS[min_distance[1]][0][3] - torpedo[0][4]
+                            depth = self.OBJECTS[min_distance[1]].depth - torpedo[0][4]
                             if torpedo[6] and distance <= 60:
                                 self.DETECTED_TORPEDOES[key] = [distance, min_distance[1], angle]
                                 f = 0
@@ -2398,8 +2403,8 @@ class App:
                                 if -1 < distance < 1 and -1 < depth < 1:
                                     log.info("Torpedo hit a friendly ship!")
                                     self.TORPEDOES.pop(key)
-                                    self.OBJECTS[min_distance[1]][4] -= random_int(30, 50)
-                                    if self.OBJECTS[min_distance[1]][4] <= 0:
+                                    self.OBJECTS[min_distance[1]].health -= random_int(30, 50)
+                                    if self.OBJECTS[min_distance[1]].health <= 0:
                                         self.SINK_QUEUE.append(min_distance[1])
                                         self.OBJECTS.pop(min_distance[1])
                                         log.info("Torpedo sunk a friendly ship!")
@@ -2458,7 +2463,6 @@ class App:
                                     math.radians(torpedo[0][2] - 90))
                                 torpedo[0][1] += (torpedo[0][3] * fps_d) * math.sin(
                                     math.radians(torpedo[0][2] - 90))
-
 
             if self.MAIN_MENU_OPEN:
                 self.open_main_menu()
@@ -2592,8 +2596,8 @@ class App:
                         ship_sync_info = ""
                         for ship in self.OBJECTS:
                             if ship.count("Friendly"):
-                                ship_sync_info += f'{self.OBJECTS[ship][0][0]}!{self.OBJECTS[ship][0][1]}!' \
-                                                  f'{self.OBJECTS[ship][0][2]}!{ship}?'
+                                ship_sync_info += f'{self.OBJECTS[ship].x}!{self.OBJECTS[ship].y}!' \
+                                                  f'{self.OBJECTS[ship].azimuth}!{ship}?'
                         else:
                             ship_sync_info = ship_sync_info[:-1]
                         if ship_sync_info == "":
@@ -2619,14 +2623,14 @@ class App:
                         self.clear_scene()
                         self.WIN_SCREEN = True
                         continue
-                    self.OBJECTS['Enemy'][0][0] = float(server_api.UPDATE_INFO[0])
-                    self.OBJECTS['Enemy'][0][1] = float(server_api.UPDATE_INFO[1])
-                    self.OBJECTS['Enemy'][0][2] = float(server_api.UPDATE_INFO[2])
-                    self.OBJECTS['Enemy'][0][3] = float(server_api.UPDATE_INFO[3])
-                    self.OBJECTS['Enemy'][2] = float(server_api.UPDATE_INFO[4])
-                    self.OBJECTS['Enemy'][3] = float(server_api.UPDATE_INFO[5])
-                    self.OBJECTS['Enemy'][5] = float(server_api.UPDATE_INFO[6])
-                    if self.OBJECTS['Enemy'][5] <= 0:
+                    self.OBJECTS['Enemy'].x = float(server_api.UPDATE_INFO[0])
+                    self.OBJECTS['Enemy'].y = float(server_api.UPDATE_INFO[1])
+                    self.OBJECTS['Enemy'].azimuth = float(server_api.UPDATE_INFO[2])
+                    self.OBJECTS['Enemy'].depth = float(server_api.UPDATE_INFO[3])
+                    self.OBJECTS['Enemy'].velocity = float(server_api.UPDATE_INFO[4])
+                    self.OBJECTS['Enemy'].detection_chance = float(server_api.UPDATE_INFO[5])
+                    self.OBJECTS['Enemy'].active_sonar = float(server_api.UPDATE_INFO[6])
+                    if self.OBJECTS['Enemy'].active_sonar <= 0:
                         self.ENEMY_SONAR = 0
                     if server_api.UPDATE_INFO[7] != 'None':
                         for ship in server_api.UPDATE_INFO[7].split("!"):
@@ -2656,7 +2660,7 @@ class App:
                                     if enemy_target[2] - int(target[2]) < 0:
                                         self.ENEMY_SCORE += enemy_target[2] * 0.5  # Base damage score
                                         log.debug(f"Friendly base got damaged beyond repair. Enemy score "
-                                              f"+= {enemy_target[2] * 0.5}")
+                                                  f"+= {enemy_target[2] * 0.5}")
                                         self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
                                     else:
                                         self.ENEMY_SCORE += int(target[2]) * 0.5  # Base damage score
@@ -2685,9 +2689,9 @@ class App:
                             for ship_update in temp_s_update:
                                 if ship == ship_update[-1]:
                                     loop_log.debug(f"Updated ship info for: {ship}")
-                                    self.OBJECTS[ship][0][0] = float(ship_update[0])
-                                    self.OBJECTS[ship][0][1] = float(ship_update[1])
-                                    self.OBJECTS[ship][0][2] = float(ship_update[2])
+                                    self.OBJECTS[ship].x = float(ship_update[0])
+                                    self.OBJECTS[ship].y = float(ship_update[1])
+                                    self.OBJECTS[ship].azimuth = float(ship_update[2])
                         server_api.SHIP_SYNC_INFO = "None"
                     torpedo_update_info = server_api.UPDATE_INFO[9:]
                     for weapon in list(self.WEAPON_LAYOUT):
@@ -2707,7 +2711,7 @@ class App:
                                     self.FIRED_TORPEDOES.pop(weapon)
                                 else:
                                     loop_log.debug(f"Torpedo information isn't being received. Chance left: "
-                                              f"{5 - self.FIRED_TORPEDOES[weapon][2]}")
+                                                   f"{5 - self.FIRED_TORPEDOES[weapon][2]}")
                             else:
                                 loop_log.debug("Torpedo status information received.")
                                 t1 = False
@@ -2878,7 +2882,7 @@ class App:
         if self.ACTIVE_SONAR_SELECTED_CONTACT and \
                 list(self.ACTIVE_SONAR_CONTACTS).count(self.ACTIVE_SONAR_SELECTED_CONTACT) > 0 and \
                 self.ACTIVE_SONAR_SELECTED_CONTACT in list(self.OBJECTS):
-            a_contact_type = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][1]
+            a_contact_type = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT].obj_type
             rel_x = (self.ACTIVE_SONAR_CONTACTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0] - 200) / (
                     200 / ACTIVE_SONAR_RANGE)
             rel_y = (self.ACTIVE_SONAR_CONTACTS[self.ACTIVE_SONAR_SELECTED_CONTACT][1] - 200) / (
@@ -2887,10 +2891,10 @@ class App:
             a_contact_bearing = calculate_bearing(rel_x, rel_y, distance)
             if a_contact_bearing < 0:
                 a_contact_bearing += 360
-            a_contact_speed = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][2]
-            a_contact_depth = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0][3]
+            a_contact_speed = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT].velocity
+            a_contact_depth = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT].depth
             a_contact_distance = distance
-            a_contact_heading = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT][0][2]
+            a_contact_heading = self.OBJECTS[self.ACTIVE_SONAR_SELECTED_CONTACT].azimuth
             if self.TRANSFER_CONTACT_INFO_A:
                 self.bearing_var[1] = f"{float(a_contact_bearing):.2f}"
                 self.depth_var[1] = f"{float(a_contact_depth):.2f}"
@@ -2918,8 +2922,8 @@ class App:
                 self.ACTIVE_SONAR_PING_RADIUS += 1.5 * self.fps / self.current_fps
                 # Make the coordinates relative:
                 for vessel in self.OBJECTS:
-                    rel_x = self.OBJECTS[vessel][0][0] - self.player.x
-                    rel_y = self.OBJECTS[vessel][0][1] - self.player.y
+                    rel_x = self.OBJECTS[vessel].x - self.player.x
+                    rel_y = self.OBJECTS[vessel].y - self.player.y
                     distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
                     if self.ACTIVE_SONAR_PING_RADIUS < distance * (
                             200 / ACTIVE_SONAR_RANGE) < self.ACTIVE_SONAR_PING_RADIUS + 5 and \
@@ -2981,18 +2985,18 @@ class App:
 
         # Make the coordinates relative:
         for vessel in self.OBJECTS:
-            rel_x = self.OBJECTS[vessel][0][0] - self.player.x
-            rel_y = self.OBJECTS[vessel][0][1] - self.player.y
+            rel_x = self.OBJECTS[vessel].x - self.player.x
+            rel_y = self.OBJECTS[vessel].y - self.player.y
             distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
             bearing = calculate_bearing(rel_x, rel_y, distance)
             distance_ratio = (distance / PASSIVE_SONAR_RANGE) * 10
-            detection_ratio = (1 - self.OBJECTS[vessel][3]) * 10
-            if distance + ((1 - self.OBJECTS[vessel][3]) * PASSIVE_SONAR_RANGE) <= PASSIVE_SONAR_RANGE:
+            detection_ratio = (1 - self.OBJECTS[vessel].detection_chance) * 10
+            if distance + ((1 - self.OBJECTS[vessel].detection_chance) * PASSIVE_SONAR_RANGE) <= PASSIVE_SONAR_RANGE:
                 # Draw it on the passive sonar display
                 # print(f"Angle: {angle} Local Angle: {local_position} "
                 #       f"Bearing: {bearing}")
                 if not self.PASSIVE_SONAR_FREEZE:
-                    if self.OBJECTS[vessel][0][3] < self.player.depth:
+                    if self.OBJECTS[vessel].depth < self.player.depth:
                         rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
                         rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
                         zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
@@ -3009,9 +3013,9 @@ class App:
                             [(zero + rel_x * scale) + random_int(-4 - distance_ratio - detection_ratio,
                                                                  4 + distance_ratio + detection_ratio), 1, vessel,
                              '#386e2c'])
-            if self.OBJECTS[vessel][5] > 1.5 or (vessel == 'Enemy' and self.ENEMY_SONAR >= 1 and distance <= 150):
+            if self.OBJECTS[vessel].active_sonar > 1.5 or (vessel == 'Enemy' and self.ENEMY_SONAR >= 1 and distance <= 150):
                 if not self.PASSIVE_SONAR_FREEZE:
-                    if self.OBJECTS[vessel][0][3] < self.player.depth:
+                    if self.OBJECTS[vessel].depth < self.player.depth:
                         rel_x = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2 + bearing
                         rel_x -= (p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2)
                         zero = p1_sonar_start + (p1_sonar_end - p1_sonar_start) / 2
@@ -3027,12 +3031,12 @@ class App:
                             [(zero + rel_x * scale) + random_int(-distance_ratio, distance_ratio), 1, 'sonar',
                              'yellow'])
             if vessel != 'Enemy':
-                if self.OBJECTS[vessel][5] - 0.0167 > -25:
-                    self.OBJECTS[vessel][5] -= 0.0167
+                if self.OBJECTS[vessel].active_sonar - 0.0167 > -25:
+                    self.OBJECTS[vessel].active_sonar -= 0.0167
                 else:
-                    self.OBJECTS[vessel][5] = -25
+                    self.OBJECTS[vessel].active_sonar = -25
             else:
-                if self.OBJECTS[vessel][5] >= 1:
+                if self.OBJECTS[vessel].active_sonar >= 1:
                     self.ENEMY_SONAR += 0.0167
                     if self.ENEMY_SONAR > 2:
                         self.ENEMY_SONAR = 0
@@ -3145,13 +3149,13 @@ class App:
                 if contact_bearing < 0:
                     contact_bearing += 360
             elif not self.PASSIVE_SONAR_FREEZE:
-                contact_type = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][1]
-                contact_speed = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][2]
-                contact_depth = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][3]
-                rel_x = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][0] - self.player.x
-                rel_y = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][1] - self.player.y
+                contact_type = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]].obj_type
+                contact_speed = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]].velocity
+                contact_depth = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]].depth
+                rel_x = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]].x - self.player.x
+                rel_y = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]].y - self.player.y
                 contact_distance = math.sqrt(rel_x * rel_x + rel_y * rel_y)
-                contact_heading = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]][0][2]
+                contact_heading = self.OBJECTS[self.PASSIVE_SELECTED_CONTACT[2]].azimuth
                 if contact_heading < 0:
                     contact_heading += 360
                 contact_bearing = calculate_bearing(rel_x, rel_y, contact_distance)
