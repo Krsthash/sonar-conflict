@@ -1,6 +1,7 @@
 import math
-from Components.utilities import calculate_azimuth, random_int
+
 from Components.decoy import Decoy
+from Components.utilities import calculate_azimuth, random_int
 
 DETECTED_TORPEDOES = {}
 TORPEDO_SINK_QUEUE = []

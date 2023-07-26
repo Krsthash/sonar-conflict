@@ -12,14 +12,14 @@ import pygame
 import pyperclip
 
 import server_api
-from Components.Weapons.kalibr import Kalibr
-from Components.Weapons.oniks import Oniks
 from Components.Weapons.futlyar import Futlyar
-from Components.Weapons.tlam import Tlam
-from Components.Weapons.tasm import Tasm
-from Components.Weapons.ugm84 import Ugm84
+from Components.Weapons.kalibr import Kalibr
 from Components.Weapons.mk48 import Mk48
+from Components.Weapons.oniks import Oniks
 from Components.Weapons.sonar_decoy import SonarDecoy
+from Components.Weapons.tasm import Tasm
+from Components.Weapons.tlam import Tlam
+from Components.Weapons.ugm84 import Ugm84
 from Components.player import Player
 from Components.torpedo import Torpedo, DETECTED_TORPEDOES, TORPEDO_SINK_QUEUE, \
     TORPEDO_DAMAGE_QUEUE, TORPEDO_DECOY_QUEUE
@@ -802,7 +802,7 @@ class App:
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84':
                 self.ASM_FIRED.append(Ugm84().launch(self.player, float(self.bearing_var[1]),
-                                                    float(self.distance_var[1]) / 2))
+                                                     float(self.distance_var[1]) / 2))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
                 log.debug("Fired the torpedo.")
@@ -1071,7 +1071,8 @@ class App:
         i = 0
         for missile in self.LAM_FIRED:
             if missile.time > 0:
-                txtsurf = self.middle_font.render(f"{missile.weapon_name}: Impact in: {float(missile.time):.2f}", True, '#b6b6d1')
+                txtsurf = self.middle_font.render(f"{missile.weapon_name}: Impact in: {float(missile.time):.2f}", True,
+                                                  '#b6b6d1')
                 self.window.blit(txtsurf, (20, 320 + i * 20))
             else:
                 if missile.message == "Target hit!":
@@ -1083,7 +1084,8 @@ class App:
             i += 1
         for missile in self.ASM_FIRED:
             if missile.time > 0:
-                txtsurf = self.middle_font.render(f"{missile.weapon_name}: Impact in: {float(missile.time):.2f}", True, '#b6b6d1')
+                txtsurf = self.middle_font.render(f"{missile.weapon_name}: Impact in: {float(missile.time):.2f}", True,
+                                                  '#b6b6d1')
                 self.window.blit(txtsurf, (20, 320 + i * 20))
             else:
                 if missile.message == "Target hit!":

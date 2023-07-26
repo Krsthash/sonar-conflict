@@ -16,7 +16,7 @@ class SonarDecoy:
         time = self.range / (self.speed * 60)
         impact_x = player.x - self.range * math.cos(math.radians(angle + 90))
         impact_y = player.y - self.range * math.sin(math.radians(angle + 90))
-        return Decoy(player.x, player.y,player.azimuth, player.depth,
+        return Decoy(player.x, player.y, player.azimuth, player.depth,
                      impact_x, impact_y, depth, time, mode)
 
     def render_description(self, font, x_size, window):

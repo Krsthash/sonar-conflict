@@ -1,4 +1,3 @@
-
 class LAM:
     def __init__(self, time, hit_status, hit_target, message, weapon_name, destruction):
         self.destruction = destruction

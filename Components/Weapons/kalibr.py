@@ -1,7 +1,7 @@
 import math
 
-from Components.utilities import random_int
 from Components.missiles import LAM
+from Components.utilities import random_int
 
 
 class Kalibr:
