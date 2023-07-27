@@ -68,6 +68,22 @@ def calculate_azimuth(rel_x, rel_y, distance):
     return angle
 
 
-def mid_rect(rect, txtsurf):
-    return ((rect[0] + (rect[2] / 2 - txtsurf.get_width() / 2)),
+def mid_rect(rect, txtsurf, concatenate_surf=None, end_text=False):
+    """
+    Helper function to calculate the middle point of a Rect object and
+    calculate the coordinates for placing a centered text inside of it.
+    :param concatenate_surf: Text surface that you want to concatenate.
+    :param end_text: Set this to true if you want the coordinates of the second surface when concatenating.
+    """
+    if concatenate_surf and not end_text:
+        return ((rect[0] + (rect[2] / 2 - (txtsurf.get_width() + concatenate_surf.get_width()) / 2)),
+                (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))
+
+    elif concatenate_surf and end_text:
+        return (
+            rect[0] + ((rect[2] / 2 - (
+                        (txtsurf.get_width() + concatenate_surf.get_width()) / 2) + concatenate_surf.get_width())),
             (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))
+    else:
+        return ((rect[0] + (rect[2] / 2 - txtsurf.get_width() / 2)),
+                (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))

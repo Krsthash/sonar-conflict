@@ -54,6 +54,18 @@ loop_log.debug("Loop logging enabled.")
 
 class App:
     def __init__(self):
+        self.GAMERULE_MAX_SCORE = 0
+        self.max_score_box = None
+        self.game_length_box = None
+        self.GAMERULE_GAME_LENGTH = 0
+        self.GAMERULE_SHIP_RESPAWN = 0
+        self.GAMERULE_TARGET_RESPAWN = 0
+        self.GAMERULE_PLAYER_RESPAWN = 0
+        self.player_respawn_box = None
+        self.target_respawn_box = None
+        self.ship_respawn_box = None
+        self.HOST_OPTIONS_SCREEN = None
+        self.options_box = None
         self.player = None
         self.DECOYS = []
         self.DETECTED_TORPEDOES = {}
@@ -1759,6 +1771,8 @@ class App:
                 self.host_game_render()
             elif self.JOIN_GAME_SCREEN:
                 self.join_game_render()
+            elif self.HOST_OPTIONS_SCREEN:
+                self.host_options_render()
             elif self.WIN_SCREEN:
                 self.win_screen_render()
             elif self.LOSS_SCREEN:
@@ -1779,6 +1793,8 @@ class App:
                     self.host_game_screen_events(event)
                 elif self.JOIN_GAME_SCREEN:
                     self.join_game_screen_events(event)
+                elif self.HOST_OPTIONS_SCREEN:
+                    self.host_options_events(event)
 
             if self.GAME_INIT:
                 keys = pygame.key.get_pressed()
@@ -2647,6 +2663,9 @@ class App:
             elif event.button == 1 and pygame.Rect(self.back_box).collidepoint(pygame.mouse.get_pos()):
                 self.clear_scene()
                 self.MAIN_MENU_OPEN = True
+            elif event.button == 1 and pygame.Rect(self.options_box).collidepoint(pygame.mouse.get_pos()):
+                self.clear_scene()
+                self.HOST_OPTIONS_SCREEN = True
             elif event.button == 1 and pygame.Rect(self.browse_game_rect).collidepoint(pygame.mouse.get_pos()):
                 self.mission_name = prompt_file()
             elif event.button == 1 and pygame.Rect(self.random_game_rect).collidepoint(pygame.mouse.get_pos()):
@@ -2763,6 +2782,12 @@ class App:
                              border_bottom_left_radius=0)
             txtsurf = self.middle_font.render('Back', True, '#FFDBDB')
             self.window.blit(txtsurf, mid_rect(self.back_box, txtsurf))
+        elif pygame.Rect(self.options_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, 'white', self.options_box, width=2, border_radius=2, border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            txtsurf = self.middle_font.render('Options', True, 'white')
+            self.window.blit(txtsurf, mid_rect(self.options_box, txtsurf))
         elif self.copy_box:
             if pygame.Rect(self.copy_box).collidepoint(pygame.mouse.get_pos()):
                 pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
@@ -2858,11 +2883,17 @@ class App:
             txtsurf = self.middle_font.render('Host', True, '#b6b6d1')
         self.window.blit(txtsurf, mid_rect(self.host_game_box, txtsurf))
 
-        self.back_box = (self.size[0] / 2 - 60, 29 * self.pos - 20, 120, 40)
+        self.back_box = (self.size[0] / 2 - 25 - 120, 29 * self.pos - 20, 120, 40)
         pygame.draw.rect(self.window, '#b6b6d1', self.back_box, width=2, border_radius=2, border_top_left_radius=0,
                          border_bottom_left_radius=0)
         txtsurf = self.middle_font.render('Back', True, '#b6b6d1')
         self.window.blit(txtsurf, mid_rect(self.back_box, txtsurf))
+
+        self.options_box = (self.size[0] / 2 + 25, 29 * self.pos - 20, 120, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.options_box, width=2, border_radius=2,
+                         border_top_left_radius=0, border_bottom_left_radius=0)
+        txtsurf = self.middle_font.render('Options', True, '#b6b6d1')
+        self.window.blit(txtsurf, mid_rect(self.options_box, txtsurf))
 
         if self.GAME_CODE:
             txtsurf = self.middle_font.render(f'Join code: {self.GAME_CODE}', True, '#DBFFD6')
@@ -3204,6 +3235,203 @@ class App:
                 else:
                     server_api.LOOP_LOGGING = True
                     loop_log.setLevel(logging.DEBUG)
+
+        pygame.display.update()
+
+    def host_options_render(self):
+        """
+        Renders the options menu for hosting a new game.
+        """
+        self.window.fill("#021019")
+        chunk = 33
+        self.pos = self.size[1] / chunk
+        txtsurf = self.big_font.render('Game options', True, '#b6b6d1')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 4 * self.pos))
+        txtsurf = self.small_font.render('Respawns', True, '#b6b6d1')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 6 * self.pos))
+
+        self.ship_respawn_box = (self.size[0] / 2 - 245 - 110, 7 * self.pos, 220, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.ship_respawn_box, width=2, border_radius=2)
+        txtsurf = self.middle_font.render('Ship respawns: ', True, '#b6b6d1')
+        if not self.GAMERULE_SHIP_RESPAWN:
+            option_txtsurf = self.middle_font.render('Disabled', True, 'red')
+        else:
+            option_txtsurf = self.middle_font.render('Enabled', True, 'green')
+        self.window.blit(txtsurf, mid_rect(self.ship_respawn_box, txtsurf, concatenate_surf=option_txtsurf))
+        self.window.blit(option_txtsurf, mid_rect(self.ship_respawn_box, option_txtsurf,
+                                                  concatenate_surf=txtsurf, end_text=True))
+
+        self.player_respawn_box = (self.size[0] / 2 - 110, 7 * self.pos, 220, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.player_respawn_box, width=2, border_radius=2)
+        txtsurf = self.middle_font.render('Player respawns: ', True, '#b6b6d1')
+        if self.GAMERULE_PLAYER_RESPAWN == 0:
+            option_txtsurf = self.middle_font.render('Disabled', True, 'red')
+        else:
+            option_txtsurf = self.middle_font.render(f'{self.GAMERULE_PLAYER_RESPAWN}', True, 'green')
+        self.window.blit(txtsurf, mid_rect(self.player_respawn_box, txtsurf, concatenate_surf=option_txtsurf))
+        self.window.blit(option_txtsurf, mid_rect(self.player_respawn_box, option_txtsurf,
+                                                  concatenate_surf=txtsurf, end_text=True))
+
+        self.target_respawn_box = (self.size[0] / 2 + 135, 7 * self.pos, 220, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.target_respawn_box, width=2, border_radius=2)
+        txtsurf = self.middle_font.render('Target respawns: ', True, '#b6b6d1')
+        if not self.GAMERULE_TARGET_RESPAWN:
+            option_txtsurf = self.middle_font.render('Disabled', True, 'red')
+        else:
+            option_txtsurf = self.middle_font.render('Enabled', True, 'green')
+        self.window.blit(txtsurf, mid_rect(self.target_respawn_box, txtsurf, concatenate_surf=option_txtsurf))
+        self.window.blit(option_txtsurf, mid_rect(self.target_respawn_box, option_txtsurf,
+                                                  concatenate_surf=txtsurf, end_text=True))
+
+        self.back_box = (self.size[0] / 2 - 60, 29 * self.pos - 20, 120, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.back_box, width=2, border_radius=2, border_top_left_radius=0,
+                         border_bottom_left_radius=0)
+        txtsurf = self.middle_font.render('Back', True, '#b6b6d1')
+        self.window.blit(txtsurf, mid_rect(self.back_box, txtsurf))
+
+        txtsurf = self.small_font.render('Game goal', True, '#b6b6d1')
+        self.window.blit(txtsurf, (self.size[0] / 2 - txtsurf.get_width() / 2, 10 * self.pos))
+
+        self.game_length_box = (self.size[0] / 2 - 110, 11 * self.pos, 220, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.game_length_box, width=2, border_radius=2)
+        txtsurf = self.middle_font.render('Game length: ', True, '#b6b6d1')
+        if self.GAMERULE_GAME_LENGTH == 0:
+            option_txtsurf = self.middle_font.render('Unlimited', True, 'red')
+        else:
+            option_txtsurf = self.middle_font.render(f'{self.GAMERULE_GAME_LENGTH}', True, 'green')
+        self.window.blit(txtsurf, mid_rect(self.game_length_box, txtsurf, concatenate_surf=option_txtsurf))
+        self.window.blit(option_txtsurf, mid_rect(self.game_length_box, option_txtsurf,
+                                                  concatenate_surf=txtsurf, end_text=True))
+
+        self.max_score_box = (self.size[0] / 2 - 110, 14 * self.pos, 220, 40)
+        pygame.draw.rect(self.window, '#b6b6d1', self.max_score_box, width=2, border_radius=2)
+        txtsurf = self.middle_font.render('Score to win: ', True, '#b6b6d1')
+        if self.GAMERULE_MAX_SCORE == 0:
+            option_txtsurf = self.middle_font.render('Undefined', True, 'red')
+        else:
+            option_txtsurf = self.middle_font.render(f'{self.GAMERULE_MAX_SCORE}', True, 'green')
+        self.window.blit(txtsurf, mid_rect(self.max_score_box, txtsurf, concatenate_surf=option_txtsurf))
+        self.window.blit(option_txtsurf, mid_rect(self.max_score_box, option_txtsurf,
+                                                  concatenate_surf=txtsurf, end_text=True))
+
+    def host_options_events(self, event):
+        if not self.player_respawn_box:  # Make sure the screen has been loaded first
+            return
+        pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_ARROW))
+        if event.type == pygame.QUIT:
+            self.running = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and pygame.Rect(self.back_box).collidepoint(pygame.mouse.get_pos()):
+                self.clear_scene()
+                self.HOST_GAME_SCREEN = True
+            elif event.button == 1 and pygame.Rect(self.ship_respawn_box).collidepoint(pygame.mouse.get_pos()):
+                if self.GAMERULE_SHIP_RESPAWN:
+                    self.GAMERULE_SHIP_RESPAWN = False
+                else:
+                    self.GAMERULE_SHIP_RESPAWN = True
+            elif event.button == 1 and pygame.Rect(self.target_respawn_box).collidepoint(pygame.mouse.get_pos()):
+                if self.GAMERULE_TARGET_RESPAWN:
+                    self.GAMERULE_TARGET_RESPAWN = False
+                else:
+                    self.GAMERULE_TARGET_RESPAWN = True
+            elif event.button == 1 and pygame.Rect(self.player_respawn_box).collidepoint(pygame.mouse.get_pos()):
+                if self.GAMERULE_PLAYER_RESPAWN < 3:
+                    self.GAMERULE_PLAYER_RESPAWN += 1
+                else:
+                    self.GAMERULE_PLAYER_RESPAWN = 0
+            elif event.button == 1 and pygame.Rect(self.game_length_box).collidepoint(pygame.mouse.get_pos()):
+                if self.GAMERULE_GAME_LENGTH < 30:
+                    self.GAMERULE_GAME_LENGTH += 5
+                else:
+                    self.GAMERULE_GAME_LENGTH = 0
+            elif event.button == 1 and pygame.Rect(self.max_score_box).collidepoint(pygame.mouse.get_pos()):
+                if self.GAMERULE_MAX_SCORE < 5000:
+                    self.GAMERULE_MAX_SCORE += 250
+                else:
+                    self.GAMERULE_MAX_SCORE = 0
+
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_F2:
+                self.CHEATS = True
+            elif event.key == pygame.K_F3:
+                if server_api.LOOP_LOGGING:
+                    server_api.LOOP_LOGGING = False
+                    loop_log.setLevel(logging.INFO)
+                else:
+                    server_api.LOOP_LOGGING = True
+                    loop_log.setLevel(logging.DEBUG)
+
+        if pygame.Rect(self.back_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, '#FFDBDB', self.back_box, width=2, border_radius=2, border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            txtsurf = self.middle_font.render('Back', True, '#FFDBDB')
+            self.window.blit(txtsurf, mid_rect(self.back_box, txtsurf))
+        elif pygame.Rect(self.ship_respawn_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, 'white', self.ship_respawn_box, width=2, border_radius=2, border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            txtsurf = self.middle_font.render('Ship respawns: ', True, 'white')
+            if not self.GAMERULE_SHIP_RESPAWN:
+                option_txtsurf = self.middle_font.render('Disabled', True, 'red')
+            else:
+                option_txtsurf = self.middle_font.render('Enabled', True, 'green')
+            self.window.blit(txtsurf, mid_rect(self.ship_respawn_box, txtsurf, concatenate_surf=option_txtsurf))
+            self.window.blit(option_txtsurf, mid_rect(self.ship_respawn_box, option_txtsurf,
+                                                      concatenate_surf=txtsurf, end_text=True))
+
+        elif pygame.Rect(self.player_respawn_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, 'white', self.player_respawn_box, width=2, border_radius=2,
+                             border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            txtsurf = self.middle_font.render('Player respawns: ', True, 'white')
+            if self.GAMERULE_PLAYER_RESPAWN == 0:
+                option_txtsurf = self.middle_font.render('Disabled', True, 'red')
+            else:
+                option_txtsurf = self.middle_font.render(f'{self.GAMERULE_PLAYER_RESPAWN}', True, 'green')
+            self.window.blit(txtsurf, mid_rect(self.player_respawn_box, txtsurf, concatenate_surf=option_txtsurf))
+            self.window.blit(option_txtsurf, mid_rect(self.player_respawn_box, option_txtsurf,
+                                                      concatenate_surf=txtsurf, end_text=True))
+
+        elif pygame.Rect(self.target_respawn_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, 'white', self.target_respawn_box, width=2, border_radius=2,
+                             border_top_left_radius=0,
+                             border_bottom_left_radius=0)
+            txtsurf = self.middle_font.render('Target respawns: ', True, 'white')
+            if not self.GAMERULE_TARGET_RESPAWN:
+                option_txtsurf = self.middle_font.render('Disabled', True, 'red')
+            else:
+                option_txtsurf = self.middle_font.render('Enabled', True, 'green')
+            self.window.blit(txtsurf, mid_rect(self.target_respawn_box, txtsurf, concatenate_surf=option_txtsurf))
+            self.window.blit(option_txtsurf, mid_rect(self.target_respawn_box, option_txtsurf,
+                                                      concatenate_surf=txtsurf, end_text=True))
+
+        elif pygame.Rect(self.game_length_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, 'white', self.game_length_box, width=2, border_radius=2)
+            txtsurf = self.middle_font.render('Game length: ', True, 'white')
+            if self.GAMERULE_GAME_LENGTH == 0:
+                option_txtsurf = self.middle_font.render('Unlimited', True, 'red')
+            else:
+                option_txtsurf = self.middle_font.render(f'{self.GAMERULE_GAME_LENGTH}', True, 'green')
+            self.window.blit(txtsurf, mid_rect(self.game_length_box, txtsurf, concatenate_surf=option_txtsurf))
+            self.window.blit(option_txtsurf, mid_rect(self.game_length_box, option_txtsurf,
+                                                      concatenate_surf=txtsurf, end_text=True))
+
+        elif pygame.Rect(self.max_score_box).collidepoint(pygame.mouse.get_pos()):
+            pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
+            pygame.draw.rect(self.window, 'white', self.max_score_box, width=2, border_radius=2)
+            txtsurf = self.middle_font.render('Score to win: ', True, 'white')
+            if self.GAMERULE_MAX_SCORE == 0:
+                option_txtsurf = self.middle_font.render('Undefined', True, 'red')
+            else:
+                option_txtsurf = self.middle_font.render(f'{self.GAMERULE_MAX_SCORE}', True, 'green')
+            self.window.blit(txtsurf, mid_rect(self.max_score_box, txtsurf, concatenate_surf=option_txtsurf))
+            self.window.blit(option_txtsurf, mid_rect(self.max_score_box, option_txtsurf,
+                                                      concatenate_surf=txtsurf, end_text=True))
 
         pygame.display.update()
 
