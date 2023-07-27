@@ -300,7 +300,7 @@ async def update_game():
     # print(f'update game running.. {PLAYER}, {SEND_INFO}')
     if SEND_INFO:
         if len(SEND_INFO.split("%!%")) > 1:
-            await CHANNEL.send(file=discord.File(SEND_INFO.split("%!%")[-1]))
+            await CHANNEL.send(file=discord.File(f"./Missions/{SEND_INFO.split('%!%')[-1]}"))
             log.debug("Sent a file.")
             LAST_SEND_AT = time.time()
             SEND_INFO = None

@@ -602,7 +602,7 @@ class App:
         Initializes the game by loading the mission file and setting necessary variables.
         """
         # Load mission information from a file
-        with open(self.mission_name, 'r') as file:
+        with open(f"./Missions/{self.mission_name}", 'r') as file:
             mission = json.load(file)
         code = 'usa'
         enemy_code = 'ru'
@@ -2650,7 +2650,7 @@ class App:
             elif event.button == 1 and pygame.Rect(self.browse_game_rect).collidepoint(pygame.mouse.get_pos()):
                 self.mission_name = prompt_file()
             elif event.button == 1 and pygame.Rect(self.random_game_rect).collidepoint(pygame.mouse.get_pos()):
-                files = [f for f in os.listdir('.') if os.path.isfile(f)]
+                files = [f for f in os.listdir('./Missions')]
                 choice = []
                 for f in files:
                     if f.count('mission'):
@@ -2912,7 +2912,7 @@ class App:
             log.debug("Received mission information!", msg['content'])
             info = json.loads(eval(msg['content'].replace("MISSION-INFORMATION", "")))
             json_object = json.dumps(info, indent=4)
-            with open("TEMP.json", "w", encoding="utf-8") as temp_file:
+            with open("./Missions/TEMP.json", "w", encoding="utf-8") as temp_file:
                 temp_file.write(json_object)
             self.mission_name = 'TEMP.json'
             server_api.SEND_INFO = f"[{self.PLAYER_ID}] Mission loaded."
