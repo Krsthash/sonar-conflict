@@ -54,6 +54,10 @@ loop_log.debug("Loop logging enabled.")
 
 class App:
     def __init__(self):
+        self.ENEMY_TARGET_RESPAWN_QUEUE = []
+        self.FRIENDLY_TARGET_RESPAWN_QUEUE = []
+        self.RESPAWN_QUEUE = []
+        self.game_timer = 0
         self.GAMERULE_MAX_SCORE = 0
         self.max_score_box = None
         self.game_length_box = None
@@ -204,6 +208,11 @@ class App:
         """
         Renders in-game notifications based on the NOTICE_QUEUE.
         """
+        # Render timer:
+        if self.GAMERULE_GAME_LENGTH > 0:
+            txtsurf = self.middle_font.render(f"Time left: {self.GAMERULE_GAME_LENGTH-self.game_timer/60:.0f} minutes", True, '#03fca9')
+            self.window.blit(txtsurf, (10, self.size[1]-20))
+
         # Debug information (F1)
         if server_api.LAST_UPDATE_AT and server_api.LAST_SEND_AT and self.DEBUG:
             rec_ = float(time.time() - server_api.LAST_UPDATE_AT)
@@ -1505,6 +1514,22 @@ class App:
             # Scene checks
             if self.GAME_INIT:
                 self.ship_sync += 0.0167 * fps_d
+                self.game_timer += 0.0167 * fps_d
+                if self.game_timer/60 > self.GAMERULE_GAME_LENGTH:
+                    if self.LOCAL_SCORE > self.ENEMY_SCORE:
+                        self.clear_scene()
+                        self.WIN_SCREEN = True
+                    else:
+                        self.clear_scene()
+                        self.LOSS_SCREEN = False
+                if self.GAMERULE_MAX_SCORE > 0:
+                    if self.LOCAL_SCORE >= self.GAMERULE_MAX_SCORE:
+                        self.clear_scene()
+                        self.WIN_SCREEN = True
+                    if self.ENEMY_SCORE >= self.GAMERULE_MAX_SCORE:
+                        self.clear_scene()
+                        self.LOSS_SCREEN = True
+
                 # Collision detection
                 if self.coll_detection.get_at((int(self.player.x), int(self.player.y)))[:3] != (
                         2, 16, 25):
@@ -1555,6 +1580,7 @@ class App:
                             if target[2] <= 0:
                                 target[2] = 0
                                 self.ENEMY_TARGET_LOCATIONS.remove(target)
+                                self.ENEMY_TARGET_RESPAWN_QUEUE.append(target)
                                 self.LOCAL_SCORE += 50  # Base destruction score
                                 self.TARGETS_DESTROYED += 1
                                 self.NOTICE_QUEUE.append(["Target destroyed!", 0, 0])
@@ -1580,6 +1606,7 @@ class App:
                                         self.LOCAL_SCORE += 200  # Ship destruction score
                                         self.SHIPS_DESTROYED += 1
                                         self.OBJECTS.pop(ship)
+                                        self.RESPAWN_QUEUE.append(ship)
                                         # Max ship destruction score = 200
                                         self.SINK_QUEUE.append(ship)
                                         self.NOTICE_QUEUE.append(["Ship destroyed!", 0, 0])
@@ -1931,6 +1958,7 @@ class App:
                                 ship = ship.replace("Friendly", "Enemy")
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
+                                    self.RESPAWN_QUEUE.append(ship)
                                     log.info(f"Ship {ship} has been sunk by you!")
                                     self.LOCAL_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED += 1
@@ -1939,6 +1967,7 @@ class App:
                                 ship = ship.replace("Enemy", "Friendly")
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
+                                    self.RESPAWN_QUEUE.append(ship)
                                     log.info(f"Ship {ship} has been sunk by the enemy!")
                                     self.ENEMY_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED_ENEMY += 1
@@ -1965,6 +1994,7 @@ class App:
                                         self.ENEMY_SCORE += 50
                                         self.TARGETS_DESTROYED_ENEMY += 1
                                         self.FRIENDLY_TARGET_LOCATIONS.remove(enemy_target)
+                                        self.FRIENDLY_TARGET_RESPAWN_QUEUE.append(enemy_target)
                                         self.NOTICE_QUEUE.append(["Friendly base got destroyed!", 0, 1])
                                     break
                     if server_api.SHIP_SYNC_INFO != 'None':
@@ -2626,6 +2656,23 @@ class App:
             if msg is None:
                 server_api.ALLOW_WAIT = True
                 return
+        # Sending gamerule information
+        server_api.SEND_INFO = (f"GAMERULE-INFORMATION{self.GAMERULE_MAX_SCORE}!"
+                                f"{self.GAMERULE_GAME_LENGTH}!"
+                                f"{self.GAMERULE_PLAYER_RESPAWN}!"
+                                f"{self.GAMERULE_TARGET_RESPAWN}!"
+                                f"{self.GAMERULE_SHIP_RESPAWN}")
+        # Waiting for the other player to receive gamerule information
+        msg = server_api.wait_for_message()
+        if msg is None:  # Used to check if the player decided to abort the game
+            server_api.ALLOW_WAIT = True
+            return
+        while msg['content'] != f"[{enemy}] Game rules loaded.":
+            time.sleep(0.5)
+            msg = server_api.wait_for_message()
+            if msg is None:
+                server_api.ALLOW_WAIT = True
+                return
         log.info("Finished loading, ready to start.")
         self.HOST_STATUS = 3
         self.must_update = True
@@ -2947,6 +2994,36 @@ class App:
                 temp_file.write(json_object)
             self.mission_name = 'TEMP.json'
             server_api.SEND_INFO = f"[{self.PLAYER_ID}] Mission loaded."
+
+            # Waiting for gamerule information
+            msg = server_api.wait_for_message()
+            if msg is None:  # Used to check if the player decided to abort the game
+                server_api.ALLOW_WAIT = True
+                return
+            while not msg['content'].count('GAMERULE-INFORMATION'):
+                time.sleep(0.5)
+                msg = server_api.wait_for_message()
+                if msg is None:
+                    server_api.ALLOW_WAIT = True
+                    return
+            rules = msg['content'].replace('GAMERULE-INFORMATION', '').split('!')
+            self.GAMERULE_MAX_SCORE = int(rules[0])
+            self.GAMERULE_GAME_LENGTH = float(rules[1])
+            self.GAMERULE_PLAYER_RESPAWN = int(rules[2])
+            if rules[3] == 'True':
+                self.GAMERULE_TARGET_RESPAWN = True
+            else:
+                self.GAMERULE_TARGET_RESPAWN = False
+            if rules[4] == 'True':
+                self.GAMERULE_SHIP_RESPAWN = True
+            else:
+                self.GAMERULE_SHIP_RESPAWN = False
+            print(self.GAMERULE_PLAYER_RESPAWN,
+                  self.GAMERULE_SHIP_RESPAWN,
+                  self.GAMERULE_TARGET_RESPAWN,
+                  self.GAMERULE_GAME_LENGTH,
+                  self.GAMERULE_MAX_SCORE)
+            server_api.SEND_INFO = f"[{self.PLAYER_ID}] Game rules loaded."
             self.JOIN_STATUS = 2
             self.must_update = True
             # Waiting for start

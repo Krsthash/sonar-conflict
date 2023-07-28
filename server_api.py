@@ -167,6 +167,10 @@ async def on_msg():
                 msg_['content'] = f"MISSION-INFORMATION{r.content}"
                 ON_MESSAGE_BUFFER.append(msg_)
                 LAST_UPDATE_AT = time.time()
+        elif str(msg['content']).count("GAMERULE-INFORMATION"):
+            log.debug("Received game rule information!")
+            ON_MESSAGE_BUFFER.append(msg)
+            LAST_UPDATE_AT = time.time()
         elif str(msg['content'][1]) != str(PLAYER):
             if msg['content'][2] == ']':
                 ON_MESSAGE_BUFFER.append(msg)
