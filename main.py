@@ -54,6 +54,8 @@ loop_log.debug("Loop logging enabled.")
 
 class App:
     def __init__(self):
+        self.ENEMY_RESPAWNS_LEFT = 0
+        self.FRIENDLY_RESPAWNS_LEFT = 0
         self.ENEMY_SHIP_RESPAWN_QUEUE = []
         self.FRIENDLY_SHIP_RESPAWN_QUEUE = []
         self.ENEMY_TARGET_RESPAWN_QUEUE = []
@@ -619,6 +621,8 @@ class App:
         """
         Initializes the game by loading the mission file and setting necessary variables.
         """
+        self.ENEMY_RESPAWNS_LEFT = self.GAMERULE_PLAYER_RESPAWN
+        self.FRIENDLY_RESPAWNS_LEFT = self.GAMERULE_PLAYER_RESPAWN
         # Load mission information from a file
         with open(f"./Missions/{self.mission_name}", 'r') as file:
             mission = json.load(file)
@@ -1949,9 +1953,22 @@ class App:
                 if not server_api.SEND_INFO:
                     if self.player.health <= 0:
                         server_api.SEND_INFO = f"[{self.PLAYER_ID}] Player has died."
-                        self.clear_scene()
-                        self.LOSS_SCREEN = True
-                        continue
+                        if self.FRIENDLY_RESPAWNS_LEFT:
+                            self.NOTICE_QUEUE.append(["We got destroyed! Player respawned.", 0, 1])
+                            self.FRIENDLY_RESPAWNS_LEFT -= 1
+                            # Load mission information from a file
+                            with open(f"./Missions/{self.mission_name}", 'r') as file:
+                                mission = json.load(file)
+                            code = 'usa'
+                            if not self.PLAYER_ID:
+                                code = 'ru'
+                            self.player = Player(mission[code]['spawn'][0], mission[code]['spawn'][1],
+                                                 mission[code]['spawn'][2], mission[code]['spawn'][3])
+                            continue
+                        else:
+                            self.clear_scene()
+                            self.LOSS_SCREEN = True
+                            continue
                     for weapon in self.FIRED_TORPEDOES:
                         if self.FIRED_TORPEDOES[weapon][2] < 0:
                             self.FIRED_TORPEDOES[weapon][2] = 0
@@ -2004,9 +2021,15 @@ class App:
                 if server_api.UPDATE_INFO:
                     if server_api.UPDATE_INFO.count("PLAYER HAS DIED"):
                         log.info("Received information about enemy's death, R.I.P.")
-                        self.clear_scene()
-                        self.WIN_SCREEN = True
-                        continue
+                        self.NOTICE_QUEUE.append(['Enemy has died!', 0, 0])
+                        if self.ENEMY_RESPAWNS_LEFT:
+                            self.ENEMY_RESPAWNS_LEFT -= 1
+                            server_api.UPDATE_INFO = None
+                            continue
+                        else:
+                            self.clear_scene()
+                            self.WIN_SCREEN = True
+                            continue
                     self.OBJECTS['Enemy'].x = float(server_api.UPDATE_INFO[0])
                     self.OBJECTS['Enemy'].y = float(server_api.UPDATE_INFO[1])
                     self.OBJECTS['Enemy'].azimuth = float(server_api.UPDATE_INFO[2])
