@@ -209,11 +209,6 @@ class App:
         """
         Renders in-game notifications based on the NOTICE_QUEUE.
         """
-        # Render timer:
-        if self.GAMERULE_GAME_LENGTH > 0:
-            txtsurf = self.middle_font.render(f"Time left: {self.GAMERULE_GAME_LENGTH-self.game_timer/60:.0f} minutes", True, '#03fca9')
-            self.window.blit(txtsurf, (10, self.size[1]-20))
-
         # Debug information (F1)
         if server_api.LAST_UPDATE_AT and server_api.LAST_SEND_AT and self.DEBUG:
             rec_ = float(time.time() - server_api.LAST_UPDATE_AT)
@@ -1518,6 +1513,8 @@ class App:
                 self.ship_sync += 0.0167 * fps_d
                 self.game_timer += 0.0167 * fps_d
                 if self.game_timer/60 > self.GAMERULE_GAME_LENGTH and self.GAMERULE_GAME_LENGTH:
+                    self.GAMERULE_GAME_LENGTH = 0
+                    log.debug("Timer ran out.")
                     if self.LOCAL_SCORE > self.ENEMY_SCORE:
                         self.clear_scene()
                         self.WIN_SCREEN = True
@@ -1525,17 +1522,17 @@ class App:
                         self.clear_scene()
                         self.LOSS_SCREEN = False
                 if self.GAMERULE_MAX_SCORE > 0:
-                    if self.LOCAL_SCORE >= self.GAMERULE_MAX_SCORE:
+                    if self.LOCAL_SCORE > self.GAMERULE_MAX_SCORE:
                         self.clear_scene()
                         self.WIN_SCREEN = True
-                    if self.ENEMY_SCORE >= self.GAMERULE_MAX_SCORE:
+                    else:
                         self.clear_scene()
                         self.LOSS_SCREEN = True
 
                 # Respawning
                 if self.GAMERULE_TARGET_RESPAWN:
                     for target in self.ENEMY_TARGET_RESPAWN_QUEUE:
-                        if target[1]/60 >= 1:
+                        if target[1]/60 >= 5:
                             self.ENEMY_TARGET_RESPAWN_QUEUE.remove(target)
                             target[0][2] = 100
                             self.ENEMY_TARGET_LOCATIONS.append(target[0])
@@ -1544,7 +1541,7 @@ class App:
                             target[1] += 0.0167 * fps_d
                             log.info(target)
                     for target in self.FRIENDLY_TARGET_RESPAWN_QUEUE:
-                        if target[1]/60 >= 1:
+                        if target[1]/60 >= 5:
                             self.FRIENDLY_TARGET_RESPAWN_QUEUE.remove(target)
                             target[0][2] = 100
                             self.FRIENDLY_TARGET_LOCATIONS.append(target[0])
@@ -1554,7 +1551,7 @@ class App:
                             log.info(target)
                 if self.GAMERULE_SHIP_RESPAWN:
                     for ship in self.FRIENDLY_SHIP_RESPAWN_QUEUE:
-                        if ship[1]/60 >= 1:
+                        if ship[1]/60 >= 5:
                             self.FRIENDLY_SHIP_RESPAWN_QUEUE.remove(ship)
 
                             # Load mission information from a file
@@ -1568,14 +1565,14 @@ class App:
                                 if f'Friendly_ship_{i}' == ship[0]:
                                     self.OBJECTS[f'Friendly_ship_{i}'] = Vessel(vessel[0], vessel[1], vessel[2], 0,
                                                                                 self.designationP, 0.8, velocity=0.008)
-                                    print("Found the ship, respawning...")
+                                    log.debug("Found the ship, respawning...")
                                 i += 1
                             log.info("Enemy target respawned!")
                         else:
                             ship[1] += 0.0167 * fps_d
                             log.info(ship)
                     for ship in self.ENEMY_SHIP_RESPAWN_QUEUE:
-                        if ship[1]/60 >= 1:
+                        if ship[1]/60 >= 5:
                             self.ENEMY_SHIP_RESPAWN_QUEUE.remove(ship)
 
                             # Load mission information from a file
@@ -1589,7 +1586,7 @@ class App:
                                 if f'Enemy_ship_{i}' == ship[0]:
                                     self.OBJECTS[f'Enemy_ship_{i}'] = Vessel(vessel[0], vessel[1], vessel[2], 0,
                                                                                 self.designationE, 0.8, velocity=0.008)
-                                    print("Found the ship, respawning...")
+                                    log.debug("Found the ship, respawning...")
                                 i += 1
                             log.info("Enemy target respawned!")
                         else:
@@ -1772,7 +1769,6 @@ class App:
                                 #      self.OBJECTS[ship].azimuth, 0.0367, self.OBJECTS[ship].depth],
                                 #     [dest_x, dest_y, self.player.depth], False, 20, ship, 0,
                                 #     True]
-                                print(self.TORPEDOES)
                                 self.NOTICE_QUEUE.append(["Torpedo in the water!", 0, 1])
 
                 # Sonar decoy simulation
@@ -3087,11 +3083,6 @@ class App:
                 self.GAMERULE_SHIP_RESPAWN = True
             else:
                 self.GAMERULE_SHIP_RESPAWN = False
-            print(self.GAMERULE_PLAYER_RESPAWN,
-                  self.GAMERULE_SHIP_RESPAWN,
-                  self.GAMERULE_TARGET_RESPAWN,
-                  self.GAMERULE_GAME_LENGTH,
-                  self.GAMERULE_MAX_SCORE)
             server_api.SEND_INFO = f"[{self.PLAYER_ID}] Game rules loaded."
             self.JOIN_STATUS = 2
             self.must_update = True
@@ -3298,6 +3289,12 @@ class App:
         """
         self.window.fill("#021019")
         self.render_notifications()
+        # Render timer
+        render_time = self.GAMERULE_GAME_LENGTH*60 - self.game_timer
+        if self.GAMERULE_GAME_LENGTH > 0:
+            txtsurf = self.middle_font.render(
+                f"Time left: {render_time//60:02.0f}:{render_time-((render_time//60)*60):02.0f}", True, '#03fca9')
+            self.window.blit(txtsurf, (10, self.size[1] - 20))
         sb_grid = (self.size[0] - 200) / 4
 
         self.score_board_rect = (100, 100, self.size[0] - 200, self.size[1] - 200)
