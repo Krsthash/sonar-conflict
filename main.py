@@ -257,6 +257,7 @@ class App:
         self.GAME_OPEN = False
         self.JOIN_GAME_SCREEN = False
         self.HOST_GAME_SCREEN = False
+        self.HOST_OPTIONS_SCREEN = False
 
     def open_map(self):
         """
@@ -1515,7 +1516,7 @@ class App:
             if self.GAME_INIT:
                 self.ship_sync += 0.0167 * fps_d
                 self.game_timer += 0.0167 * fps_d
-                if self.game_timer/60 > self.GAMERULE_GAME_LENGTH:
+                if self.game_timer/60 > self.GAMERULE_GAME_LENGTH and self.GAMERULE_GAME_LENGTH:
                     if self.LOCAL_SCORE > self.ENEMY_SCORE:
                         self.clear_scene()
                         self.WIN_SCREEN = True
@@ -1529,6 +1530,27 @@ class App:
                     if self.ENEMY_SCORE >= self.GAMERULE_MAX_SCORE:
                         self.clear_scene()
                         self.LOSS_SCREEN = True
+
+                # Respawning
+                if self.GAMERULE_TARGET_RESPAWN:
+                    for target in self.ENEMY_TARGET_RESPAWN_QUEUE:
+                        if target[1]/60 >= 1:
+                            self.ENEMY_TARGET_RESPAWN_QUEUE.remove(target)
+                            target[0][2] = 100
+                            self.ENEMY_TARGET_LOCATIONS.append(target[0])
+                            log.info("Enemy target respawned!")
+                        else:
+                            target[1] += 0.0167 * fps_d
+                            log.info(target)
+                    for target in self.FRIENDLY_TARGET_RESPAWN_QUEUE:
+                        if target[1]/60 >= 1:
+                            self.FRIENDLY_TARGET_RESPAWN_QUEUE.remove(target)
+                            target[0][2] = 100
+                            self.FRIENDLY_TARGET_LOCATIONS.append(target[0])
+                            log.info("Friendly target respawned!")
+                        else:
+                            target[1] += 0.0167 * fps_d
+                            log.info(target)
 
                 # Collision detection
                 if self.coll_detection.get_at((int(self.player.x), int(self.player.y)))[:3] != (
@@ -1580,7 +1602,7 @@ class App:
                             if target[2] <= 0:
                                 target[2] = 0
                                 self.ENEMY_TARGET_LOCATIONS.remove(target)
-                                self.ENEMY_TARGET_RESPAWN_QUEUE.append(target)
+                                self.ENEMY_TARGET_RESPAWN_QUEUE.append([target, 0])
                                 self.LOCAL_SCORE += 50  # Base destruction score
                                 self.TARGETS_DESTROYED += 1
                                 self.NOTICE_QUEUE.append(["Target destroyed!", 0, 0])
@@ -1606,7 +1628,7 @@ class App:
                                         self.LOCAL_SCORE += 200  # Ship destruction score
                                         self.SHIPS_DESTROYED += 1
                                         self.OBJECTS.pop(ship)
-                                        self.RESPAWN_QUEUE.append(ship)
+                                        self.RESPAWN_QUEUE.append([ship, 0])
                                         # Max ship destruction score = 200
                                         self.SINK_QUEUE.append(ship)
                                         self.NOTICE_QUEUE.append(["Ship destroyed!", 0, 0])
@@ -1958,7 +1980,7 @@ class App:
                                 ship = ship.replace("Friendly", "Enemy")
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
-                                    self.RESPAWN_QUEUE.append(ship)
+                                    self.RESPAWN_QUEUE.append([ship, 0])
                                     log.info(f"Ship {ship} has been sunk by you!")
                                     self.LOCAL_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED += 1
@@ -1967,7 +1989,7 @@ class App:
                                 ship = ship.replace("Enemy", "Friendly")
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
-                                    self.RESPAWN_QUEUE.append(ship)
+                                    self.RESPAWN_QUEUE.append([ship, 0])
                                     log.info(f"Ship {ship} has been sunk by the enemy!")
                                     self.ENEMY_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED_ENEMY += 1
@@ -1990,11 +2012,12 @@ class App:
                                         self.NOTICE_QUEUE.append(["Friendly base got damaged!", 0, 1])
                                     enemy_target[2] -= int(target[2])
                                     if enemy_target[2] <= 0:
+                                        log.debug(f"Friendly base got destroyed!")
                                         enemy_target[2] = 0
                                         self.ENEMY_SCORE += 50
                                         self.TARGETS_DESTROYED_ENEMY += 1
                                         self.FRIENDLY_TARGET_LOCATIONS.remove(enemy_target)
-                                        self.FRIENDLY_TARGET_RESPAWN_QUEUE.append(enemy_target)
+                                        self.FRIENDLY_TARGET_RESPAWN_QUEUE.append([enemy_target, 0])
                                         self.NOTICE_QUEUE.append(["Friendly base got destroyed!", 0, 1])
                                     break
                     if server_api.SHIP_SYNC_INFO != 'None':
