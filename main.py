@@ -54,9 +54,10 @@ loop_log.debug("Loop logging enabled.")
 
 class App:
     def __init__(self):
+        self.ENEMY_SHIP_RESPAWN_QUEUE = []
+        self.FRIENDLY_SHIP_RESPAWN_QUEUE = []
         self.ENEMY_TARGET_RESPAWN_QUEUE = []
         self.FRIENDLY_TARGET_RESPAWN_QUEUE = []
-        self.RESPAWN_QUEUE = []
         self.game_timer = 0
         self.GAMERULE_MAX_SCORE = 0
         self.max_score_box = None
@@ -1551,6 +1552,49 @@ class App:
                         else:
                             target[1] += 0.0167 * fps_d
                             log.info(target)
+                if self.GAMERULE_SHIP_RESPAWN:
+                    for ship in self.FRIENDLY_SHIP_RESPAWN_QUEUE:
+                        if ship[1]/60 >= 1:
+                            self.FRIENDLY_SHIP_RESPAWN_QUEUE.remove(ship)
+
+                            # Load mission information from a file
+                            with open(f"./Missions/{self.mission_name}", 'r') as file:
+                                mission = json.load(file)
+                            code = 'usa'
+                            if not self.PLAYER_ID:
+                                code = 'ru'
+                            i = 1
+                            for vessel in mission[code]['ships']:
+                                if f'Friendly_ship_{i}' == ship[0]:
+                                    self.OBJECTS[f'Friendly_ship_{i}'] = Vessel(vessel[0], vessel[1], vessel[2], 0,
+                                                                                self.designationP, 0.8, velocity=0.008)
+                                    print("Found the ship, respawning...")
+                                i += 1
+                            log.info("Enemy target respawned!")
+                        else:
+                            ship[1] += 0.0167 * fps_d
+                            log.info(ship)
+                    for ship in self.ENEMY_SHIP_RESPAWN_QUEUE:
+                        if ship[1]/60 >= 1:
+                            self.ENEMY_SHIP_RESPAWN_QUEUE.remove(ship)
+
+                            # Load mission information from a file
+                            with open(f"./Missions/{self.mission_name}", 'r') as file:
+                                mission = json.load(file)
+                            code = 'ru'
+                            if not self.PLAYER_ID:
+                                code = 'usa'
+                            i = 1
+                            for vessel in mission[code]['ships']:
+                                if f'Enemy_ship_{i}' == ship[0]:
+                                    self.OBJECTS[f'Enemy_ship_{i}'] = Vessel(vessel[0], vessel[1], vessel[2], 0,
+                                                                                self.designationE, 0.8, velocity=0.008)
+                                    print("Found the ship, respawning...")
+                                i += 1
+                            log.info("Enemy target respawned!")
+                        else:
+                            ship[1] += 0.0167 * fps_d
+                            log.info(ship)
 
                 # Collision detection
                 if self.coll_detection.get_at((int(self.player.x), int(self.player.y)))[:3] != (
@@ -1628,12 +1672,13 @@ class App:
                                         self.LOCAL_SCORE += 200  # Ship destruction score
                                         self.SHIPS_DESTROYED += 1
                                         self.OBJECTS.pop(ship)
-                                        self.RESPAWN_QUEUE.append([ship, 0])
+                                        self.ENEMY_SHIP_RESPAWN_QUEUE.append([ship, 0])
                                         # Max ship destruction score = 200
                                         self.SINK_QUEUE.append(ship)
                                         self.NOTICE_QUEUE.append(["Ship destroyed!", 0, 0])
                                     else:
                                         self.NOTICE_QUEUE.append(["Ship hit!", 0, 0])
+                                    break  # To prevent being able to damage multiple ships with a single missile
                     if missile.time < -5:
                         self.ASM_FIRED.remove(missile)
 
@@ -1784,6 +1829,7 @@ class App:
                         self.SINK_QUEUE.append(ship)
                         self.OBJECTS.pop(ship)
                         log.info("Torpedo sunk a friendly ship!")
+                        self.FRIENDLY_SHIP_RESPAWN_QUEUE.append([ship, 0])
                         self.ENEMY_SCORE += 200
                         self.SHIPS_DESTROYED_ENEMY += 1
                         self.NOTICE_QUEUE.append(["Friendly ship got destroyed.", 0, 1])
@@ -1980,7 +2026,7 @@ class App:
                                 ship = ship.replace("Friendly", "Enemy")
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
-                                    self.RESPAWN_QUEUE.append([ship, 0])
+                                    self.ENEMY_SHIP_RESPAWN_QUEUE.append([ship, 0])
                                     log.info(f"Ship {ship} has been sunk by you!")
                                     self.LOCAL_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED += 1
@@ -1989,7 +2035,7 @@ class App:
                                 ship = ship.replace("Enemy", "Friendly")
                                 if ship in list(self.OBJECTS):
                                     self.OBJECTS.pop(ship)
-                                    self.RESPAWN_QUEUE.append([ship, 0])
+                                    self.FRIENDLY_SHIP_RESPAWN_QUEUE.append([ship, 0])
                                     log.info(f"Ship {ship} has been sunk by the enemy!")
                                     self.ENEMY_SCORE += 200  # Ship sink score
                                     self.SHIPS_DESTROYED_ENEMY += 1
