@@ -15,7 +15,7 @@ BOT = discord.Client(intents=discord.Intents().all())
 # -------- GLOBAL VARIABLES -------- #
 bot_started = False
 toExecute = []
-TOKEN = "OTM5NjM1MDI5Mjg0Mzg4OTI1.G7Z0nG.hsYenG13h9l24pCI9xJQzvpqhlzf0S33yiXaVA"
+TOKEN = ""
 SERVER: discord.Guild
 PLAYER = None
 OPPONENT = None
@@ -358,8 +358,10 @@ async def api_listener():
                 log.error(f"Error: {e}")
 
 
-async def start_bot():
+async def start_bot(token):
+    global TOKEN
     """
     Starts the discord bot.
     """
+    TOKEN = token
     await BOT.start(TOKEN)

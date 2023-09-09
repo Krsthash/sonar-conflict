@@ -1,4 +1,5 @@
 import asyncio
+import configparser
 import datetime
 import json
 import logging
@@ -47,11 +48,23 @@ loop_log.setLevel(logging.INFO)
 loop_log.addHandler(fh)
 loop_log.addHandler(sh)
 loop_log.debug("Loop logging enabled.")
-
-
 # ------------------------------------------
 
+# --------- Loading the config file -------- #
+config = configparser.ConfigParser()
 
+if os.path.exists("config.ini"):
+    config.read("config.ini")
+    TOKEN = config["config"]["token"]
+else:
+    config.add_section("config")
+    config.set("config", "token", "")
+    with open("config.ini", "w") as configfile:
+        config.write(configfile)
+    os._exit(1)
+
+
+# ------------------------------------------ #
 class App:
     def __init__(self):
         self.ENEMY_RESPAWNS_LEFT = 0
@@ -1516,7 +1529,7 @@ class App:
             if self.GAME_INIT:
                 self.ship_sync += 0.0167 * fps_d
                 self.game_timer += 0.0167 * fps_d
-                if self.game_timer/60 > self.GAMERULE_GAME_LENGTH and self.GAMERULE_GAME_LENGTH:
+                if self.game_timer / 60 > self.GAMERULE_GAME_LENGTH and self.GAMERULE_GAME_LENGTH:
                     self.GAMERULE_GAME_LENGTH = 0
                     log.debug("Timer ran out.")
                     if self.LOCAL_SCORE > self.ENEMY_SCORE:
@@ -1536,7 +1549,7 @@ class App:
                 # Respawning
                 if self.GAMERULE_TARGET_RESPAWN:
                     for target in self.ENEMY_TARGET_RESPAWN_QUEUE:
-                        if target[1]/60 >= 5:
+                        if target[1] / 60 >= 5:
                             self.ENEMY_TARGET_RESPAWN_QUEUE.remove(target)
                             target[0][2] = 100
                             self.ENEMY_TARGET_LOCATIONS.append(target[0])
@@ -1545,7 +1558,7 @@ class App:
                             target[1] += 0.0167 * fps_d
                             log.info(target)
                     for target in self.FRIENDLY_TARGET_RESPAWN_QUEUE:
-                        if target[1]/60 >= 5:
+                        if target[1] / 60 >= 5:
                             self.FRIENDLY_TARGET_RESPAWN_QUEUE.remove(target)
                             target[0][2] = 100
                             self.FRIENDLY_TARGET_LOCATIONS.append(target[0])
@@ -1555,7 +1568,7 @@ class App:
                             log.info(target)
                 if self.GAMERULE_SHIP_RESPAWN:
                     for ship in self.FRIENDLY_SHIP_RESPAWN_QUEUE:
-                        if ship[1]/60 >= 5:
+                        if ship[1] / 60 >= 5:
                             self.FRIENDLY_SHIP_RESPAWN_QUEUE.remove(ship)
 
                             # Load mission information from a file
@@ -1576,7 +1589,7 @@ class App:
                             ship[1] += 0.0167 * fps_d
                             log.info(ship)
                     for ship in self.ENEMY_SHIP_RESPAWN_QUEUE:
-                        if ship[1]/60 >= 5:
+                        if ship[1] / 60 >= 5:
                             self.ENEMY_SHIP_RESPAWN_QUEUE.remove(ship)
 
                             # Load mission information from a file
@@ -1589,7 +1602,7 @@ class App:
                             for vessel in mission[code]['ships']:
                                 if f'Enemy_ship_{i}' == ship[0]:
                                     self.OBJECTS[f'Enemy_ship_{i}'] = Vessel(vessel[0], vessel[1], vessel[2], 0,
-                                                                                self.designationE, 0.8, velocity=0.008)
+                                                                             self.designationE, 0.8, velocity=0.008)
                                     log.debug("Found the ship, respawning...")
                                 i += 1
                             log.info("Enemy target respawned!")
@@ -3313,10 +3326,11 @@ class App:
         self.window.fill("#021019")
         self.render_notifications()
         # Render timer
-        render_time = self.GAMERULE_GAME_LENGTH*60 - self.game_timer
+        render_time = self.GAMERULE_GAME_LENGTH * 60 - self.game_timer
         if self.GAMERULE_GAME_LENGTH > 0:
             txtsurf = self.middle_font.render(
-                f"Time left: {render_time//60:02.0f}:{render_time-((render_time//60)*60):02.0f}", True, '#03fca9')
+                f"Time left: {render_time // 60:02.0f}:{render_time - ((render_time // 60) * 60):02.0f}", True,
+                '#03fca9')
             self.window.blit(txtsurf, (10, self.size[1] - 20))
         sb_grid = (self.size[0] - 200) / 4
 
@@ -3536,7 +3550,8 @@ class App:
             self.window.blit(txtsurf, mid_rect(self.back_box, txtsurf))
         elif pygame.Rect(self.ship_respawn_box).collidepoint(pygame.mouse.get_pos()):
             pygame.mouse.set_cursor(*pygame.cursors.Cursor(pygame.SYSTEM_CURSOR_HAND))
-            pygame.draw.rect(self.window, 'white', self.ship_respawn_box, width=2, border_radius=2, border_top_left_radius=0,
+            pygame.draw.rect(self.window, 'white', self.ship_respawn_box, width=2, border_radius=2,
+                             border_top_left_radius=0,
                              border_bottom_left_radius=0)
             txtsurf = self.middle_font.render('Ship respawns: ', True, 'white')
             if not self.GAMERULE_SHIP_RESPAWN:
@@ -3613,4 +3628,4 @@ def start_the_game():
 
 if __name__ == "__main__":
     threading.Thread(target=start_the_game).start()
-    asyncio.run(server_api.start_bot())  # Starts the connection
+    asyncio.run(server_api.start_bot(TOKEN))  # Starts the connection
