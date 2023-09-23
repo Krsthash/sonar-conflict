@@ -1002,23 +1002,29 @@ class App:
                 if event.key == pygame.K_BACKSPACE:
                     self.distance_var[1] = self.distance_var[1][:-1]
                 elif event.key == pygame.K_UP:
-                    self.distance_var[1] = str(float(self.distance_var[1]) + 1)
+                    if self.distance_var[1].replace(".", "").isdecimal():
+                        self.distance_var[1] = str(float(self.distance_var[1]) + 1)
                 elif event.key == pygame.K_DOWN:
-                    self.distance_var[1] = str(float(self.distance_var[1]) - 1)
+                    if self.distance_var[1].replace(".", "").isdecimal():
+                        self.distance_var[1] = str(float(self.distance_var[1]) - 1)
+                        if float(self.distance_var[1]) < 0:
+                            self.distance_var[1] = "0"
                 elif len(self.distance_var[1]) <= 8:
-                    if (pygame.key.name(event.key)).isnumeric():
+                    if (pygame.key.name(event.key)).isdecimal():
                         self.distance_var[1] += pygame.key.name(event.key)
                     elif pygame.key.name(event.key) == '.':
                         self.distance_var[1] += '.'
             elif self.depth_var[0]:
                 if event.key == pygame.K_BACKSPACE:
                     self.depth_var[1] = self.depth_var[1][:-1]
-                elif event.key == pygame.K_UP:
+                elif event.key == pygame.K_UP and self.depth_var[1].replace(".", "").isdecimal():
                     self.depth_var[1] = str(float(self.depth_var[1]) + 1)
-                elif event.key == pygame.K_DOWN:
+                elif event.key == pygame.K_DOWN and self.depth_var[1].replace(".", "").isdecimal():
                     self.depth_var[1] = str(float(self.depth_var[1]) - 1)
+                    if float(self.depth_var[1]) < 0:
+                        self.depth_var[1] = "0"
                 elif len(self.depth_var[1]) <= 5:
-                    if (pygame.key.name(event.key)).isnumeric():
+                    if (pygame.key.name(event.key)).isdecimal():
                         self.depth_var[1] += pygame.key.name(event.key)
                     elif pygame.key.name(event.key) == '.':
                         self.depth_var[1] += '.'
@@ -1937,24 +1943,30 @@ class App:
                 if keys[pygame.K_UP]:
                     # self.player.x = 762
                     # self.player.y = 228
-                    if self.depth_var[0]:
+                    if self.depth_var[0] and self.depth_var[1].replace(".", "").isdecimal():
                         self.depth_var[1] = str(float(self.depth_var[1]) + 1)
-                    elif self.bearing_var[0]:
+                    elif self.bearing_var[0] and self.bearing_var[1].replace(".", "").isdecimal():
                         self.bearing_var[1] = str(float(self.bearing_var[1]) + 1)
-                    elif self.distance_var[0]:
+                    elif self.distance_var[0] and self.distance_var[1].replace(".", "").isdecimal():
                         self.distance_var[1] = str(float(self.distance_var[1]) + 1)
                     elif self.player.ballast < 100:
                         self.player.ballast += 0.1 * fps_d
                         if self.player.ballast > 100:
                             self.player.ballast = 100
                 elif keys[pygame.K_DOWN]:
-                    if self.depth_var[0]:
+                    if self.depth_var[0] and self.depth_var[1].replace(".", "").isdecimal():
                         self.depth_var[1] = str(float(self.depth_var[1]) - 1)
-                    elif self.bearing_var[0]:
+                        if float(self.depth_var[1]) < 0:
+                            self.depth_var[1] = "0"
+                    elif self.bearing_var[0] and self.bearing_var[1].replace(".", "").isdecimal():
                         self.bearing_var[1] = str(float(self.bearing_var[1]) - 1)
-                    elif self.distance_var[0]:
+                        if float(self.bearing_var[1]) < 0:
+                            self.bearing_var[1] = "0"
+                    elif self.distance_var[0] and self.distance_var[1].replace(".", "").isdecimal():
                         self.distance_var[1] = str(float(self.distance_var[1]) - 1)
-                    if self.player.ballast > 0:
+                        if float(self.distance_var[1]) < 0:
+                            self.distance_var[1] = "0"
+                    elif self.player.ballast > 0:
                         self.player.ballast -= 0.5 * fps_d
                         if self.player.ballast < 0:
                             self.player.ballast = 0
