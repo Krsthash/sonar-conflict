@@ -59,6 +59,7 @@ if os.path.exists("config.ini"):
 else:
     config.add_section("config")
     config.set("config", "token", "")
+    config.set("config", "server_index", "0")
     with open("config.ini", "w") as configfile:
         config.write(configfile)
     os._exit(1)

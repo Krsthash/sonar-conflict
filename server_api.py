@@ -2,10 +2,12 @@ import asyncio
 import datetime
 import json
 import logging
+import os
 import time
 from functools import partial, wraps
 from sys import stdout
 
+import configparser
 import discord
 import requests
 from discord.ext import tasks
@@ -91,8 +93,14 @@ async def on_ready():
     global CHANNEL
     global LAST_UPDATE_AT
     global LAST_SEND_AT
+    config = configparser.ConfigParser()
+    if os.path.exists("config.ini"):
+        config.read("config.ini")
+        server_index = config["config"]["server_index"]
+    else:
+        log.error("No config.ini provided.")
     try:
-        SERVER = BOT.guilds[1]
+        SERVER = BOT.guilds[server_index]
     except IndexError:
         log.error("Server not found.")
     if not on_msg.is_running():
