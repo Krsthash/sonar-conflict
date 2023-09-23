@@ -96,7 +96,7 @@ async def on_ready():
     config = configparser.ConfigParser()
     if os.path.exists("config.ini"):
         config.read("config.ini")
-        server_index = config["config"]["server_index"]
+        server_index = int(config["config"]["server_index"])
     else:
         log.error("No config.ini provided.")
     try:
