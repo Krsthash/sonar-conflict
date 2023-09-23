@@ -1,10 +1,11 @@
 # Sonar Conflict
  A submarine game built with pygame.
 
- The game is primarily multiplayer (with the exception of a debug-only limited single-player mode) and it uses Discord as its server. This simplifies the connection process as it doesn't require a server from my end, and no port forwarding is needed for other people who want to play. However, you will need a functioning Discord bot which will have access to a server. Inside the config file, simply paste the bot's token and you're ready to play. It is also important to note that by default the bot will use the first server it has access to for the purposes of the game, if you want to change this, edit the config file and change the "server_index" value. Both players must be playing on the same bot token in order for them to play together.
+ The game is primarily multiplayer (with the exception of a debug-only limited single-player mode) and it uses **Discord** as its server. This simplifies the connection process as it doesn't require a server from my end, and no port forwarding is needed for other people who want to play. However, you will need a functioning Discord bot which will have access to a server. Inside the config file, simply paste the bot's token and you're ready to play. It is also important to note that by default the bot will use the first server it has access to for the purposes of the game, if you want to change this, edit the config file and change the "server_index" value. Both players must be playing on **the same bot token** in order for them to play together.
 
 # How to play
 
+*Make sure you have entered the correct bot token in the config file!*
 First off, one player needs to host the game, they do this by pressing the "Host a game" button. Next, they need to choose a mission file by pressing either "Browse" (to load a specific mission) or "Random" to let the game randomly pick from available missions in the "Missions" folder. This is the only essential step, the player can now press "Host". After a short period, they will be given a game code which they need to supply to the other player. The other player needs to simply enter the game code after pressing "Join a game" and then press "Join". In the "Host a game" screen, the host could choose a few additional options such as the team they start as and other important gameplay options by clicking "Options".
 
 # Sonar screen
