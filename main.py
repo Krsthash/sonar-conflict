@@ -68,6 +68,7 @@ else:
 # ------------------------------------------ #
 class App:
     def __init__(self):
+        self.PLAYED_DIED_TO_ENEMY = False
         self.ENEMY_RESPAWNS_LEFT = 0
         self.FRIENDLY_RESPAWNS_LEFT = 0
         self.ENEMY_SHIP_RESPAWN_QUEUE = []
@@ -1549,7 +1550,7 @@ class App:
                     if self.LOCAL_SCORE > self.GAMERULE_MAX_SCORE:
                         self.clear_scene()
                         self.WIN_SCREEN = True
-                    else:
+                    elif self.ENEMY_SCORE > self.GAMERULE_MAX_SCORE:
                         self.clear_scene()
                         self.LOSS_SCREEN = True
 
@@ -1622,6 +1623,7 @@ class App:
                         2, 16, 25):
                     if self.player.health != 0:
                         log.info("Player collided with land.")
+                        self.NOTICE_QUEUE.append(["We hit land, abandon ship!", 0, 1])
                     self.player.velocity = 0
                     self.player.acceleration = 0
                     self.player.health = 0
@@ -1860,6 +1862,8 @@ class App:
                             log.info("Torpedo hit the player!")
                             self.NOTICE_QUEUE.append(["We got hit!", 0, 1])
                             TORPEDO_DAMAGE_QUEUE.remove(ship)
+                            if self.player.health <= 0:
+                                self.PLAYED_DIED_TO_ENEMY = True
                         else:
                             self.OBJECTS[ship[0]].health -= ship[1]
                             self.NOTICE_QUEUE.append(["Friendly ship got damaged.", 0, 1])
@@ -1978,9 +1982,16 @@ class App:
                     torpedo_send_info = None
                 if not server_api.SEND_INFO:
                     if self.player.health <= 0:
-                        server_api.SEND_INFO = f"[{self.PLAYER_ID}] Player has died."
+                        if self.PLAYED_DIED_TO_ENEMY:
+                            server_api.SEND_INFO = f"[{self.PLAYER_ID}] Player died to the enemy."
+                            self.ENEMY_SCORE += 600
+                        else:
+                            server_api.SEND_INFO = f"[{self.PLAYER_ID}] Player has died."
                         if self.FRIENDLY_RESPAWNS_LEFT:
-                            self.NOTICE_QUEUE.append(["We got destroyed! Player respawned.", 0, 1])
+                            if self.PLAYED_DIED_TO_ENEMY:
+                                self.NOTICE_QUEUE.append(["We got destroyed by the enemy! Player respawned.", 0, 1])
+                            else:
+                                self.NOTICE_QUEUE.append(["We got destroyed! Player respawned.", 0, 1])
                             self.FRIENDLY_RESPAWNS_LEFT -= 1
                             # Load mission information from a file
                             with open(f"./Missions/{self.mission_name}", 'r') as file:
@@ -2048,6 +2059,18 @@ class App:
                     if server_api.UPDATE_INFO.count("PLAYER HAS DIED"):
                         log.info("Received information about enemy's death, R.I.P.")
                         self.NOTICE_QUEUE.append(['Enemy has died!', 0, 0])
+                        if self.ENEMY_RESPAWNS_LEFT:
+                            self.ENEMY_RESPAWNS_LEFT -= 1
+                            server_api.UPDATE_INFO = None
+                            continue
+                        else:
+                            self.clear_scene()
+                            self.WIN_SCREEN = True
+                            continue
+                    elif server_api.UPDATE_INFO.count("PLAYER DIED TO PLAYER"):
+                        log.info("Received information about enemy's death inflicted from player, R.I.P.")
+                        self.NOTICE_QUEUE.append(['We destroyed the enemy submarine!', 0, 0])
+                        self.LOCAL_SCORE += 600
                         if self.ENEMY_RESPAWNS_LEFT:
                             self.ENEMY_RESPAWNS_LEFT -= 1
                             server_api.UPDATE_INFO = None

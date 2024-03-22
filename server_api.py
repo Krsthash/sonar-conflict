@@ -205,6 +205,10 @@ async def on_msg():
                     UPDATE_INFO = "PLAYER HAS DIED"
                     loop_log.debug("Message update information: ")
                     loop_log.debug("Enemy died.")
+                elif msg['content'].count("Player died to the enemy."):
+                    UPDATE_INFO = "PLAYER DIED TO PLAYER"
+                    loop_log.debug("Message update information: ")
+                    loop_log.debug("Enemy died to player.")
         MSGS_PROCESSED.append(msg)
         if len(MSGS_PROCESSED) > 100:
             loop_log.debug("Clearing message cache...")
