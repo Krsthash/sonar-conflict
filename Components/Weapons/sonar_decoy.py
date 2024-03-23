@@ -6,8 +6,8 @@ from Components.decoy import Decoy
 class SonarDecoy:
     def __init__(self):
         self.designation = 'Sonar decoy'
-        self.speed = 0.012
-        self.range = 30  # 60 km
+        self.speed = 0.03
+        self.range = 50  # 100 km
 
     def launch(self, player, bearing, depth, mode):
         angle = player.azimuth + bearing
@@ -28,11 +28,11 @@ class SonarDecoy:
         window.blit(txtsurf, (x_size - 300, 125 - txtsurf.get_height() / 2))
         txtsurf_ = font.render(f'Maximum range: ', True, '#b6b6d1')
         window.blit(txtsurf_, (x_size - 300, 150 - txtsurf_.get_height() / 2))
-        txtsurf = font.render(f'30km', True, '#DADAFA')
+        txtsurf = font.render(f'80km', True, '#DADAFA')
         window.blit(txtsurf, (x_size - 300 + txtsurf_.get_width(), 150 - txtsurf.get_height() / 2))
         txtsurf_ = font.render(f'Max speed: ', True, '#b6b6d1')
         window.blit(txtsurf_, (x_size - 300, 175 - txtsurf_.get_height() / 2))
-        txtsurf = font.render(f'54 km/h', True, '#DADAFA')
+        txtsurf = font.render(f'85 km/h', True, '#DADAFA')
         window.blit(txtsurf, (x_size - 300 + txtsurf_.get_width(), 175 - txtsurf.get_height() / 2))
         txtsurf_ = font.render(f'Launch depth: ', True, '#b6b6d1')
         window.blit(txtsurf_, (x_size - 300, 200 - txtsurf_.get_height() / 2))

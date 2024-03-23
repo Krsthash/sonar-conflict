@@ -2,7 +2,10 @@ import colorsys
 import math
 import random
 import tkinter
+import time
 from tkinter import filedialog
+
+import pygame
 
 
 def random_int(low, high):
@@ -82,8 +85,19 @@ def mid_rect(rect, txtsurf, concatenate_surf=None, end_text=False):
     elif concatenate_surf and end_text:
         return (
             rect[0] + ((rect[2] / 2 - (
-                        (txtsurf.get_width() + concatenate_surf.get_width()) / 2) + concatenate_surf.get_width())),
+                    (txtsurf.get_width() + concatenate_surf.get_width()) / 2) + concatenate_surf.get_width())),
             (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))
     else:
         return ((rect[0] + (rect[2] / 2 - txtsurf.get_width() / 2)),
                 (rect[1] + (rect[3] / 2 - txtsurf.get_height() / 2)))
+
+
+def fade_out(sound, duration, fps, start_volume=None, end_volume=0):
+    frequency = 1/fps
+    if start_volume is None:
+        start_volume = sound.get_volume()
+    else:
+        sound.set_volume(start_volume)
+    volume_change = (end_volume - start_volume) / ((duration / 1000) / frequency)
+    interval = ((duration / 1000) / frequency)
+    return volume_change, interval

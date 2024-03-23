@@ -97,6 +97,9 @@ class Torpedo:
                 elif decoy.mode and self.mode and distance <= 10:
                     # loop_log.debug("Torpedo is being confused by active sonar decoy!")
                     max_distance -= 12  # If both are active and close, lowers the max detection distance.
+                elif not decoy.mode and not self.mode and distance <= 10:
+                    # loop_log.debug("Torpedo is being confused by passive sonar decoy!")
+                    max_distance -= 12  # If both are passive and close, lowers the max detection distance.
                 if not min_distance[0]:
                     min_distance[0] = distance
                     min_distance[1] = decoy

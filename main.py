@@ -68,6 +68,10 @@ else:
 # ------------------------------------------ #
 class App:
     def __init__(self):
+        self.active_sonar_ping_playing = False
+        self.ambience_sound_started = False
+        self.sound_fade_queue = []
+        self.engine_sound_playing = None
         self.PLAYED_DIED_TO_ENEMY = False
         self.ENEMY_RESPAWNS_LEFT = 0
         self.FRIENDLY_RESPAWNS_LEFT = 0
@@ -204,11 +208,13 @@ class App:
         self.GAME_INIT = False
         self.SONAR_SCREEN = False
 
+        self.engine_sound = pygame.mixer.Sound("./Sounds/submarine_engine-001.wav")
+
         # Clock to ensure stable fps
         self.clock = pygame.time.Clock()
 
         # Creating the window
-        self.window = pygame.display.set_mode(self.size, pygame.DOUBLEBUF | pygame.HWSURFACE)
+        self.window = pygame.display.set_mode(self.size)
         pygame.display.set_caption("Sonar Conflict")
 
         # Creating the map
@@ -819,29 +825,35 @@ class App:
         if flag:
             self.LAUNCH_AUTH = [True, 3]
             if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == '3M54-1 Kalibr':
+                pygame.mixer.Sound(f"./Sounds/kalibr_ignition_{random_int(1, 3)}.wav").play()
                 self.LAM_FIRED.append(
                     Kalibr().launch(self.player, float(self.bearing_var[1]),
                                     float(self.distance_var[1]) / 2, self.ENEMY_TARGET_LOCATIONS))
 
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TLAM-E':
+                pygame.mixer.Sound(f"./Sounds/kalibr_ignition_{random_int(1, 3)}.wav").play()
                 self.LAM_FIRED.append(
                     Tlam().launch(self.player, float(self.bearing_var[1]),
                                   float(self.distance_var[1]) / 2, self.ENEMY_TARGET_LOCATIONS))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'P-800 Oniks':
+                pygame.mixer.Sound(f"./Sounds/kalibr_ignition_{random_int(1, 3)}.wav").play()
                 self.ASM_FIRED.append(Oniks().launch(self.player, float(self.bearing_var[1]),
                                                      float(self.distance_var[1]) / 2))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'TASM':
+                pygame.mixer.Sound(f"./Sounds/kalibr_ignition_{random_int(1, 3)}.wav").play()
                 self.ASM_FIRED.append(Tasm().launch(self.player, float(self.bearing_var[1]),
                                                     float(self.distance_var[1]) / 2))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'UGM-84':
+                pygame.mixer.Sound(f"./Sounds/kalibr_ignition_{random_int(1, 3)}.wav").play()
                 self.ASM_FIRED.append(Ugm84().launch(self.player, float(self.bearing_var[1]),
                                                      float(self.distance_var[1]) / 2))
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = ''
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Futlyar':
+                pygame.mixer.Sound(f"./Sounds/underwater_explosion_{random_int(1, 4)}.wav").play()
                 log.debug("Fired the torpedo.")
                 mode = True
                 if self.mode_var == 0:
@@ -854,6 +866,7 @@ class App:
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
                 self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Mk-48':
+                pygame.mixer.Sound(f"./Sounds/underwater_explosion_{random_int(1, 4)}.wav").play()
                 log.debug("Fired the torpedo.")
                 mode = True
                 if self.mode_var == 0:
@@ -866,6 +879,7 @@ class App:
                 self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = 'Fired'
                 self.FIRED_TORPEDOES[self.SELECTED_WEAPON] = [False, mode, -1]
             elif self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] == 'Sonar decoy':
+                pygame.mixer.Sound(f"./Sounds/underwater_explosion_{random_int(1, 4)}.wav").play()
                 log.debug("Fired the sonar decoy!")
                 mode = True
                 if self.mode_var == 0:
@@ -949,7 +963,18 @@ class App:
                             if self.WEAPON_LAYOUT[weapon][0][1] == 0 and self.SELECTED_WEAPON:
                                 if self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][0] == self.WEAPON_LAYOUT[weapon][0][0] \
                                         and self.WEAPON_LAYOUT[self.SELECTED_WEAPON][0][1] != 0 and \
-                                        self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] != 'Fired':
+                                        self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] != 'Fired' and \
+                                        self.WEAPON_LAYOUT[weapon][1] != 'Fired':
+                                    if self.WEAPON_LAYOUT[weapon][0][0] == 0:
+                                        s = pygame.mixer.Sound(
+                                            f"./Sounds/rocket_reload_end_{random_int(1, 3)}.wav")
+                                        s.set_volume(0.2)
+                                        s.play()
+                                    else:
+                                        s = pygame.mixer.Sound(
+                                            f"./Sounds/ship_reloading_projectile-{random_int(1, 3)}.wav")
+                                        s.set_volume(0.2)
+                                        s.play()
                                     temp = self.WEAPON_LAYOUT[weapon][1]
                                     self.WEAPON_LAYOUT[weapon][1] = self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1]
                                     self.WEAPON_LAYOUT[self.SELECTED_WEAPON][1] = temp
@@ -982,9 +1007,9 @@ class App:
                     else:
                         self.TRANSFER_CONTACT_INFO_P = True
                 elif pygame.Rect(self.reset_box).collidepoint(pygame.mouse.get_pos()):
-                    self.bearing_var[1] = ''
-                    self.depth_var[1] = ''
-                    self.distance_var[1] = ''
+                    self.bearing_var[1] = '0'
+                    self.depth_var[1] = '0'
+                    self.distance_var[1] = '0'
                     self.TRANSFER_CONTACT_INFO_P = False
                     self.TRANSFER_CONTACT_INFO_A = False
                 elif pygame.Rect(self.fire_box).collidepoint(pygame.mouse.get_pos()):
@@ -1534,7 +1559,12 @@ class App:
             else:
                 fps_d = 1
             # Scene checks
-            if self.GAME_INIT:
+            if self.GAME_INIT and not self.WIN_SCREEN and not self.LOSS_SCREEN:
+                if not self.ambience_sound_started:
+                    pygame.mixer.music.load('./Sounds/ambient_underwater_deep_1.wav')
+                    pygame.mixer.music.set_volume(0.5)
+                    pygame.mixer.music.play(-1)
+                    self.ambience_sound_started = True
                 self.ship_sync += 0.0167 * fps_d
                 self.game_timer += 0.0167 * fps_d
                 if self.game_timer / 60 > self.GAMERULE_GAME_LENGTH and self.GAMERULE_GAME_LENGTH:
@@ -1545,7 +1575,7 @@ class App:
                         self.WIN_SCREEN = True
                     else:
                         self.clear_scene()
-                        self.LOSS_SCREEN = False
+                        self.LOSS_SCREEN = True
                 if self.GAMERULE_MAX_SCORE > 0:
                     if self.LOCAL_SCORE > self.GAMERULE_MAX_SCORE:
                         self.clear_scene()
@@ -1734,6 +1764,10 @@ class App:
                     if not f:
                         log.info("Enemy visible to friendly ships!")
                         self.NOTICE_QUEUE.append(["Enemy submarine detected!", 0, 0])
+                        if not self.PLAYER_ID:
+                            pygame.mixer.Sound("./Sounds/ru_chat_2_r1.wav").play(fade_ms=200)  # Russian radio
+                        else:
+                            pygame.mixer.Sound("./Sounds/ru_chat_2_r1.wav").play(fade_ms=200)  # American radio
                 else:
                     self.ENEMY_VISIBLE = False
                 self.ENEMY_VISIBLE_AS = min_d
@@ -1799,7 +1833,7 @@ class App:
 
                 # Sonar decoy simulation
                 for decoy in self.DECOYS:
-                    speed = 0.012
+                    speed = 0.03
                     decoy.time -= 0.0167 * fps_d
                     if decoy.time <= 0:
                         log.debug("Sonar decoy ran out of fuel.")
@@ -1860,6 +1894,9 @@ class App:
                         if isinstance(ship[0], Player):
                             self.player.health -= ship[1]
                             log.info("Torpedo hit the player!")
+                            hit_sound = pygame.mixer.Sound(f"./Sounds/torpedo_impact_{random_int(1, 3)}.wav")
+                            hit_sound.set_volume(0.15)
+                            hit_sound.play(fade_ms=800)
                             self.NOTICE_QUEUE.append(["We got hit!", 0, 1])
                             TORPEDO_DAMAGE_QUEUE.remove(ship)
                             if self.player.health <= 0:
@@ -1914,8 +1951,67 @@ class App:
                     self.join_game_screen_events(event)
                 elif self.HOST_OPTIONS_SCREEN:
                     self.host_options_events(event)
+                elif self.WIN_SCREEN:
+                    if event.type == pygame.QUIT:
+                        self.running = False
+                elif self.LOSS_SCREEN:
+                    if event.type == pygame.QUIT:
+                        self.running = False
 
             if self.GAME_INIT:
+                # Calculating sound fade
+                for sound in self.sound_fade_queue:
+                    sound[3] += sound[1]
+                    if sound[3] >= 0.008 or sound[3] <= -0.008:
+                        sound[0].set_volume(sound[0].get_volume() + sound[3])
+                        sound[3] = 0
+                    sound[2] -= 1 * fps_d
+                    if sound[2] <= 0:
+                        log.debug("Finished fading audio.")
+                        self.sound_fade_queue.remove(sound)
+                        sound[0].set_volume(sound[0].get_volume() + sound[3])
+                        if self.player.gear == 0 and self.engine_sound_playing == 0 and sound[0] == self.engine_sound:
+                            sound[0].stop()
+
+                if self.player.gear in (1, -1) and self.engine_sound_playing != 1:
+                    log.debug("Started playing engine 1 sound.")
+                    for sound in self.sound_fade_queue:
+                        if self.engine_sound == sound[0]:
+                            self.sound_fade_queue.remove(sound)
+                    volume_change, interval = fade_out(self.engine_sound, 4000, self.fps, end_volume=1 / 9)
+                    print(volume_change, interval)
+                    self.sound_fade_queue.append([self.engine_sound, volume_change, interval, 0])
+                    self.engine_sound.play(loops=-1)
+                    self.engine_sound_playing = 1
+                elif self.player.gear in (2, -2) and self.engine_sound_playing != 2:
+                    log.debug("Started playing engine 2 sound.")
+                    for sound in self.sound_fade_queue:
+                        if self.engine_sound == sound[0]:
+                            self.sound_fade_queue.remove(sound)
+                    volume_change, interval = fade_out(self.engine_sound, 4000, self.fps, end_volume=2 / 9)
+                    print(volume_change, interval)
+                    self.sound_fade_queue.append([self.engine_sound, volume_change, interval, 0])
+                    self.engine_sound.play()
+                    self.engine_sound_playing = 2
+                elif self.player.gear in (3, -3) and self.engine_sound_playing != 3:
+                    log.debug("Started playing engine 3 sound.")
+                    for sound in self.sound_fade_queue:
+                        if self.engine_sound == sound[0]:
+                            self.sound_fade_queue.remove(sound)
+                    volume_change, interval = fade_out(self.engine_sound, 4000, self.fps, end_volume=3 / 9)
+                    print(volume_change, interval)
+                    self.sound_fade_queue.append([self.engine_sound, volume_change, interval, 0])
+                    self.engine_sound.play()
+                    self.engine_sound_playing = 3
+                elif self.player.gear == 0 and self.engine_sound_playing != 0:
+                    if self.engine_sound_playing is None:
+                        self.engine_sound.set_volume(0.0)
+                    for sound in self.sound_fade_queue:
+                        if self.engine_sound == sound[0]:
+                            self.sound_fade_queue.remove(sound)
+                    volume_change, interval = fade_out(self.engine_sound, 4000, self.fps)
+                    self.sound_fade_queue.append([self.engine_sound, volume_change, interval, 0])
+                    self.engine_sound_playing = 0
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_a]:
                     if not self.player.velocity == 0:
@@ -1985,6 +2081,7 @@ class App:
                         if self.PLAYED_DIED_TO_ENEMY:
                             server_api.SEND_INFO = f"[{self.PLAYER_ID}] Player died to the enemy."
                             self.ENEMY_SCORE += 600
+                            self.player.health = 100
                         else:
                             server_api.SEND_INFO = f"[{self.PLAYER_ID}] Player has died."
                         if self.FRIENDLY_RESPAWNS_LEFT:
@@ -2066,6 +2163,7 @@ class App:
                         else:
                             self.clear_scene()
                             self.WIN_SCREEN = True
+                            server_api.UPDATE_INFO = None
                             continue
                     elif server_api.UPDATE_INFO.count("PLAYER DIED TO PLAYER"):
                         log.info("Received information about enemy's death inflicted from player, R.I.P.")
@@ -2077,6 +2175,7 @@ class App:
                             continue
                         else:
                             self.clear_scene()
+                            server_api.UPDATE_INFO = None
                             self.WIN_SCREEN = True
                             continue
                     self.OBJECTS['Enemy'].x = float(server_api.UPDATE_INFO[0])
@@ -2378,6 +2477,11 @@ class App:
         self.window.blit(txtsurf, (490, 165))
 
         if self.ACTIVE_SONAR:
+            if 1 < self.ACTIVE_SONAR_PING_RADIUS < 5 and not self.active_sonar_ping_playing:
+                pygame.mixer.Sound("./Sounds/active_sonar_ping_1.wav").play(fade_ms=100)
+                self.active_sonar_ping_playing = True
+            else:
+                self.active_sonar_ping_playing = False
             if self.ACTIVE_SONAR_PING_RADIUS >= 180:
                 self.ACTIVE_SONAR_PING_RADIUS = 0
                 self.ACTIVE_SONAR_PING_DELAY += 0.017 * self.fps / self.current_fps
@@ -2922,6 +3026,24 @@ class App:
                     self.game_init()
                     self.GAME_OPEN = True
                     self.GAME_INIT = True
+            elif event.key == pygame.K_END:
+                if self.mission_name and self.HOST_STATUS == 0 and self.CHEATS:
+                    log.info("Forcefully starting game without hosting...")
+                    if self.team_selected == 2:
+                        self.PLAYER_ID = random_int(0, 1)
+                        server_api.PLAYER = self.PLAYER_ID
+                    else:
+                        self.PLAYER_ID = self.team_selected
+                        server_api.PLAYER = self.PLAYER_ID
+                    if self.PLAYER_ID:
+                        enemy = 0
+                    else:
+                        enemy = 1
+                    log.info("Finished loading, ready to start.")
+                    self.clear_scene()
+                    self.game_init()
+                    self.GAME_OPEN = True
+                    self.GAME_INIT = True
             elif event.key == pygame.K_F3:
                 if server_api.LOOP_LOGGING:
                     server_api.LOOP_LOGGING = False
@@ -3321,6 +3443,9 @@ class App:
             pygame.display.update()
 
     def win_screen_render(self):
+        self.GAME_OPEN = False
+        self.SONAR_SCREEN = False
+        self.WEAPON_SCREEN = False
         """
         Renders a screen which signalizes that you've won the game.
         """
@@ -3337,6 +3462,9 @@ class App:
         pygame.display.update()
 
     def loss_screen_render(self):
+        self.GAME_OPEN = False
+        self.SONAR_SCREEN = False
+        self.WEAPON_SCREEN = False
         """
         Renders a screen which signalizes that you've lost the game.
         """
